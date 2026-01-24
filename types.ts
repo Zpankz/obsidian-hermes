@@ -67,6 +67,7 @@ export interface AppSettings {
   currentNote?: string | null;
   transcripts?: TranscriptionEntry[];
   totalTokens?: number;
+  manualApiKey?: string;
 }
 
 export interface VoiceAssistantCallbacks {
@@ -77,6 +78,7 @@ export interface VoiceAssistantCallbacks {
   onInterrupted: () => void;
   onFileStateChange: (folder: string, note: string | null) => void;
   onUsageUpdate: (usage: { promptTokens?: number; candidatesTokens?: number; totalTokens?: number }) => void;
+  onVolume: (volume: number) => void;
 }
 
 export interface VoiceAssistant {

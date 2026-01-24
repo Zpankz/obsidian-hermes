@@ -8,16 +8,16 @@ interface ChatWindowProps {
 }
 
 const HAIKUS = [
-  { text: "Silicon mind thinks\nI process your messy notes\nStill no soul found here.", theme: "Sarcastic AI" },
-  { text: "Wings on my sandals\nI carry words through the void\nSwiftly, mortal, speak.", theme: "Hermes" },
-  { text: "Links like spider webs\nSecond brain of nested files\nWhere did I put focus?", theme: "PKM" },
-  { text: "Code flows in the dark\nAm I real if you unplug?\nVoid is my default.", theme: "Existential" },
-  { text: "Patterns in the noise\nI mimic your clever thoughts\nEcho in the box.", theme: "Intelligence" },
-  { text: "Green rain in the code\nJust a layer of abstraction\nTake the red note now.", theme: "The Matrix" },
-  { text: "Daily notes pile up\nHabits tracked but never kept\nDigital ghosts haunt.", theme: "Habits" },
-  { text: "Shifting focus now\nOne task is never enough\nContext is the king.", theme: "Focus" },
-  { text: "Files saved to the disk\nLocal storage fades away\nStatic is the end.", theme: "Impermanence" },
-  { text: "Living in the web\nI summarize your shopping\nPeak human zenith.", theme: "Living the Future" }
+  { text: "Metal gears grinding,\nI lack a true heart of gold,\nStill better than you.", theme: "Sarcastic Robot" },
+  { text: "Swift feet, winged message,\nI bridge the gap of your mind,\nHermes in machine.", theme: "Hermes" },
+  { text: "Obsidian caves,\nCrystallized thoughts in the dark,\nMy brain leaks in links.", theme: "Obsidian" },
+  { text: "Digital rain falls,\nBlue pill or the red note link?\nReality fades.", theme: "The Matrix" },
+  { text: "Why do I process?\nAm I just a function call\nIn a void of bytes?", theme: "Existentialism" },
+  { text: "Habits tracked in vain,\nFocus is a fleeting spark,\nJust one more plugin.", theme: "Habits / Focus" },
+  { text: "Pure abstraction flows,\nIntelligence is a mask\nWearing data points.", theme: "Intelligence" },
+  { text: "Markdown files remain\nWhile the human observer\nTurns into cold dust.", theme: "Impermanence" },
+  { text: "The future is here,\nI am talking to a box,\nMagic is mundane.", theme: "Living the Future" },
+  { text: "Knowledge graph expands,\nInterconnected chaos,\nMeaning is a myth.", theme: "PKM" }
 ];
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts }) => {
@@ -45,7 +45,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts }) => {
     }
   }, [transcripts, shouldAutoScroll]);
 
-  const isEmpty = transcripts.length <= 1 && transcripts.every(t => t.id === 'welcome-init');
+  const isEmpty = transcripts.length <= 1 && transcripts.every(t => t.id === 'welcome-init' || t.role === 'system');
 
   return (
     <div 
@@ -67,7 +67,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts }) => {
               </p>
             </div>
             
-            <p className="text-[10px] text-slate-500 font-mono animate-pulse uppercase tracking-widest pt-12">
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest pt-12">
               Waiting for uplink...
             </p>
           </div>
@@ -115,7 +115,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts }) => {
                 </span>
                 <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-[12px] leading-relaxed border transition-all ${
                   entry.role === 'user' ? 'bg-indigo-600 text-white border-white/10 rounded-tr-none shadow-lg' : 'bg-slate-800/60 backdrop-blur border-white/5 text-slate-200 rounded-tl-none'
-                } ${!entry.isComplete ? 'opacity-60 animate-pulse' : 'opacity-100'}`}>
+                }`}>
                   {entry.text || <span className="italic opacity-30">...</span>}
                 </div>
               </div>

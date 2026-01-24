@@ -102,6 +102,15 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
     
     scriptProcessor.onaudioprocess = (event) => {
       const inputData = event.inputBuffer.getChannelData(0);
+      
+      // Calculate volume for UI
+      let sum = 0;
+      for (let i = 0; i < inputData.length; i++) {
+        sum += inputData[i] * inputData[i];
+      }
+      const rms = Math.sqrt(sum / inputData.length);
+      this.callbacks.onVolume(rms);
+
       const int16Data = float32ToInt16(inputData);
       const base64 = encode(new Uint8Array(int16Data.buffer));
       
@@ -119,7 +128,6 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
   }
 
   private async handleServerMessage(message: LiveServerMessage, sessionPromise: Promise<any>) {
-    // Track tokens/usage
     const serverContent = message.serverContent as any;
     if (serverContent?.usageMetadata) {
       this.callbacks.onUsageUpdate(serverContent.usageMetadata);
@@ -215,6 +223,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
     this.currentInputText = '';
     this.currentOutputText = '';
     this.callbacks.onStatusChange(ConnectionStatus.DISCONNECTED);
+    this.callbacks.onVolume(0);
   }
 
   sendText(text: string): void {

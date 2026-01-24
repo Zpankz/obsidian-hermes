@@ -44,6 +44,20 @@ const DiffView: React.FC<{ diff: FileDiff }> = ({ diff }) => {
   );
 };
 
+const MarkdownContentView: React.FC<{ filename: string; content: string }> = ({ filename, content }) => {
+  return (
+    <div className="bg-[#0d1117] p-4 overflow-x-auto font-mono text-[11px] leading-relaxed text-slate-300 border-b border-white/5">
+      <div className="flex items-center space-x-2 mb-3 border-b border-white/5 pb-2">
+        <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span className="text-indigo-400 font-bold">[[{filename}]]</span>
+      </div>
+      <pre className="whitespace-pre-wrap text-slate-400">
+        {content || <span className="italic opacity-30">(Empty file)</span>}
+      </pre>
+    </div>
+  );
+};
+
 const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [manuallyToggled, setManuallyToggled] = useState(false);
@@ -93,28 +107,11 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
             {getActionLabel(toolData.name)}
           </span>
           <span className="text-[11px] font-mono text-slate-300 truncate max-w-[200px]">
-            {toolData.filename}
+            [[{toolData.filename}]]
           </span>
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 text-[10px] font-mono">
-            {toolData.files && (
-              <span className="text-slate-500">{toolData.files.length} items</span>
-            )}
-            {toolData.searchResults && (
-              <span className="text-purple-400">{toolData.searchResults.length} files matched</span>
-            )}
-            {toolData.multiDiffs && (
-              <span className="text-amber-400">{toolData.multiDiffs.length} files updated</span>
-            )}
-            {toolData.additions !== undefined && toolData.additions > 0 && (
-              <span className="text-emerald-500">+{toolData.additions}</span>
-            )}
-            {toolData.removals !== undefined && toolData.removals > 0 && (
-              <span className="text-red-500">-{toolData.removals}</span>
-            )}
-          </div>
           <svg 
             className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
             fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -126,13 +123,18 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
 
       {isExpanded && (
         <div className="border-t border-white/5 bg-[#0d1117] max-h-[500px] overflow-y-auto">
+          {/* Markdown Content View for Reading */}
+          {toolData.name === 'read_file' && toolData.newContent !== undefined && (
+            <MarkdownContentView filename={toolData.filename} content={toolData.newContent} />
+          )}
+
           {/* List Directory View */}
           {toolData.name === 'list_directory' && toolData.files && (
             <div className="p-4 font-mono text-[10px] space-y-1">
               {toolData.files.map((file, idx) => (
                 <div key={file} className="flex items-center space-x-3 text-slate-400 py-1">
                   <span className="text-slate-700 w-4">{idx + 1}.</span>
-                  <span>{file}</span>
+                  <span>[[{file}]]</span>
                 </div>
               ))}
             </div>
@@ -146,7 +148,7 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
               ) : (
                 toolData.searchResults.map((res, i) => (
                   <div key={i} className="space-y-1">
-                    <div className="text-[10px] font-bold text-indigo-400 font-mono">{res.filename}</div>
+                    <div className="text-[10px] font-bold text-indigo-400 font-mono">[[{res.filename}]]</div>
                     <div className="pl-3 border-l border-white/10 space-y-1">
                       {res.matches.map((m, j) => (
                         <div key={j} className="text-[9px] font-mono flex space-x-2">
@@ -164,18 +166,14 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
           {/* Multi-Diff View (Global Replace) */}
           {toolData.name === 'search_and_replace_regex_global' && toolData.multiDiffs && (
             <div className="divide-y divide-white/5">
-              {toolData.multiDiffs.length === 0 ? (
-                <div className="p-4 text-slate-600 italic text-[10px]">No files modified.</div>
-              ) : (
-                toolData.multiDiffs.map((diff, i) => (
-                  <DiffView key={i} diff={diff} />
-                ))
-              )}
+              {toolData.multiDiffs.map((diff, i) => (
+                <DiffView key={i} diff={diff} />
+              ))}
             </div>
           )}
 
-          {/* Singular Diff View */}
-          {(!toolData.multiDiffs && toolData.newContent !== undefined) && (
+          {/* Singular Diff View for Edits/Updates */}
+          {toolData.name !== 'read_file' && !toolData.multiDiffs && toolData.newContent !== undefined && toolData.oldContent !== undefined && (
             <DiffView diff={{ filename: toolData.filename, oldContent: toolData.oldContent, newContent: toolData.newContent }} />
           )}
 

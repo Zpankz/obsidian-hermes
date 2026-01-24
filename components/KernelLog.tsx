@@ -7,9 +7,10 @@ interface KernelLogProps {
   logs: LogEntry[];
   totalTokens?: number;
   onFlush: () => void;
+  fileCount: number;
 }
 
-const KernelLog: React.FC<KernelLogProps> = ({ isVisible, logs, totalTokens = 0, onFlush }) => {
+const KernelLog: React.FC<KernelLogProps> = ({ isVisible, logs, totalTokens = 0, onFlush, fileCount }) => {
   const logContainerRef = useRef<HTMLDivElement>(null);
   
   // @ts-ignore
@@ -22,13 +23,19 @@ const KernelLog: React.FC<KernelLogProps> = ({ isVisible, logs, totalTokens = 0,
   }, [logs, isVisible]);
 
   return (
-    <div className={`border-t border-white/5 bg-[#080c14]/95 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${isVisible ? 'h-56' : 'h-0 opacity-0 overflow-hidden'}`}>
+    <div className={`border-t border-white/5 bg-[#080c14]/95 flex flex-col transition-all duration-300 ease-in-out shrink-0 ${isVisible ? 'h-64' : 'h-0 opacity-0 overflow-hidden'}`}>
       <div className="px-8 py-2.5 border-b border-white/5 flex justify-between items-center bg-slate-900/60 sticky top-0 backdrop-blur-sm z-10">
         <div className="flex items-center space-x-4">
           <h2 className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">System Kernel Log</h2>
-          <div className="flex items-center space-x-2 border-l border-white/10 pl-4">
-            <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest">Usage:</span>
-            <span className="text-[9px] font-mono text-slate-300">{totalTokens.toLocaleString()} tokens</span>
+          <div className="flex items-center space-x-4 border-l border-white/10 pl-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest">Usage:</span>
+              <span className="text-[9px] font-mono text-slate-300">{totalTokens.toLocaleString()} tokens</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest">Records:</span>
+              <span className="text-[9px] font-mono text-slate-300">{fileCount} MD</span>
+            </div>
           </div>
         </div>
         <button 

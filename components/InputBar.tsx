@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ConnectionStatus } from '../types';
 
 interface InputBarProps {
@@ -10,6 +10,8 @@ interface InputBarProps {
   onStartSession: () => void;
   onStopSession: () => void;
   status: ConnectionStatus;
+  activeSpeaker: 'user' | 'model' | 'none';
+  volume: number;
 }
 
 const InputBar: React.FC<InputBarProps> = ({
@@ -20,15 +22,20 @@ const InputBar: React.FC<InputBarProps> = ({
   onStartSession,
   onStopSession,
   status,
+  activeSpeaker,
+  volume,
 }) => {
+  // Normalize volume for visualization (0-1)
+  const normalizedVolume = useMemo(() => Math.min(1, Math.max(0, volume * 10)), [volume]);
+
   return (
     <footer className="fixed bottom-0 left-0 right-0 h-[80px] px-8 bg-slate-900/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-center z-[50]">
-      <div className="flex items-center space-x-4 w-full max-w-5xl">
+      <div className="flex items-center space-x-6 w-full max-w-5xl">
         
-        {/* Text Input Form - mb-0 added to ensure no bottom margin */}
+        {/* Text Input Form */}
         <form 
           onSubmit={onSendText} 
-          className="flex-grow flex items-center h-[52px] bg-slate-800/40 border border-white/10 rounded-2xl px-6 group focus-within:border-indigo-500/50 focus-within:bg-slate-800/60 transition-all shadow-inner overflow-hidden mb-0"
+          className="flex-grow flex items-center h-[52px] bg-slate-800/40 border border-white/10 rounded-2xl px-6 focus-within:border-indigo-500/50 focus-within:bg-slate-800/60 transition-all shadow-inner overflow-hidden mb-0"
         >
           <input 
             type="text" 
@@ -47,20 +54,60 @@ const InputBar: React.FC<InputBarProps> = ({
           </button>
         </form>
 
-        {/* Voice Interface Action Button */}
+        {/* Enhanced Voice Interface Action Button */}
         <div className="shrink-0 flex items-center">
           {isListening ? (
             <button 
               onClick={onStopSession} 
-              className="w-[52px] h-[52px] flex items-center justify-center bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-95 group"
+              className="w-[220px] h-[52px] flex items-center justify-between px-6 bg-red-500/10 border border-red-500/40 text-red-400 rounded-2xl hover:bg-red-500/20 transition-all shadow-lg active:scale-[0.98] relative overflow-hidden group"
               title="Stop Listening"
             >
-              <div className="relative flex items-center justify-center">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9h10v2H7z" />
+              {/* Left: User Icon */}
+              <div className={`flex flex-col items-center transition-all duration-300 ${activeSpeaker === 'user' ? 'text-red-300 scale-110' : 'opacity-30'}`}>
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
+                <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">Mortal</span>
               </div>
+
+              {/* Center: Sound Wave Visualizer (Hangouts style) */}
+              <div className="flex items-center justify-center flex-1 space-x-1.5 h-full relative">
+                {/* 3 directional bars */}
+                {[0, 1, 2].map((i) => {
+                  const h = activeSpeaker === 'user' 
+                    ? Math.max(4, normalizedVolume * (24 + i * 4)) 
+                    : activeSpeaker === 'model' 
+                      ? Math.max(4, 16 + Math.sin(Date.now() / 100 + i) * 8)
+                      : 4;
+                  return (
+                    <div 
+                      key={i} 
+                      style={{ height: `${h}px` }}
+                      className={`w-1 rounded-full transition-all duration-75 ${
+                        activeSpeaker === 'user' ? 'bg-red-400' : 
+                        activeSpeaker === 'model' ? 'bg-emerald-400' : 
+                        'bg-red-900/40'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Right: Robot Icon */}
+              <div className={`flex flex-col items-center transition-all duration-300 ${activeSpeaker === 'model' ? 'text-emerald-300 scale-110' : 'opacity-30'}`}>
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="10" rx="2" />
+                  <circle cx="12" cy="5" r="2" />
+                  <path d="M12 7v4" />
+                  <line x1="8" y1="16" x2="8" y2="16" />
+                  <line x1="16" y1="16" x2="16" y2="16" />
+                </svg>
+                <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">Hermes</span>
+              </div>
+
+              {/* Status indicator (Static red dot as per "active" request) */}
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
             </button>
           ) : (
             <button 
