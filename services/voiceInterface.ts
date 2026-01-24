@@ -14,31 +14,37 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
   private currentInputText = '';
   private currentOutputText = '';
   
-  // Tracking local state for the instruction injection
   private currentFolder = '/';
   private currentNote: string | null = null;
 
   constructor(private callbacks: VoiceAssistantCallbacks) {}
 
-  async start(apiKey: string, settings: AppSettings): Promise<void> {
+  async start(
+    apiKey: string, 
+    settings: AppSettings, 
+    initialState?: { folder: string, note: string | null }
+  ): Promise<void> {
     try {
+      if (initialState) {
+        this.currentFolder = initialState.folder;
+        this.currentNote = initialState.note;
+      }
+
       this.callbacks.onStatusChange(ConnectionStatus.CONNECTING);
       this.callbacks.onLog('Initializing Gemini Live connection...', 'info');
 
       const ai = new GoogleGenAI({ apiKey });
       
-      // Setup Audio
       this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       this.outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       this.nextStartTime = 0;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Inject current context into system instruction
       const contextString = `
 CURRENT_CONTEXT:
-Current Folder: ${this.currentFolder}
-Current Note: ${this.currentNote || 'None'}
+Current Folder Path: ${this.currentFolder}
+Current Note Name: ${this.currentNote || 'No note currently selected'}
 `;
       const systemInstruction = `${settings.systemInstruction}\n${contextString}\n\n${settings.customContext}`.trim();
 
@@ -108,7 +114,6 @@ Current Note: ${this.currentNote || 'None'}
   }
 
   private async handleServerMessage(message: LiveServerMessage, sessionPromise: Promise<any>) {
-    // 1. Handle Transcriptions
     if (message.serverContent?.inputTranscription?.text) {
       this.callbacks.onDiffUpdate(null);
       this.currentInputText += message.serverContent.inputTranscription.text;
@@ -127,7 +132,6 @@ Current Note: ${this.currentNote || 'None'}
       this.currentOutputText = '';
     }
 
-    // 2. Handle Tool Calls
     if (message.toolCall) {
       for (const fc of message.toolCall.functionCalls) {
         try {
@@ -153,7 +157,6 @@ Current Note: ${this.currentNote || 'None'}
       }
     }
 
-    // 3. Handle Audio Playback
     const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
     if (base64Audio && this.outputAudioContext) {
       const audioBuffer = await decodeAudioData(decode(base64Audio), this.outputAudioContext, 24000, 1);
@@ -169,7 +172,6 @@ Current Note: ${this.currentNote || 'None'}
       this.sources.add(source);
     }
 
-    // 4. Handle Interruptions
     if (message.serverContent?.interrupted) {
       this.sources.forEach(s => { try { s.stop(); } catch (e) {} });
       this.sources.clear();

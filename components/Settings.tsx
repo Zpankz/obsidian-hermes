@@ -62,7 +62,7 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 block">System Core Instruction</label>
-              <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider animate-pulse">Warning: Editing may break tool functionality</span>
+              <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider">Warning: Editing may break tool functionality</span>
             </div>
             <textarea 
               value={systemInstruction}

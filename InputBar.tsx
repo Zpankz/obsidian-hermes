@@ -55,7 +55,7 @@ const InputBar: React.FC<InputBarProps> = ({
         </div>
 
         {/* Text Input Form */}
-        <form onSubmit={onSendText} className="flex-grow flex items-center space-x-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-2.5 group focus-within:border-indigo-500/50 transition-all shadow-inner">
+        <form onSubmit={onSendText} className="flex-grow flex items-center space-x-3 bg-white/5 border border-white/10 rounded-2xl px-5 py-2.5 group focus-within:border-indigo-500/50 transition-all shadow-inner no-bottom">
           <input 
             type="text" 
             value={inputText}

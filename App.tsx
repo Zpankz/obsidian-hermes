@@ -41,20 +41,32 @@ const App: React.FC = () => {
    */
   useEffect(() => {
     initFileSystem().then(() => addLog('Haiku Data Node Online.', 'info'));
+    
+    // Load all persisted state
     const saved = loadAppSettings();
     if (saved) {
       setVoiceName(saved.voiceName || 'Kore');
       setCustomContext(saved.customContext || '');
       setSystemInstruction(saved.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
+      
+      // Restore the active file context
+      if (saved.currentFolder) setCurrentFolder(saved.currentFolder);
+      if (saved.currentNote) setCurrentNote(saved.currentNote);
     }
   }, []);
 
   /**
-   * Persist settings changes
+   * Persist all relevant app state when it changes
    */
   useEffect(() => {
-    saveAppSettings({ voiceName, customContext, systemInstruction });
-  }, [voiceName, customContext, systemInstruction]);
+    saveAppSettings({ 
+      voiceName, 
+      customContext, 
+      systemInstruction,
+      currentFolder,
+      currentNote 
+    });
+  }, [voiceName, customContext, systemInstruction, currentFolder, currentNote]);
 
   /**
    * Helper to add log entries
@@ -122,7 +134,7 @@ const App: React.FC = () => {
         voiceName, 
         customContext, 
         systemInstruction 
-      });
+      }, { folder: currentFolder, note: currentNote });
       
     } catch (err) {
       setStatus(ConnectionStatus.ERROR);

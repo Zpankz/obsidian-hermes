@@ -25,10 +25,10 @@ const InputBar: React.FC<InputBarProps> = ({
     <footer className="fixed bottom-0 left-0 right-0 h-[80px] px-8 bg-slate-900/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-center z-[50]">
       <div className="flex items-center space-x-4 w-full max-w-5xl">
         
-        {/* Text Input Form - 52px high */}
+        {/* Text Input Form - mb-0 added to ensure no bottom margin */}
         <form 
           onSubmit={onSendText} 
-          className="flex-grow flex items-center h-[52px] bg-slate-800/40 border border-white/10 rounded-2xl px-6 group focus-within:border-indigo-500/50 focus-within:bg-slate-800/60 transition-all shadow-inner overflow-hidden"
+          className="flex-grow flex items-center h-[52px] bg-slate-800/40 border border-white/10 rounded-2xl px-6 group focus-within:border-indigo-500/50 focus-within:bg-slate-800/60 transition-all shadow-inner overflow-hidden mb-0"
         >
           <input 
             type="text" 
@@ -47,7 +47,7 @@ const InputBar: React.FC<InputBarProps> = ({
           </button>
         </form>
 
-        {/* Voice Interface Action Button - 52px high */}
+        {/* Voice Interface Action Button */}
         <div className="shrink-0 flex items-center">
           {isListening ? (
             <button 
