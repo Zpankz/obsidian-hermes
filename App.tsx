@@ -5,7 +5,6 @@ import { initFileSystem, listDirectory, createFile } from './services/mockFiles'
 import { saveAppSettings, loadAppSettings } from './services/persistence';
 import { GeminiVoiceAssistant } from './services/voiceInterface';
 import { DEFAULT_SYSTEM_INSTRUCTION } from './defaultPrompt';
-import { COMMAND_DECLARATIONS } from './services/commands';
 
 // Components
 import Settings from './components/Settings';
@@ -14,7 +13,6 @@ import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
 
 const App: React.FC = () => {
-  // Initial State Hydration from LocalStorage
   const saved = useMemo(() => {
     const data = loadAppSettings();
     return data || {};
@@ -56,37 +54,43 @@ const App: React.FC = () => {
     const safeTopic = summary.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 40);
     const filename = `chat-history-${timestamp}-${safeTopic}.md`;
 
-    const markdown = history
-      .filter(t => t.id !== 'welcome-init')
-      .map(t => {
-        if (t.role === 'user') return `**User**: ${t.text}`;
-        
-        if (t.role === 'model') {
-          // Blockquotes for robot output
-          return `> ${t.text.split('\n').join('\n> ')}`;
-        }
+    const filteredHistory = history.filter(t => {
+      if (t.id === 'welcome-init') return false;
+      if (t.role === 'model' && t.text.trim().toLowerCase().replace(/\./g, '') === 'done') return false;
+      return true;
+    });
 
-        if (t.role === 'system') {
-          let output = '';
-          
-          // System message in code block
-          output += `\`\`\`system\n${t.text}\n\`\`\``;
-
-          if (t.toolData) {
-            const fileRef = `[[${t.toolData.filename}]]`;
-            
-            // Handle Diffs with specific formatting
-            if (t.toolData.oldContent !== undefined && t.toolData.newContent !== undefined && t.toolData.oldContent !== t.toolData.newContent) {
-              output += `\n\n${fileRef}\n\n--- Removed\n\`\`\`markdown\n${t.toolData.oldContent || '(empty)'}\n\`\`\`\n\n+++ Added\n\`\`\`markdown\n${t.toolData.newContent || '(empty)'}\n\`\`\``;
-            } else if (t.toolData.name === 'read_file') {
-               output += `\n\n${fileRef}\n\`\`\`markdown\n${t.toolData.newContent}\n\`\`\``;
+    const markdown = filteredHistory
+      .map((t, i, arr) => {
+        let block = '';
+        if (t.role === 'user') {
+          block = `**User**: ${t.text}`;
+        } else if (t.role === 'model') {
+          block = `> ${t.text.split('\n').join('\n> ')}`;
+        } else if (t.role === 'system') {
+          if (t.toolData?.name === 'rename_file') {
+            block = `**RENAME** ~~${t.toolData.oldContent}~~ -> [[${t.toolData.newContent}]]`;
+          } else if (t.toolData?.name === 'topic_switch') {
+            block = `## ${t.toolData.newContent}`;
+          } else {
+            let output = `\`\`\`system\n${t.text}\n\`\`\``;
+            if (t.toolData) {
+              const fileRef = `[[${t.toolData.filename}]]`;
+              if (t.toolData.oldContent !== undefined && t.toolData.newContent !== undefined && t.toolData.oldContent !== t.toolData.newContent) {
+                output += `\n\n${fileRef}\n\n--- Removed\n\`\`\`markdown\n${t.toolData.oldContent || '(empty)'}\n\`\`\`\n\n+++ Added\n\`\`\`markdown\n${t.toolData.newContent || '(empty)'}\n\`\`\``;
+              } else if (t.toolData.name === 'read_file' || t.toolData.name === 'create_file') {
+                 output += `\n\n${fileRef}\n\`\`\`markdown\n${t.toolData.newContent}\n\`\`\``;
+              }
             }
+            block = output;
           }
-          return output;
         }
-        return '';
+
+        const next = arr[i + 1];
+        const isUserGroup = t.role === 'user' && next?.role === 'user';
+        return block + (isUserGroup ? '\n\n' : '\n\n---\n\n');
       })
-      .join('\n\n---\n\n');
+      .join('');
 
     try {
       await createFile(filename, `# Conversation Archive: ${summary}\n\n${markdown}`);
@@ -96,7 +100,17 @@ const App: React.FC = () => {
     }
   }, [addLog]);
 
-  // Initialize VFS
+  useEffect(() => {
+    const lastMsg = transcripts[transcripts.length - 1];
+    if (lastMsg?.role === 'system' && lastMsg.toolData?.name === 'topic_switch') {
+      const summary = lastMsg.toolData.newContent || 'Shift';
+      const toArchive = transcripts.slice(0, -1);
+      if (toArchive.length > 0) {
+        archiveConversation(summary, toArchive);
+      }
+    }
+  }, [transcripts, archiveConversation]);
+
   useEffect(() => {
     initFileSystem().then(() => {
       const files = listDirectory();
@@ -114,7 +128,6 @@ const App: React.FC = () => {
     });
   }, [addLog]);
 
-  // Save settings
   useEffect(() => {
     saveAppSettings({
       transcripts,
@@ -152,21 +165,28 @@ const App: React.FC = () => {
       });
     },
     onSystemMessage: (text: string, toolData?: ToolData) => {
-      if (toolData?.name === 'topic_switch') {
-        setTranscripts(current => {
-          archiveConversation(toolData.newContent || 'Shift', current);
-          return [...current, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
-        });
-      } else {
-        setTranscripts(prev => [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }]);
-      }
+      setTranscripts(prev => {
+        if (toolData?.id) {
+          const existingIdx = prev.findIndex(t => t.toolData?.id === toolData.id);
+          if (existingIdx !== -1) {
+            const next = [...prev];
+            next[existingIdx] = {
+              ...next[existingIdx],
+              text,
+              toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || 'success' }
+            };
+            return next;
+          }
+        }
+        return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
+      });
       setFileCount(listDirectory().length);
     },
     onInterrupted: () => { setActiveSpeaker('none'); setMicVolume(0); },
     onFileStateChange: (folder: string, note: string | null) => { setCurrentFolder(folder); setCurrentNote(note); },
     onUsageUpdate: (usage: any) => { const tokens = usage.totalTokenCount || usage.totalTokens; if (tokens) setTotalTokens(tokens); },
     onVolume: (v: number) => setMicVolume(v)
-  }), [addLog, archiveConversation]);
+  }), [addLog]);
 
   const startSession = async () => {
     try {
@@ -177,14 +197,37 @@ const App: React.FC = () => {
       }
       assistantRef.current = new GeminiVoiceAssistant(assistantCallbacks);
       await assistantRef.current.start(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
-    } catch (err: any) { addLog(`Uplink Error: ${err.message}`, 'error'); setStatus(ConnectionStatus.ERROR); }
+    } catch (err: any) {
+      addLog(`Uplink Error: ${err.message}`, 'error');
+      setStatus(ConnectionStatus.ERROR);
+    }
   };
 
-  const stopSession = () => { if (assistantRef.current) { assistantRef.current.stop(); assistantRef.current = null; setActiveSpeaker('none'); setMicVolume(0); } };
+  const stopSession = () => {
+    if (assistantRef.current) {
+      assistantRef.current.stop();
+      assistantRef.current = null;
+      setActiveSpeaker('none');
+      setMicVolume(0);
+    }
+  };
 
   return (
     <div className="h-screen flex flex-col bg-[#0b0f1a] text-slate-200 selection:bg-indigo-500/30 overflow-hidden font-sans">
-      <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} voiceName={voiceName} setVoiceName={setVoiceName} customContext={customContext} setCustomContext={setCustomContext} systemInstruction={systemInstruction} setSystemInstruction={setSystemInstruction} manualApiKey={manualApiKey} setManualApiKey={setManualApiKey} onUpdateApiKey={() => (window as any).aistudio.openSelectKey()} />
+      <Settings 
+        isOpen={settingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+        voiceName={voiceName} 
+        setVoiceName={setVoiceName} 
+        customContext={customContext} 
+        setCustomContext={setCustomContext} 
+        systemInstruction={systemInstruction}
+        setSystemInstruction={setSystemInstruction}
+        manualApiKey={manualApiKey}
+        setManualApiKey={setManualApiKey}
+        onUpdateApiKey={() => (window as any).aistudio?.openSelectKey()} 
+      />
+      
       <header className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-slate-900/60 backdrop-blur-xl shrink-0 z-50">
         <div className="flex items-center space-x-6">
           <div className="flex flex-col">
@@ -197,15 +240,29 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center space-x-2">
           <button onClick={() => setShowLogs(!showLogs)} className={`p-2.5 transition-all rounded-lg ${showLogs ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 hover:text-white'}`}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
           </button>
-          <button onClick={() => setSettingsOpen(true)} className="p-2.5 text-slate-500 hover:text-white transition-all rounded-lg"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg></button>
+          <button onClick={() => setSettingsOpen(true)} className="p-2.5 text-slate-500 hover:text-white transition-all rounded-lg"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg></button>
         </div>
       </header>
+      
       <main className="flex-grow flex flex-col overflow-hidden relative pb-[80px]">
         <ChatWindow transcripts={transcripts} />
         <KernelLog isVisible={showLogs} logs={logs} totalTokens={totalTokens} onFlush={() => setLogs([])} fileCount={fileCount} />
-        <InputBar inputText={inputText} setInputText={setInputText} onSendText={(e) => { e.preventDefault(); if (inputText.trim()) { assistantCallbacks.onTranscription('user', inputText, true); assistantRef.current?.sendText(inputText); setInputText(''); } }} isListening={status === ConnectionStatus.CONNECTED} onStartSession={startSession} onStopSession={stopSession} status={status} activeSpeaker={activeSpeaker} volume={micVolume} />
+        <InputBar 
+          inputText={inputText} 
+          setInputText={setInputText} 
+          onSendText={(e) => { e.preventDefault(); if (inputText.trim()) { assistantCallbacks.onTranscription('user', inputText, true); assistantRef.current?.sendText(inputText); setInputText(''); } }} 
+          isListening={status === ConnectionStatus.CONNECTED} 
+          onStartSession={startSession} 
+          onStopSession={stopSession} 
+          status={status} 
+          activeSpeaker={activeSpeaker} 
+          volume={micVolume}
+          onOpenSettings={() => setSettingsOpen(true)}
+          showLogs={showLogs}
+          onToggleLogs={() => setShowLogs(!showLogs)}
+        />
       </main>
     </div>
   );

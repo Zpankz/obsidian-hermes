@@ -10,6 +10,8 @@ export interface LogEntry {
 export interface SearchMatch {
   line: number;
   content: string;
+  contextBefore?: string[];
+  contextAfter?: string[];
 }
 
 export interface SearchResult {
@@ -25,9 +27,16 @@ export interface FileDiff {
   removals?: number;
 }
 
+export interface GroundingChunk {
+  web?: { uri: string; title: string };
+  maps?: { uri: string; title: string };
+}
+
 export interface ToolData {
+  id?: string;
   name: string;
   filename: string;
+  status?: 'pending' | 'success' | 'error';
   oldContent?: string;
   newContent?: string;
   additions?: number;
@@ -36,6 +45,7 @@ export interface ToolData {
   files?: string[];
   searchResults?: SearchResult[];
   multiDiffs?: FileDiff[];
+  groundingChunks?: GroundingChunk[];
 }
 
 export interface TranscriptionEntry {

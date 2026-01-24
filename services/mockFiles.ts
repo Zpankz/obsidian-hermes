@@ -1,5 +1,6 @@
 
 import { loadFiles, saveFiles } from './persistence';
+import { SearchResult, SearchMatch } from '../types';
 
 // Check if we are running inside Obsidian
 // @ts-ignore
@@ -14,7 +15,17 @@ Painting clouds in fire light,
 Day turns into night.`,
   'third.md': `Winter's cold embrace,
 Snowflakes drift on silent air,
-World is white and still.`
+World is white and still.`,
+  'projects/ideas.md': `# Project Ideas
+- Voice controlled vault
+- Markdown visualizer
+- AI Haiku generator`,
+  'projects/tasks.md': `# Task List
+- [ ] Implement rename tool
+- [ ] Fix markdown rendering
+- [ ] Add batch action logic`,
+  'projects/notes.md': `# Research Notes
+Vaults are better when they are interactive. Hermes is the messenger.`
 };
 
 let MOCK_FILES: Record<string, string> = { ...DEFAULT_FILES };
@@ -94,26 +105,91 @@ export const updateFile = async (filename: string, content: string): Promise<str
   return `Successfully updated ${filename}`;
 };
 
-export const searchFiles = async (pattern: string, isRegexp: boolean, flags: string = 'i') => {
-  const fileList = listDirectory();
-  const results = [];
-  const regex = isRegexp ? new RegExp(pattern, flags) : null;
+// Fix for Error: Cannot find name 'old'. (line 120)
+// Completing the renameFile function and ensuring all logic branches are correctly closed.
+export const renameFile = async (oldFilename: string, newFilename: string): Promise<string> => {
+  if (isObsidian) {
+    // @ts-ignore
+    const file = app.vault.getAbstractFileByPath(oldFilename);
+    if (!file) throw new Error(`File not found: ${oldFilename}`);
+    // @ts-ignore
+    await app.fileManager.renameFile(file, newFilename);
+    return `Renamed ${oldFilename} to ${newFilename} in vault`;
+  }
 
-  for (const filename of fileList) {
+  const oldKey = oldFilename.toLowerCase();
+  const newKey = newFilename.toLowerCase();
+  
+  if (!MOCK_FILES[oldKey]) {
+    throw new Error(`File not found: ${oldFilename}`);
+  }
+  if (MOCK_FILES[newKey]) {
+    throw new Error(`File already exists: ${newFilename}`);
+  }
+  
+  const content = MOCK_FILES[oldKey];
+  delete MOCK_FILES[oldKey];
+  MOCK_FILES[newKey] = content;
+  await saveFiles(MOCK_FILES);
+  return `Successfully renamed ${oldFilename} to ${newFilename}`;
+};
+
+// Fix for Error: Module '"../services/mockFiles"' has no exported member 'editFile'.
+// Implementation of granular line-based editing.
+export const editFile = async (filename: string, operation: string, text?: string, lineNumber?: number): Promise<string> => {
+  const content = await readFile(filename);
+  const lines = content.split('\n');
+
+  if (operation === 'append') {
+    lines.push(text || '');
+  } else if (operation === 'replace_line') {
+    if (lineNumber === undefined || lineNumber < 1 || lineNumber > lines.length) {
+      throw new Error(`Invalid line number: ${lineNumber}`);
+    }
+    lines[lineNumber - 1] = text || '';
+  } else if (operation === 'remove_line') {
+    if (lineNumber === undefined || lineNumber < 1 || lineNumber > lines.length) {
+      throw new Error(`Invalid line number: ${lineNumber}`);
+    }
+    lines.splice(lineNumber - 1, 1);
+  } else {
+    throw new Error(`Unknown operation: ${operation}`);
+  }
+
+  const newContent = lines.join('\n');
+  await updateFile(filename, newContent);
+  return `Successfully performed ${operation} on ${filename}`;
+};
+
+// Fix for Error: Module '"../services/mockFiles"' has no exported member 'searchFiles'.
+// Implementation of keyword and regex based search across the vault.
+export const searchFiles = async (query: string, isRegex: boolean = false, flags: string = 'i'): Promise<SearchResult[]> => {
+  const filenames = listDirectory();
+  const results: SearchResult[] = [];
+
+  const regex = isRegex ? new RegExp(query, flags) : null;
+  const keyword = !isRegex ? query.toLowerCase() : '';
+
+  for (const filename of filenames) {
     const content = await readFile(filename);
     const lines = content.split('\n');
-    const matches = [];
+    const matches: SearchMatch[] = [];
 
     lines.forEach((line, index) => {
-      let isMatch = false;
-      if (regex) {
-        isMatch = regex.test(line);
+      let matched = false;
+      if (isRegex && regex) {
+        matched = regex.test(line);
       } else {
-        isMatch = line.toLowerCase().includes(pattern.toLowerCase());
+        matched = line.toLowerCase().includes(keyword);
       }
 
-      if (isMatch) {
-        matches.push({ line: index + 1, content: line.trim() });
+      if (matched) {
+        matches.push({
+          line: index + 1,
+          content: line,
+          contextBefore: lines.slice(Math.max(0, index - 2), index),
+          contextAfter: lines.slice(index + 1, Math.min(lines.length, index + 3))
+        });
       }
     });
 
@@ -121,40 +197,6 @@ export const searchFiles = async (pattern: string, isRegexp: boolean, flags: str
       results.push({ filename, matches });
     }
   }
-  return results;
-};
 
-export const editFile = async (filename: string, operation: 'append' | 'replace_line' | 'remove_line', text?: string, lineNumber?: number): Promise<string> => {
-  let content = "";
-  if (isObsidian) {
-    content = await readFile(filename);
-  } else {
-    const key = filename.toLowerCase();
-    content = MOCK_FILES[key];
-    if (!content) throw new Error(`File not found: ${filename}`);
-  }
-  
-  let lines = content.split('\n');
-  
-  switch (operation) {
-    case 'append':
-      if (text) lines.push(text);
-      break;
-    case 'replace_line':
-      if (typeof lineNumber === 'number' && text) {
-        if (lineNumber < 1 || lineNumber > lines.length) throw new Error('Line number out of range');
-        lines[lineNumber - 1] = text;
-      }
-      break;
-    case 'remove_line':
-      if (typeof lineNumber === 'number') {
-        if (lineNumber < 1 || lineNumber > lines.length) throw new Error('Line number out of range');
-        lines.splice(lineNumber - 1, 1);
-      }
-      break;
-  }
-  
-  const newContent = lines.join('\n');
-  await updateFile(filename, newContent);
-  return `Successfully performed ${operation} on ${filename}`;
+  return results;
 };
