@@ -117,6 +117,7 @@ const InputBar: React.FC<InputBarProps> = ({
           {isListening ? (
             <button 
               onClick={onStopSession} 
+              data-action="stop-session"
               className="w-[200px] h-[52px] flex items-center justify-between px-6 hermes-error-bg/10 hermes-border/40 hermes-error rounded-lg hermes-hover:error-bg/20 transition-all active:scale-[0.98] relative overflow-hidden group"
               title="Stop Listening"
             >

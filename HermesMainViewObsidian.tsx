@@ -8,6 +8,7 @@ export const VIEW_TYPE_HERMES = 'hermes-voice-assistant';
 
 export class HermesMainViewObsidian extends ItemView {
   private root: Root | null = null;
+  private appRef: React.RefObject<any> = React.createRef();
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -32,7 +33,7 @@ export class HermesMainViewObsidian extends ItemView {
     this.root = createRoot(mount);
     this.root.render(
       <React.StrictMode>
-        <App />
+        <App ref={this.appRef} />
       </React.StrictMode>
     );
   }
@@ -41,6 +42,27 @@ export class HermesMainViewObsidian extends ItemView {
     if (this.root) {
       this.root.unmount();
       this.root = null;
+    }
+  }
+
+  // Expose start session method for command palette
+  async startSession() {
+    if (this.appRef.current && this.appRef.current.startSession) {
+      this.appRef.current.startSession();
+    }
+  }
+
+  // Expose stop session method for command palette
+  async stopSession() {
+    if (this.appRef.current && this.appRef.current.stopSession) {
+      this.appRef.current.stopSession();
+    }
+  }
+
+  // Expose toggle session method for command palette
+  async toggleSession() {
+    if (this.appRef.current && this.appRef.current.toggleSession) {
+      this.appRef.current.toggleSession();
     }
   }
 }

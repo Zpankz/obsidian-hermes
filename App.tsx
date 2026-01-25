@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { LogEntry, TranscriptionEntry, ConnectionStatus, ToolData, UsageMetadata } from './types';
 import { initFileSystem, listDirectory } from './services/mockFiles';
 import { saveAppSettings, loadAppSettings, saveChatHistory, loadChatHistory, reloadAppSettings } from './persistence/persistence';
@@ -16,7 +16,7 @@ import MainWindow from './components/MainWindow';
 import InputBar from './components/InputBar';
 import ApiKeySetup from './components/ApiKeySetup';
 
-const App: React.FC = () => {
+const App = forwardRef<any, {}>((props, ref) => {
   const saved = useMemo(() => {
     const data = loadAppSettings();
     return data || {};
@@ -216,6 +216,13 @@ const App: React.FC = () => {
       delete (window as any).hermesSettingsUpdate;
     };
   }, [showApiKeySetup, addLog]);
+
+  // Expose methods via ref for command palette access
+  useImperativeHandle(ref, () => ({
+    startSession,
+    stopSession,
+    toggleSession
+  }));
 
   // Cleanup voice session on component unmount
   useEffect(() => {
@@ -442,6 +449,14 @@ const App: React.FC = () => {
     await textInterfaceRef.current.sendMessage(message);
   };
 
+  const toggleSession = async () => {
+    if (status === ConnectionStatus.CONNECTED) {
+        await stopSession();
+    } else {
+        await startSession();
+    }
+  };
+
   const handleApiKeySave = async (apiKey: string) => {
     setManualApiKey(apiKey);
     addLog('API key saved successfully', 'success');
@@ -508,6 +523,8 @@ const App: React.FC = () => {
       )}
     </div>
   );
-};
+});
+
+App.displayName = 'App';
 
 export default App;
