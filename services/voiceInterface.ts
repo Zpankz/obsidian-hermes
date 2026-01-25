@@ -80,7 +80,15 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           onerror: (err: any) => {
             console.error('Gemini Voice Error:', err);
             const errorMsg = err.message || 'Quantum Link Error';
-            this.callbacks.onLog(`NETWORK ERROR: ${errorMsg}`, 'error');
+            const errorDetails = {
+              toolName: 'GeminiVoiceAssistant',
+              apiCall: 'live.connect',
+              stack: err.stack,
+              content: JSON.stringify(err, null, 2),
+              requestSize: err.requestSize,
+              responseSize: err.responseSize
+            };
+            this.callbacks.onLog(`NETWORK ERROR: ${errorMsg}`, 'error', undefined, errorDetails);
             this.stop();
             this.callbacks.onStatusChange(ConnectionStatus.ERROR);
           },
@@ -95,7 +103,15 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
 
     } catch (err: any) {
       this.callbacks.onStatusChange(ConnectionStatus.ERROR);
-      this.callbacks.onLog(`Link Initialization Failed: ${err.message}`, 'error');
+      const errorDetails = {
+        toolName: 'GeminiVoiceAssistant',
+        apiCall: 'start',
+        stack: err.stack,
+        content: err.message,
+        requestSize: err.requestSize,
+        responseSize: err.responseSize
+      };
+      this.callbacks.onLog(`Link Initialization Failed: ${err.message}`, 'error', undefined, errorDetails);
       throw err;
     }
   }
@@ -177,6 +193,14 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             functionResponses: { id: fc.id, name: fc.name, response: { result: response } } 
           }));
         } catch (err: any) {
+          const errorDetails = {
+            toolName: fc.name,
+            content: JSON.stringify(fc.args, null, 2),
+            contentSize: JSON.stringify(fc.args).length,
+            stack: err.stack,
+            apiCall: 'executeCommand'
+          };
+          this.callbacks.onLog(`Tool execution error in ${fc.name}: ${err.message}`, 'error', undefined, errorDetails);
           sessionPromise.then(s => s.sendToolResponse({ 
             functionResponses: { id: fc.id, name: fc.name, response: { error: err.message } } 
           }));

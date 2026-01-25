@@ -22163,6 +22163,44 @@ var getFolderTree = () => {
     return Array.from(folders).sort();
   }
 };
+var getDirectoryList = () => {
+  if (isObsidian) {
+    const allFiles = app.vault.getAllLoadedFiles();
+    const folders = allFiles.filter((f) => f.children);
+    const buildTree = (folder) => {
+      const children = folder.children.filter((child) => child.children).map((child) => buildTree(child));
+      return {
+        path: folder.path,
+        children: children.sort((a, b2) => a.path.localeCompare(b2.path))
+      };
+    };
+    const rootFolders = folders.filter((f) => !f.parent);
+    return rootFolders.map((folder) => buildTree(folder));
+  } else {
+    const paths = Object.keys(MOCK_FILES);
+    const folderMap = /* @__PURE__ */ new Map();
+    paths.forEach((p) => {
+      const parts = p.split("/");
+      parts.pop();
+      for (let i = 0; i < parts.length; i++) {
+        const currentPath = parts.slice(0, i + 1).join("/");
+        const parentPath = i === 0 ? "/" : parts.slice(0, i).join("/");
+        if (!folderMap.has(parentPath)) {
+          folderMap.set(parentPath, /* @__PURE__ */ new Set());
+        }
+        folderMap.get(parentPath).add(currentPath);
+      }
+    });
+    const buildTree = (path2) => {
+      const children = Array.from(folderMap.get(path2) || []).map((childPath) => buildTree(childPath)).sort((a, b2) => a.path.localeCompare(b2.path));
+      return {
+        path: path2 === "/" ? "" : path2,
+        children
+      };
+    };
+    return [buildTree("/")];
+  }
+};
 var readFile = async (filename) => {
   if (isObsidian) {
     const file = app.vault.getAbstractFileByPath(filename);
@@ -22226,6 +22264,31 @@ var renameFile = async (oldFilename, newFilename) => {
   MOCK_FILES[newKey] = content;
   await saveFiles(MOCK_FILES);
   return `Successfully renamed ${oldFilename} to ${newFilename}`;
+};
+var moveFile = async (sourcePath, targetPath) => {
+  if (isObsidian) {
+    const file = app.vault.getAbstractFileByPath(sourcePath);
+    if (!file)
+      throw new Error(`Source file not found: ${sourcePath}`);
+    const targetFile = app.vault.getAbstractFileByPath(targetPath);
+    if (targetFile)
+      throw new Error(`Target file already exists: ${targetPath}`);
+    await app.fileManager.renameFile(file, targetPath);
+    return `Moved ${sourcePath} to ${targetPath} in vault`;
+  }
+  const sourceKey = sourcePath.toLowerCase();
+  const targetKey = targetPath.toLowerCase();
+  if (!MOCK_FILES[sourceKey]) {
+    throw new Error(`Source file not found: ${sourcePath}`);
+  }
+  if (MOCK_FILES[targetKey]) {
+    throw new Error(`Target file already exists: ${targetPath}`);
+  }
+  const content = MOCK_FILES[sourceKey];
+  delete MOCK_FILES[sourceKey];
+  MOCK_FILES[targetKey] = content;
+  await saveFiles(MOCK_FILES);
+  return `Successfully moved ${sourcePath} to ${targetPath}`;
 };
 var editFile = async (filename, operation, text, lineNumber) => {
   const content = await readFile(filename);
@@ -32797,14 +32860,14 @@ var Models = class extends BaseModule {
       if (isCallableTool(tool)) {
         const callableTool = tool;
         const toolDeclaration = await callableTool.tool();
-        for (const declaration15 of (_c = toolDeclaration.functionDeclarations) !== null && _c !== void 0 ? _c : []) {
-          if (!declaration15.name) {
+        for (const declaration17 of (_c = toolDeclaration.functionDeclarations) !== null && _c !== void 0 ? _c : []) {
+          if (!declaration17.name) {
             throw new Error("Function declaration name is required.");
           }
-          if (afcTools.has(declaration15.name)) {
-            throw new Error(`Duplicate tool declaration name: ${declaration15.name}`);
+          if (afcTools.has(declaration17.name)) {
+            throw new Error(`Duplicate tool declaration name: ${declaration17.name}`);
           }
-          afcTools.set(declaration15.name, callableTool);
+          afcTools.set(declaration17.name, callableTool);
         }
       }
     }
@@ -37507,9 +37570,9 @@ __export(get_folder_tree_exports, {
 });
 var declaration3 = {
   name: "get_folder_tree",
-  description: "Lists all folders in the vault to understand hierarchy."
+  description: "Lists all folders in the vault as a flat array to understand hierarchy."
 };
-var instruction3 = `- get_folder_tree: Use this to see the organization of folders in the vault.`;
+var instruction3 = `- get_folder_tree: Use this to see a simple list of all folders in the vault hierarchy.`;
 var execute3 = async (args, callbacks) => {
   const folders = getFolderTree();
   callbacks.onSystem(`Folder Structure Scanned`, {
@@ -37520,14 +37583,36 @@ var execute3 = async (args, callbacks) => {
   return { folders };
 };
 
-// tools/read_file.ts
-var read_file_exports = {};
-__export(read_file_exports, {
+// tools/dirlist.ts
+var dirlist_exports = {};
+__export(dirlist_exports, {
   declaration: () => declaration4,
   execute: () => execute4,
   instruction: () => instruction4
 });
 var declaration4 = {
+  name: "dirlist",
+  description: "Lists only directory structure, ignoring files, to understand vault hierarchy."
+};
+var instruction4 = `- dirlist: Use this to see the pure directory structure of the vault without any file information.`;
+var execute4 = async (args, callbacks) => {
+  const directories = getDirectoryList();
+  callbacks.onSystem(`Directory Structure Scanned`, {
+    name: "dirlist",
+    filename: "Directory List",
+    files: directories
+  });
+  return { directories };
+};
+
+// tools/read_file.ts
+var read_file_exports = {};
+__export(read_file_exports, {
+  declaration: () => declaration5,
+  execute: () => execute5,
+  instruction: () => instruction5
+});
+var declaration5 = {
   name: "read_file",
   description: "Read the full content of a specified file.",
   parameters: {
@@ -37538,8 +37623,8 @@ var declaration4 = {
     required: ["filename"]
   }
 };
-var instruction4 = `- read_file: Use this to ingest the contents of a note. You should read a file before proposing major edits to ensure context.`;
-var execute4 = async (args, callbacks) => {
+var instruction5 = `- read_file: Use this to ingest the contents of a note. You should read a file before proposing major edits to ensure context.`;
+var execute5 = async (args, callbacks) => {
   const readContent = await readFile(args.filename);
   callbacks.onSystem(`Opened ${args.filename}`, {
     name: "read_file",
@@ -37556,11 +37641,11 @@ var execute4 = async (args, callbacks) => {
 // tools/create_file.ts
 var create_file_exports = {};
 __export(create_file_exports, {
-  declaration: () => declaration5,
-  execute: () => execute5,
-  instruction: () => instruction5
+  declaration: () => declaration6,
+  execute: () => execute6,
+  instruction: () => instruction6
 });
-var declaration5 = {
+var declaration6 = {
   name: "create_file",
   description: "Create a new file with initial content.",
   parameters: {
@@ -37572,8 +37657,8 @@ var declaration5 = {
     required: ["filename", "content"]
   }
 };
-var instruction5 = `- create_file: Use this to initialize new notes in the vault. Always provide meaningful initial content.`;
-var execute5 = async (args, callbacks) => {
+var instruction6 = `- create_file: Use this to initialize new notes in the vault. Always provide meaningful initial content.`;
+var execute6 = async (args, callbacks) => {
   await createFile(args.filename, args.content);
   callbacks.onSystem(`Created ${args.filename}`, {
     name: "create_file",
@@ -37590,11 +37675,11 @@ var execute5 = async (args, callbacks) => {
 // tools/update_file.ts
 var update_file_exports = {};
 __export(update_file_exports, {
-  declaration: () => declaration6,
-  execute: () => execute6,
-  instruction: () => instruction6
+  declaration: () => declaration7,
+  execute: () => execute7,
+  instruction: () => instruction7
 });
-var declaration6 = {
+var declaration7 = {
   name: "update_file",
   description: "Overwrite the entire content of an existing file.",
   parameters: {
@@ -37606,8 +37691,8 @@ var declaration6 = {
     required: ["filename", "content"]
   }
 };
-var instruction6 = `- update_file: Use this for total overwrites. For smaller changes, prefer edit_file.`;
-var execute6 = async (args, callbacks) => {
+var instruction7 = `- update_file: Use this for total overwrites. For smaller changes, prefer edit_file.`;
+var execute7 = async (args, callbacks) => {
   const oldContent = await readFile(args.filename).catch(() => "");
   await updateFile(args.filename, args.content);
   const oldLines = oldContent.split("\n");
@@ -37629,11 +37714,11 @@ var execute6 = async (args, callbacks) => {
 // tools/edit_file.ts
 var edit_file_exports = {};
 __export(edit_file_exports, {
-  declaration: () => declaration7,
-  execute: () => execute7,
-  instruction: () => instruction7
+  declaration: () => declaration8,
+  execute: () => execute8,
+  instruction: () => instruction8
 });
-var declaration7 = {
+var declaration8 = {
   name: "edit_file",
   description: "Perform granular line-based edits on a file.",
   parameters: {
@@ -37650,8 +37735,8 @@ var declaration7 = {
     required: ["filename", "operation"]
   }
 };
-var instruction7 = `- edit_file: Use this for targeted modifications (appending, replacing lines, or removing lines).`;
-var execute7 = async (args, callbacks) => {
+var instruction8 = `- edit_file: Use this for targeted modifications (appending, replacing lines, or removing lines).`;
+var execute8 = async (args, callbacks) => {
   const oldContent = await readFile(args.filename).catch(() => "");
   await editFile(args.filename, args.operation, args.text, args.lineNumber);
   const newContent = await readFile(args.filename);
@@ -37670,11 +37755,11 @@ var execute7 = async (args, callbacks) => {
 // tools/rename_file.ts
 var rename_file_exports = {};
 __export(rename_file_exports, {
-  declaration: () => declaration8,
-  execute: () => execute8,
-  instruction: () => instruction8
+  declaration: () => declaration9,
+  execute: () => execute9,
+  instruction: () => instruction9
 });
-var declaration8 = {
+var declaration9 = {
   name: "rename_file",
   description: "Rename an existing file to a new name.",
   parameters: {
@@ -37686,8 +37771,8 @@ var declaration8 = {
     required: ["oldFilename", "newFilename"]
   }
 };
-var instruction8 = `- rename_file: Use this to change the name of a note. Ensure the new name follows markdown extension conventions if applicable.`;
-var execute8 = async (args, callbacks) => {
+var instruction9 = `- rename_file: Use this to change the name of a note. Ensure the new name follows markdown extension conventions if applicable.`;
+var execute9 = async (args, callbacks) => {
   await renameFile(args.oldFilename, args.newFilename);
   callbacks.onSystem(`Renamed ${args.oldFilename} to ${args.newFilename}`, {
     name: "rename_file",
@@ -37699,14 +37784,52 @@ var execute8 = async (args, callbacks) => {
   return { status: "renamed", from: args.oldFilename, to: args.newFilename };
 };
 
+// tools/move_file.ts
+var move_file_exports = {};
+__export(move_file_exports, {
+  declaration: () => declaration10,
+  execute: () => execute10,
+  instruction: () => instruction10
+});
+var declaration10 = {
+  name: "move_file",
+  description: "Move a file from one folder to another",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      sourcePath: {
+        type: Type.STRING,
+        description: 'Current path of the file to move (e.g., "projects/notes.md")'
+      },
+      targetPath: {
+        type: Type.STRING,
+        description: 'New path for the file (e.g., "archive/projects/notes.md")'
+      }
+    },
+    required: ["sourcePath", "targetPath"]
+  }
+};
+var instruction10 = `- move_file: Move a file from one location to another in the vault. Use this to reorganize files between folders.`;
+var execute10 = async (args, callbacks) => {
+  const result = await moveFile(args.sourcePath, args.targetPath);
+  callbacks.onSystem(`Moved ${args.sourcePath} to ${args.targetPath}`, {
+    name: "move_file",
+    filename: args.sourcePath,
+    oldContent: args.sourcePath,
+    newContent: args.targetPath
+  });
+  callbacks.onFileState("/", [args.sourcePath, args.targetPath]);
+  return { status: "moved", from: args.sourcePath, to: args.targetPath };
+};
+
 // tools/search_keyword.ts
 var search_keyword_exports = {};
 __export(search_keyword_exports, {
-  declaration: () => declaration9,
-  execute: () => execute9,
-  instruction: () => instruction9
+  declaration: () => declaration11,
+  execute: () => execute11,
+  instruction: () => instruction11
 });
-var declaration9 = {
+var declaration11 = {
   name: "search_keyword",
   description: "Search for a keyword across all files in the vault.",
   parameters: {
@@ -37717,8 +37840,8 @@ var declaration9 = {
     required: ["keyword"]
   }
 };
-var instruction9 = `- search_keyword: Fast plaintext search across all files.`;
-var execute9 = async (args, callbacks) => {
+var instruction11 = `- search_keyword: Fast plaintext search across all files.`;
+var execute11 = async (args, callbacks) => {
   const results = await searchFiles(args.keyword, false);
   callbacks.onSystem(`Search complete for "${args.keyword}"`, {
     name: "search_keyword",
@@ -37731,11 +37854,11 @@ var execute9 = async (args, callbacks) => {
 // tools/search_regexp.ts
 var search_regexp_exports = {};
 __export(search_regexp_exports, {
-  declaration: () => declaration10,
-  execute: () => execute10,
-  instruction: () => instruction10
+  declaration: () => declaration12,
+  execute: () => execute12,
+  instruction: () => instruction12
 });
-var declaration10 = {
+var declaration12 = {
   name: "search_regexp",
   description: "Search using a regular expression across all files.",
   parameters: {
@@ -37747,8 +37870,8 @@ var declaration10 = {
     required: ["pattern"]
   }
 };
-var instruction10 = `- search_regexp: Advanced regex search. Use this to identify files for global replacements.`;
-var execute10 = async (args, callbacks) => {
+var instruction12 = `- search_regexp: Advanced regex search. Use this to identify files for global replacements.`;
+var execute12 = async (args, callbacks) => {
   const results = await searchFiles(args.pattern, true, args.flags || "i");
   callbacks.onSystem(`Regex search complete for /${args.pattern}/`, {
     name: "search_regexp",
@@ -37761,11 +37884,11 @@ var execute10 = async (args, callbacks) => {
 // tools/search_replace_file.ts
 var search_replace_file_exports = {};
 __export(search_replace_file_exports, {
-  declaration: () => declaration11,
-  execute: () => execute11,
-  instruction: () => instruction11
+  declaration: () => declaration13,
+  execute: () => execute13,
+  instruction: () => instruction13
 });
-var declaration11 = {
+var declaration13 = {
   name: "search_and_replace_regex_in_file",
   description: "Search and replace text in a specific file using regex.",
   parameters: {
@@ -37779,8 +37902,8 @@ var declaration11 = {
     required: ["filename", "pattern", "replacement"]
   }
 };
-var instruction11 = `- search_and_replace_regex_in_file: Targeted regex replacement within a single node.`;
-var execute11 = async (args, callbacks) => {
+var instruction13 = `- search_and_replace_regex_in_file: Targeted regex replacement within a single node.`;
+var execute13 = async (args, callbacks) => {
   const oldContent = await readFile(args.filename);
   const re2 = new RegExp(args.pattern, args.flags || "g");
   const newContent = oldContent.replace(re2, args.replacement);
@@ -37800,11 +37923,11 @@ var execute11 = async (args, callbacks) => {
 // tools/search_replace_global.ts
 var search_replace_global_exports = {};
 __export(search_replace_global_exports, {
-  declaration: () => declaration12,
-  execute: () => execute12,
-  instruction: () => instruction12
+  declaration: () => declaration14,
+  execute: () => execute14,
+  instruction: () => instruction14
 });
-var declaration12 = {
+var declaration14 = {
   name: "search_and_replace_regex_global",
   description: "Search and replace text across ALL files using regex.",
   parameters: {
@@ -37817,13 +37940,13 @@ var declaration12 = {
     required: ["pattern", "replacement"]
   }
 };
-var instruction12 = `
+var instruction14 = `
 GLOBAL SEARCH & REPLACE WORKFLOW:
 1. When asked for a global replacement, ALWAYS run "search_regexp" first.
 2. Report the number of files that will be updated.
 3. ASK for explicit confirmation before calling "search_and_replace_regex_global".
 4. After execution, report "updated all occurrences".`;
-var execute12 = async (args, callbacks) => {
+var execute14 = async (args, callbacks) => {
   const allFiles = listDirectory();
   const globalRe = new RegExp(args.pattern, args.flags || "g");
   const multiDiffs = [];
@@ -37859,11 +37982,11 @@ var execute12 = async (args, callbacks) => {
 // tools/topic_switch.ts
 var topic_switch_exports = {};
 __export(topic_switch_exports, {
-  declaration: () => declaration13,
-  execute: () => execute13,
-  instruction: () => instruction13
+  declaration: () => declaration15,
+  execute: () => execute15,
+  instruction: () => instruction15
 });
-var declaration13 = {
+var declaration15 = {
   name: "topic_switch",
   description: "Signal that a major topic shift has occurred. Provide a summary of the previous conversation.",
   parameters: {
@@ -37874,16 +37997,18 @@ var declaration13 = {
     required: ["summary"]
   }
 };
-var instruction13 = `
+var instruction15 = `
 TOPIC SWITCHING & PERSISTENCE: 
 1. Monitor for significant topic switches in the conversation flow.
 2. If a switch occurs, call "topic_switch" with a concise summary.
 3. This will automatically trigger an ARCHIVE process.
 4. Do NOT say "Done." after calling this. Proceed immediately to the next topic.`;
-var execute13 = async (args, callbacks) => {
+var execute15 = async (args, callbacks) => {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const filename = `x-chat-history-${timestamp}.md`;
   callbacks.onSystem("Context Update", {
     name: "topic_switch",
-    filename: "Session Context",
+    filename,
     newContent: args.summary
   });
   return { status: "context_reset" };
@@ -37892,11 +38017,11 @@ var execute13 = async (args, callbacks) => {
 // tools/web_search.ts
 var web_search_exports = {};
 __export(web_search_exports, {
-  declaration: () => declaration14,
-  execute: () => execute14,
-  instruction: () => instruction14
+  declaration: () => declaration16,
+  execute: () => execute16,
+  instruction: () => instruction16
 });
-var declaration14 = {
+var declaration16 = {
   name: "internet_search",
   description: "Search the internet for real-time information, news, current events, or general knowledge outside the vault.",
   parameters: {
@@ -37907,8 +38032,8 @@ var declaration14 = {
     required: ["query"]
   }
 };
-var instruction14 = `- internet_search: Use this to fetch real-time data or information not contained within the local vault. Always use this tool for questions about current events, celebrities, weather, or general knowledge.`;
-var execute14 = async (args, callbacks) => {
+var instruction16 = `- internet_search: Use this to fetch real-time data or information not contained within the local vault. Always use this tool for questions about current events, celebrities, weather, or general knowledge.`;
+var execute16 = async (args, callbacks) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -37933,11 +38058,13 @@ var TOOLS = {
   list_directory: list_directory_exports,
   list_vault_files: list_vault_files_exports,
   get_folder_tree: get_folder_tree_exports,
+  dirlist: dirlist_exports,
   read_file: read_file_exports,
   create_file: create_file_exports,
   update_file: update_file_exports,
   edit_file: edit_file_exports,
   rename_file: rename_file_exports,
+  move_file: move_file_exports,
   search_keyword: search_keyword_exports,
   search_regexp: search_regexp_exports,
   search_and_replace_regex_in_file: search_replace_file_exports,
@@ -37950,7 +38077,13 @@ var executeCommand = async (name, args, callbacks) => {
   const startTime = performance.now();
   const tool = TOOLS[name];
   if (!tool) {
-    callbacks.onLog(`Tool not found: ${name}`, "error");
+    const errorDetails = {
+      toolName: name,
+      content: JSON.stringify(args, null, 2),
+      contentSize: JSON.stringify(args).length,
+      apiCall: "executeCommand"
+    };
+    callbacks.onLog(`Tool not found: ${name}`, "error", void 0, errorDetails);
     throw new Error(`Command ${name} not found`);
   }
   const toolCallId = `tool-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
@@ -37968,12 +38101,37 @@ var executeCommand = async (name, args, callbacks) => {
   };
   try {
     const result = await tool.execute(args, wrappedCallbacks);
+    if (result && result.files && result.files.length > 200) {
+      const error = new Error(`Tool returned ${result.files.length} entries, exceeding threshold of 200. Please refine your search.`);
+      const duration2 = Math.round(performance.now() - startTime);
+      const errorDetails = {
+        toolName: name,
+        content: `Returned ${result.files.length} files: ${result.files.slice(0, 5).join(", ")}${result.files.length > 5 ? "..." : ""}`,
+        contentSize: result.files.length,
+        apiCall: "threshold_check"
+      };
+      callbacks.onLog(`Error in ${name}: ${error.message}`, "error", duration2, errorDetails);
+      wrappedCallbacks.onSystem(`Error: ${error.message}`, {
+        name,
+        filename: args.filename || (name === "internet_search" ? "Web" : "unknown"),
+        error: error.message,
+        status: "error"
+      });
+      throw error;
+    }
     const duration = Math.round(performance.now() - startTime);
     callbacks.onLog(`Executed ${name} in ${duration}ms`, "action", duration);
     return result;
   } catch (error) {
     const duration = Math.round(performance.now() - startTime);
-    callbacks.onLog(`Error in ${name}: ${error.message}`, "error", duration);
+    const errorDetails = {
+      toolName: name,
+      content: JSON.stringify(args, null, 2),
+      contentSize: JSON.stringify(args).length,
+      stack: error.stack,
+      apiCall: "tool_execution"
+    };
+    callbacks.onLog(`Error in ${name}: ${error.message}`, "error", duration, errorDetails);
     wrappedCallbacks.onSystem(`Error: ${error.message}`, {
       name,
       filename: args.filename || (name === "internet_search" ? "Web" : "unknown"),
@@ -38051,7 +38209,15 @@ ${settings.customContext}`.trim();
           onerror: (err) => {
             console.error("Gemini Voice Error:", err);
             const errorMsg = err.message || "Quantum Link Error";
-            this.callbacks.onLog(`NETWORK ERROR: ${errorMsg}`, "error");
+            const errorDetails = {
+              toolName: "GeminiVoiceAssistant",
+              apiCall: "live.connect",
+              stack: err.stack,
+              content: JSON.stringify(err, null, 2),
+              requestSize: err.requestSize,
+              responseSize: err.responseSize
+            };
+            this.callbacks.onLog(`NETWORK ERROR: ${errorMsg}`, "error", void 0, errorDetails);
             this.stop();
             this.callbacks.onStatusChange("ERROR" /* ERROR */);
           },
@@ -38064,7 +38230,15 @@ ${settings.customContext}`.trim();
       this.session = await this.sessionPromise;
     } catch (err) {
       this.callbacks.onStatusChange("ERROR" /* ERROR */);
-      this.callbacks.onLog(`Link Initialization Failed: ${err.message}`, "error");
+      const errorDetails = {
+        toolName: "GeminiVoiceAssistant",
+        apiCall: "start",
+        stack: err.stack,
+        content: err.message,
+        requestSize: err.requestSize,
+        responseSize: err.responseSize
+      };
+      this.callbacks.onLog(`Link Initialization Failed: ${err.message}`, "error", void 0, errorDetails);
       throw err;
     }
   }
@@ -38132,6 +38306,14 @@ ${settings.customContext}`.trim();
             functionResponses: { id: fc.id, name: fc.name, response: { result: response } }
           }));
         } catch (err) {
+          const errorDetails = {
+            toolName: fc.name,
+            content: JSON.stringify(fc.args, null, 2),
+            contentSize: JSON.stringify(fc.args).length,
+            stack: err.stack,
+            apiCall: "executeCommand"
+          };
+          this.callbacks.onLog(`Tool execution error in ${fc.name}: ${err.message}`, "error", void 0, errorDetails);
           sessionPromise.then((s) => s.sendToolResponse({
             functionResponses: { id: fc.id, name: fc.name, response: { error: err.message } }
           }));
@@ -38216,7 +38398,9 @@ var toolInstructions = [
   instruction11,
   instruction12,
   instruction13,
-  instruction14
+  instruction14,
+  instruction15,
+  instruction16
 ].join("\n\n");
 var DEFAULT_SYSTEM_INSTRUCTION = `You are an advanced voice assistant (Hermes) with file system access and internet capabilities.
 Vault structure: Flat markdown files.
@@ -38471,6 +38655,41 @@ var KernelLog = ({ isVisible, logs, usage, onFlush, fileCount }) => {
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex flex-col", children: [
           /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: `${log.type === "action" ? "text-indigo-400" : log.type === "error" ? "text-red-400" : "text-slate-500"}`, children: log.message }),
+          log.type === "error" && log.errorDetails && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "mt-1 space-y-1", children: [
+            log.errorDetails.toolName && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-[8px] text-red-300 font-mono", children: [
+              "Tool: ",
+              log.errorDetails.toolName
+            ] }),
+            log.errorDetails.apiCall && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-[8px] text-red-300 font-mono block", children: [
+              "API: ",
+              log.errorDetails.apiCall
+            ] }),
+            (log.errorDetails.contentSize !== void 0 || log.errorDetails.requestSize !== void 0 || log.errorDetails.responseSize !== void 0) && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "text-[8px] text-red-300 font-mono space-x-2", children: [
+              log.errorDetails.contentSize !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                "Content: ",
+                log.errorDetails.contentSize.toLocaleString(),
+                " bytes"
+              ] }),
+              log.errorDetails.requestSize !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                "Request: ",
+                log.errorDetails.requestSize.toLocaleString(),
+                " bytes"
+              ] }),
+              log.errorDetails.responseSize !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                "Response: ",
+                log.errorDetails.responseSize.toLocaleString(),
+                " bytes"
+              ] })
+            ] }),
+            log.errorDetails.content && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "text-[8px] text-red-200 font-mono bg-red-900/20 p-1 rounded max-h-16 overflow-y-auto border border-red-800/30", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "text-red-400 font-bold mb-1", children: "Content Preview:" }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "whitespace-pre-wrap break-all", children: log.errorDetails.content.length > 200 ? log.errorDetails.content.substring(0, 200) + "..." : log.errorDetails.content })
+            ] }),
+            log.errorDetails.stack && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("details", { className: "text-[8px] text-red-300 font-mono", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("summary", { className: "cursor-pointer hover:text-red-200", children: "Stack Trace" }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "mt-1 whitespace-pre-wrap bg-red-900/10 p-1 rounded border border-red-800/20", children: log.errorDetails.stack })
+            ] })
+          ] }),
           log.duration !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-[8px] text-slate-700 uppercase font-bold tracking-tight mt-0.5", children: [
             "Process completed in ",
             log.duration,
@@ -39915,6 +40134,8 @@ var ToolResult = ({ toolData, isLast }) => {
         return "EDIT";
       case "rename_file":
         return "RENAME";
+      case "move_file":
+        return "MOVE";
       case "list_directory":
         return "SCAN";
       case "search_keyword":
@@ -40212,13 +40433,14 @@ var App = () => {
   const isObsidian2 = (0, import_react5.useMemo)(() => {
     return isObsidianMode();
   }, []);
-  const addLog = (0, import_react5.useCallback)((message, type = "info", duration) => {
+  const addLog = (0, import_react5.useCallback)((message, type = "info", duration, errorDetails) => {
     setLogs((prev) => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
       message,
       timestamp: new Date(),
       type,
-      duration
+      duration,
+      errorDetails
     }]);
   }, []);
   const restoreConversation = () => {
@@ -40294,7 +40516,15 @@ ${t.toolData.newContent}
 ${markdown}`);
       addLog(`Segment archived to ${filename}`, "action");
     } catch (err) {
-      addLog(`Persistence Failure: ${err.message}`, "error");
+      const errorDetails = {
+        toolName: "archiveConversation",
+        content: `Summary: ${summary}
+History length: ${history.length} entries`,
+        contentSize: summary.length + JSON.stringify(history).length,
+        stack: err.stack,
+        apiCall: "createFile"
+      };
+      addLog(`Persistence Failure: ${err.message}`, "error", void 0, errorDetails);
     }
   }, [addLog]);
   (0, import_react5.useEffect)(() => {
@@ -40414,7 +40644,16 @@ ${markdown}`);
       assistantRef.current = new GeminiVoiceAssistant(assistantCallbacks);
       await assistantRef.current.start(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
     } catch (err) {
-      addLog(`Uplink Error: ${err.message}`, "error");
+      const errorDetails = {
+        toolName: "GeminiVoiceAssistant",
+        content: `Voice Name: ${voiceName}
+Custom Context: ${customContext}
+System Instruction: ${systemInstruction}`,
+        contentSize: voiceName.length + customContext.length + systemInstruction.length,
+        stack: err.stack,
+        apiCall: "startSession"
+      };
+      addLog(`Uplink Error: ${err.message}`, "error", void 0, errorDetails);
       setStatus("ERROR" /* ERROR */);
     }
   };
@@ -40584,7 +40823,8 @@ var DEFAULT_HERMES_SETTINGS = {
   voiceName: "Zephyr",
   customContext: "",
   systemInstruction: "",
-  manualApiKey: ""
+  manualApiKey: "",
+  chatHistoryFolder: "Hermes/History"
 };
 var HermesSettingsTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app2, plugin) {
@@ -40626,6 +40866,14 @@ var HermesSettingsTab = class extends import_obsidian2.PluginSettingTab {
       });
       text.inputEl.rows = 6;
       text.inputEl.cols = 50;
+    });
+    new import_obsidian2.Setting(containerEl).setName("Chat History Folder").setDesc("Folder path where chat history will be saved").addText((text) => {
+      text.setPlaceholder("Hermes/History").setValue(this.plugin.settings?.chatHistoryFolder || DEFAULT_HERMES_SETTINGS.chatHistoryFolder).onChange(async (value) => {
+        if (this.plugin.settings) {
+          this.plugin.settings.chatHistoryFolder = value;
+          await this.plugin.saveSettings();
+        }
+      });
     });
     containerEl.createEl("h3", { text: "API Authentication" });
     new import_obsidian2.Setting(containerEl).setName("Gemini API Key").setDesc("Enter your Gemini API key for the voice assistant").addText((text) => {

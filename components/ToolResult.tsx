@@ -138,6 +138,7 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
       case 'update_file': return 'UPDATE';
       case 'edit_file': return 'EDIT';
       case 'rename_file': return 'RENAME';
+      case 'move_file': return 'MOVE';
       case 'list_directory': return 'SCAN';
       case 'search_keyword': return 'SEARCH';
       case 'search_regexp': return 'GREP';

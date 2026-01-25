@@ -2,11 +2,13 @@
 import * as list_directory from '../tools/list_directory';
 import * as list_vault_files from '../tools/list_vault_files';
 import * as get_folder_tree from '../tools/get_folder_tree';
+import * as dirlist from '../tools/dirlist';
 import * as read_file from '../tools/read_file';
 import * as create_file from '../tools/create_file';
 import * as update_file from '../tools/update_file';
 import * as edit_file from '../tools/edit_file';
 import * as rename_file from '../tools/rename_file';
+import * as move_file from '../tools/move_file';
 import * as search_keyword from '../tools/search_keyword';
 import * as search_regexp from '../tools/search_regexp';
 import * as search_replace_file from '../tools/search_replace_file';
@@ -18,11 +20,13 @@ const toolInstructions = [
   list_directory.instruction,
   list_vault_files.instruction,
   get_folder_tree.instruction,
+  dirlist.instruction,
   read_file.instruction,
   create_file.instruction,
   update_file.instruction,
   edit_file.instruction,
   rename_file.instruction,
+  move_file.instruction,
   search_keyword.instruction,
   search_regexp.instruction,
   search_replace_file.instruction,

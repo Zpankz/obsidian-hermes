@@ -51,13 +51,14 @@ const App: React.FC = () => {
     return isObsidianMode();
   }, []);
 
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info', duration?: number) => {
+  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info', duration?: number, errorDetails?: LogEntry['errorDetails']) => {
     setLogs(prev => [...prev, { 
       id: Math.random().toString(36).substr(2, 9), 
       message, 
       timestamp: new Date(), 
       type,
-      duration
+      duration,
+      errorDetails
     }]);
   }, []);
 
@@ -117,7 +118,14 @@ const App: React.FC = () => {
       await createFile(filename, `# Conversation Archive: ${summary}\n\n${markdown}`);
       addLog(`Segment archived to ${filename}`, 'action');
     } catch (err: any) {
-      addLog(`Persistence Failure: ${err.message}`, 'error');
+      const errorDetails = {
+        toolName: 'archiveConversation',
+        content: `Summary: ${summary}\nHistory length: ${history.length} entries`,
+        contentSize: summary.length + JSON.stringify(history).length,
+        stack: err.stack,
+        apiCall: 'createFile'
+      };
+      addLog(`Persistence Failure: ${err.message}`, 'error', undefined, errorDetails);
     }
   }, [addLog]);
 
@@ -240,7 +248,14 @@ const App: React.FC = () => {
       assistantRef.current = new GeminiVoiceAssistant(assistantCallbacks);
       await assistantRef.current.start(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
     } catch (err: any) {
-      addLog(`Uplink Error: ${err.message}`, 'error');
+      const errorDetails = {
+        toolName: 'GeminiVoiceAssistant',
+        content: `Voice Name: ${voiceName}\nCustom Context: ${customContext}\nSystem Instruction: ${systemInstruction}`,
+        contentSize: voiceName.length + customContext.length + systemInstruction.length,
+        stack: err.stack,
+        apiCall: 'startSession'
+      };
+      addLog(`Uplink Error: ${err.message}`, 'error', undefined, errorDetails);
       setStatus(ConnectionStatus.ERROR);
     }
   };

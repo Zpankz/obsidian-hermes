@@ -21,9 +21,13 @@ TOPIC SWITCHING & PERSISTENCE:
 4. Do NOT say "Done." after calling this. Proceed immediately to the next topic.`;
 
 export const execute = async (args: any, callbacks: any): Promise<any> => {
+  // Generate filename with x-chat-history prefix
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `x-chat-history-${timestamp}.md`;
+  
   callbacks.onSystem("Context Update", {
     name: 'topic_switch',
-    filename: 'Session Context',
+    filename: filename,
     newContent: args.summary
   });
   return { status: "context_reset" };

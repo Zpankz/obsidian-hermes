@@ -63,6 +63,51 @@ const KernelLog: React.FC<KernelLogProps> = ({ isVisible, logs, usage, onFlush, 
                   }`}>
                     {log.message}
                   </span>
+                  {log.type === 'error' && log.errorDetails && (
+                    <div className="mt-1 space-y-1">
+                      {log.errorDetails.toolName && (
+                        <span className="text-[8px] text-red-300 font-mono">
+                          Tool: {log.errorDetails.toolName}
+                        </span>
+                      )}
+                      {log.errorDetails.apiCall && (
+                        <span className="text-[8px] text-red-300 font-mono block">
+                          API: {log.errorDetails.apiCall}
+                        </span>
+                      )}
+                      {(log.errorDetails.contentSize !== undefined || log.errorDetails.requestSize !== undefined || log.errorDetails.responseSize !== undefined) && (
+                        <div className="text-[8px] text-red-300 font-mono space-x-2">
+                          {log.errorDetails.contentSize !== undefined && (
+                            <span>Content: {log.errorDetails.contentSize.toLocaleString()} bytes</span>
+                          )}
+                          {log.errorDetails.requestSize !== undefined && (
+                            <span>Request: {log.errorDetails.requestSize.toLocaleString()} bytes</span>
+                          )}
+                          {log.errorDetails.responseSize !== undefined && (
+                            <span>Response: {log.errorDetails.responseSize.toLocaleString()} bytes</span>
+                          )}
+                        </div>
+                      )}
+                      {log.errorDetails.content && (
+                        <div className="text-[8px] text-red-200 font-mono bg-red-900/20 p-1 rounded max-h-16 overflow-y-auto border border-red-800/30">
+                          <div className="text-red-400 font-bold mb-1">Content Preview:</div>
+                          <div className="whitespace-pre-wrap break-all">
+                            {log.errorDetails.content.length > 200 
+                              ? log.errorDetails.content.substring(0, 200) + '...' 
+                              : log.errorDetails.content}
+                          </div>
+                        </div>
+                      )}
+                      {log.errorDetails.stack && (
+                        <details className="text-[8px] text-red-300 font-mono">
+                          <summary className="cursor-pointer hover:text-red-200">Stack Trace</summary>
+                          <div className="mt-1 whitespace-pre-wrap bg-red-900/10 p-1 rounded border border-red-800/20">
+                            {log.errorDetails.stack}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
                   {log.duration !== undefined && (
                     <span className="text-[8px] text-slate-700 uppercase font-bold tracking-tight mt-0.5">
                       Process completed in {log.duration}ms

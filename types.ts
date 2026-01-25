@@ -5,6 +5,15 @@ export interface LogEntry {
   timestamp: Date;
   type: 'info' | 'action' | 'error';
   duration?: number; // Time in ms
+  errorDetails?: {
+    toolName?: string;
+    content?: string;
+    contentSize?: number;
+    stack?: string;
+    apiCall?: string;
+    requestSize?: number;
+    responseSize?: number;
+  };
 }
 
 export interface SearchMatch {
@@ -88,7 +97,7 @@ export interface AppSettings {
 
 export interface VoiceAssistantCallbacks {
   onStatusChange: (status: ConnectionStatus) => void;
-  onLog: (message: string, type: LogEntry['type'], duration?: number) => void;
+  onLog: (message: string, type: LogEntry['type'], duration?: number, errorDetails?: LogEntry['errorDetails']) => void;
   onTranscription: (role: 'user' | 'model', text: string, isComplete: boolean) => void;
   onSystemMessage: (text: string, toolData?: ToolData) => void;
   onInterrupted: () => void;

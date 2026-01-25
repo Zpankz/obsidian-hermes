@@ -148,6 +148,68 @@ export const getFolderTree = (): string[] => {
   }
 };
 
+/**
+ * Retrieves only directory structure, ignoring files completely.
+ * Returns a hierarchical tree structure of directories.
+ */
+export const getDirectoryList = (): { path: string; children: any[] }[] => {
+  if (isObsidian) {
+    // @ts-ignore
+    const allFiles = app.vault.getAllLoadedFiles();
+    // @ts-ignore
+    const folders = allFiles.filter(f => f.children);
+    
+    const buildTree = (folder: any): any => {
+      const children = folder.children
+        .filter((child: any) => child.children) // Only subdirectories
+        .map((child: any) => buildTree(child));
+      
+      return {
+        path: folder.path,
+        children: children.sort((a: any, b: any) => a.path.localeCompare(b.path))
+      };
+    };
+    
+    // Get root folders
+    // @ts-ignore
+    const rootFolders = folders.filter((f: any) => !f.parent);
+    return rootFolders.map((folder: any) => buildTree(folder));
+  } else {
+    // Mock implementation for non-Obsidian environment
+    const paths = Object.keys(MOCK_FILES);
+    const folderMap = new Map<string, Set<string>>();
+    
+    // Build folder relationships
+    paths.forEach(p => {
+      const parts = p.split('/');
+      parts.pop(); // Remove filename
+      
+      for (let i = 0; i < parts.length; i++) {
+        const currentPath = parts.slice(0, i + 1).join('/');
+        const parentPath = i === 0 ? '/' : parts.slice(0, i).join('/');
+        
+        if (!folderMap.has(parentPath)) {
+          folderMap.set(parentPath, new Set());
+        }
+        folderMap.get(parentPath)!.add(currentPath);
+      }
+    });
+    
+    const buildTree = (path: string): any => {
+      const children = Array.from(folderMap.get(path) || [])
+        .map(childPath => buildTree(childPath))
+        .sort((a, b) => a.path.localeCompare(b.path));
+      
+      return {
+        path: path === '/' ? '' : path,
+        children
+      };
+    };
+    
+    return [buildTree('/')];
+  }
+};
+
 export const readFile = async (filename: string): Promise<string> => {
   if (isObsidian) {
     // @ts-ignore
@@ -224,6 +286,38 @@ export const renameFile = async (oldFilename: string, newFilename: string): Prom
   MOCK_FILES[newKey] = content;
   await saveFiles(MOCK_FILES);
   return `Successfully renamed ${oldFilename} to ${newFilename}`;
+};
+
+export const moveFile = async (sourcePath: string, targetPath: string): Promise<string> => {
+  if (isObsidian) {
+    // @ts-ignore
+    const file = app.vault.getAbstractFileByPath(sourcePath);
+    if (!file) throw new Error(`Source file not found: ${sourcePath}`);
+    
+    // @ts-ignore
+    const targetFile = app.vault.getAbstractFileByPath(targetPath);
+    if (targetFile) throw new Error(`Target file already exists: ${targetPath}`);
+    
+    // @ts-ignore
+    await app.fileManager.renameFile(file, targetPath);
+    return `Moved ${sourcePath} to ${targetPath} in vault`;
+  }
+
+  const sourceKey = sourcePath.toLowerCase();
+  const targetKey = targetPath.toLowerCase();
+  
+  if (!MOCK_FILES[sourceKey]) {
+    throw new Error(`Source file not found: ${sourcePath}`);
+  }
+  if (MOCK_FILES[targetKey]) {
+    throw new Error(`Target file already exists: ${targetPath}`);
+  }
+  
+  const content = MOCK_FILES[sourceKey];
+  delete MOCK_FILES[sourceKey];
+  MOCK_FILES[targetKey] = content;
+  await saveFiles(MOCK_FILES);
+  return `Successfully moved ${sourcePath} to ${targetPath}`;
 };
 
 export const editFile = async (filename: string, operation: string, text?: string, lineNumber?: number): Promise<string> => {

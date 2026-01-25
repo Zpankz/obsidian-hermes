@@ -8,6 +8,7 @@ export interface HermesSettings {
   customContext: string;
   systemInstruction: string;
   manualApiKey: string;
+  chatHistoryFolder: string;
 }
 
 export const DEFAULT_HERMES_SETTINGS: HermesSettings = {
@@ -15,6 +16,7 @@ export const DEFAULT_HERMES_SETTINGS: HermesSettings = {
   customContext: '',
   systemInstruction: '',
   manualApiKey: '',
+  chatHistoryFolder: 'Hermes/History',
 };
 
 export class HermesSettingsTab extends PluginSettingTab {
@@ -84,6 +86,22 @@ export class HermesSettingsTab extends PluginSettingTab {
           });
         text.inputEl.rows = 6;
         text.inputEl.cols = 50;
+      });
+
+    // Chat History Folder
+    new Setting(containerEl)
+      .setName('Chat History Folder')
+      .setDesc('Folder path where chat history will be saved')
+      .addText((text) => {
+        text
+          .setPlaceholder('Hermes/History')
+          .setValue(this.plugin.settings?.chatHistoryFolder || DEFAULT_HERMES_SETTINGS.chatHistoryFolder)
+          .onChange(async (value) => {
+            if (this.plugin.settings) {
+              this.plugin.settings.chatHistoryFolder = value;
+              await this.plugin.saveSettings();
+            }
+          });
       });
 
     // API Key Section
