@@ -67,3 +67,29 @@ export enum Environment {
 export function getEnvironment(): Environment {
   return isObsidian() ? Environment.OBSIDIAN : Environment.STANDALONE;
 }
+
+/**
+ * Extracts the directory path from a file path
+ * @param filePath - The file path (e.g., "projects/notes.md" or "notes.md")
+ * @returns The directory path (e.g., "/projects/" for "projects/notes.md" or "/" for "notes.md")
+ */
+export function getDirectoryFromPath(filePath: string): string {
+  if (!filePath || typeof filePath !== 'string') {
+    return '/';
+  }
+  
+  // Remove leading slash to normalize path
+  const normalizedPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+  
+  // Find the last slash to separate directory from filename
+  const lastSlashIndex = normalizedPath.lastIndexOf('/');
+  
+  // If no slash found, file is in root directory
+  if (lastSlashIndex === -1) {
+    return '/';
+  }
+  
+  // Extract directory and ensure it starts with slash and ends with slash
+  const directory = normalizedPath.substring(0, lastSlashIndex);
+  return directory.startsWith('/') ? directory : `/${directory}/`;
+}

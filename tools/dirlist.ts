@@ -13,7 +13,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   callbacks.onSystem(`Directory Structure Scanned`, {
     name: 'dirlist',
     filename: 'Directory List',
-    files: directories
+    directoryInfo: directories.map(dir => ({ ...dir, hasChildren: dir.children.length > 0 }))
   });
   return { directories };
 };

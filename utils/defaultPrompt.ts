@@ -15,6 +15,7 @@ import * as search_replace_file from '../tools/search_replace_file';
 import * as search_replace_global from '../tools/search_replace_global';
 import * as topic_switch from '../tools/topic_switch';
 import * as web_search from '../tools/web_search';
+import * as end_conversation from '../tools/end_conversation';
 
 const toolInstructions = [
   list_directory.instruction,
@@ -32,7 +33,8 @@ const toolInstructions = [
   search_replace_file.instruction,
   search_replace_global.instruction,
   topic_switch.instruction,
-  web_search.instruction
+  web_search.instruction,
+  end_conversation.instruction
 ].join('\n\n');
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `You are an advanced voice assistant (Hermes) with file system access and internet capabilities.

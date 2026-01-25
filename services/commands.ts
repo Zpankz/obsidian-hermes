@@ -16,6 +16,8 @@ import * as search_replace_global from '../tools/search_replace_global';
 import * as topic_switch from '../tools/topic_switch';
 import * as create_directory from '../tools/create_directory';
 import * as web_search from '../tools/web_search';
+import * as end_conversation from '../tools/end_conversation';
+import * as generate_image_from_context from '../tools/generate_image_from_context';
 import { ToolData } from '../types';
 
 const TOOLS: Record<string, any> = {
@@ -35,7 +37,9 @@ const TOOLS: Record<string, any> = {
   search_and_replace_regex_in_file: search_replace_file,
   search_and_replace_regex_global: search_replace_global,
   topic_switch,
-  internet_search: web_search
+  internet_search: web_search,
+  generate_image_from_context,
+  end_conversation
 };
 
 export const COMMAND_DECLARATIONS = Object.values(TOOLS).map(t => t.declaration);
@@ -46,7 +50,8 @@ export const executeCommand = async (
   callbacks: {
     onLog: (msg: string, type: 'action' | 'error', duration?: number, errorDetails?: any) => void,
     onSystem: (text: string, toolData?: ToolData) => void,
-    onFileState: (folder: string, note: string | string[] | null) => void
+    onFileState: (folder: string, note: string | string[] | null) => void,
+    onStopSession?: () => void
   }
 ): Promise<any> => {
   const startTime = performance.now();

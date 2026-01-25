@@ -13,6 +13,7 @@ interface InputBarProps {
   status: ConnectionStatus;
   activeSpeaker: 'user' | 'model' | 'none';
   volume: number;
+  hasApiKey: boolean;
 }
 
 const InputBar: React.FC<InputBarProps> = ({
@@ -25,6 +26,7 @@ const InputBar: React.FC<InputBarProps> = ({
   status,
   activeSpeaker,
   volume,
+  hasApiKey,
 }) => {
   const [chatHistory, setChatHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -73,7 +75,9 @@ const InputBar: React.FC<InputBarProps> = ({
   };
 
   return (
-    <footer className="h-[100px] pb-5 px-8 hermes-footer-bg backdrop-blur-2xl hermes-border-t flex items-center justify-center shrink-0">
+    <footer className={`h-[100px] pb-5 px-8 backdrop-blur-2xl hermes-border-t flex items-center justify-center shrink-0 ${
+      isListening ? 'hermes-footer-bg-listening' : 'hermes-footer-bg'
+    }`}>
       <div className="flex items-center space-x-6 w-full max-w-5xl">
 
         {/* Text Input Form */}
@@ -87,12 +91,20 @@ const InputBar: React.FC<InputBarProps> = ({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message Hermes..." 
-            className="flex-1 hermes-input-bg hermes-input-text hermes-input-border border rounded-lg px-4 py-2 text-sm focus:outline-none focus:hermes-input-border-focus"
+            placeholder={hasApiKey ? "Message Hermes..." : "API key required..."}
+            disabled={!hasApiKey}
+            className={`flex-1 h-[52px] hermes-input-bg hermes-input-text hermes-input-border border rounded-lg px-4 text-sm focus:outline-none focus:hermes-input-border-focus ${
+              !hasApiKey ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
           <button 
             type="submit" 
-            className="flex items-center justify-center p-2 ml-2 hermes-text-muted hermes-hover:text-normal transition-colors"
+            disabled={!hasApiKey || !inputText.trim()}
+            className={`flex items-center justify-center w-[52px] h-[52px] ml-2 transition-colors ${
+              hasApiKey && inputText.trim() 
+                ? 'hermes-text-muted hermes-hover:text-normal' 
+                : 'opacity-50 cursor-not-allowed'
+            }`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -156,9 +168,13 @@ const InputBar: React.FC<InputBarProps> = ({
           ) : (
             <button 
               onClick={onStartSession}
-              disabled={status === ConnectionStatus.CONNECTING}
-              className="w-[52px] h-[52px] flex items-center justify-center hermes-interactive-bg hermes-text-normal rounded-lg transition-all disabled:opacity-50 hermes-border/20 active:scale-95 group"
-              title="Start Voice Session"
+              disabled={status === ConnectionStatus.CONNECTING || !hasApiKey}
+              className={`w-[52px] h-[52px] flex items-center justify-center rounded-lg transition-all active:scale-95 group ${
+                hasApiKey 
+                  ? 'hermes-interactive-bg hermes-text-normal hermes-border/20 hover:scale-110' 
+                  : 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-700'
+              }`}
+              title={hasApiKey ? "Start Voice Session" : "API key required"}
             >
               <svg className="w-6 h-6 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" />

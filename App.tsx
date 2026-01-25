@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LogEntry, TranscriptionEntry, ConnectionStatus, ToolData, UsageMetadata } from './types';
 import { initFileSystem, listDirectory } from './services/mockFiles';
-import { saveAppSettings, loadAppSettings, saveChatHistory, loadChatHistory } from './persistence/persistence';
+import { saveAppSettings, loadAppSettings, saveChatHistory, loadChatHistory, reloadAppSettings } from './persistence/persistence';
 import { GeminiVoiceAssistant } from './services/voiceInterface';
 import { GeminiTextInterface } from './services/textInterface';
 import { DEFAULT_SYSTEM_INSTRUCTION } from './utils/defaultPrompt';
@@ -14,6 +14,7 @@ import Header from './components/Header';
 import Settings from './components/Settings';
 import MainWindow from './components/MainWindow';
 import InputBar from './components/InputBar';
+import ApiKeySetup from './components/ApiKeySetup';
 
 const App: React.FC = () => {
   const saved = useMemo(() => {
@@ -46,6 +47,7 @@ const App: React.FC = () => {
   const [totalTokens, setTotalTokens] = useState<number>(() => saved.totalTokens || 0);
   const [usage, setUsage] = useState<UsageMetadata>({ totalTokenCount: saved.totalTokens || 0 });
   const [fileCount, setFileCount] = useState<number>(0);
+  const [showApiKeySetup, setShowApiKeySetup] = useState<boolean>(false);
 
   const assistantRef = useRef<GeminiVoiceAssistant | null>(null);
   const textInterfaceRef = useRef<GeminiTextInterface | null>(null);
@@ -74,19 +76,34 @@ const App: React.FC = () => {
     }
   };
 
-  const handleMissingApiKey = () => {
-    // Post message in chat
-    setTranscripts(prev => [...prev, { 
-      id: 'api-key-missing-' + Date.now(), 
-      role: 'system', 
-      text: 'API KEY MISSING - Please configure your API key in Settings to continue.', 
-      isComplete: true, 
-      timestamp: Date.now() 
-    }]);
+  const handleMissingApiKey = async () => {
+    // First, reload plugin settings to get the latest API key
+    addLog('Reloading plugin settings...', 'info');
+    const reloadedSettings = await reloadAppSettings();
     
-    // Open settings
-    setSettingsOpen(true);
-    addLog('API key missing - opening Settings', 'error');
+    // Update the manualApiKey state with the reloaded value
+    if (reloadedSettings?.manualApiKey) {
+      setManualApiKey(reloadedSettings.manualApiKey);
+    }
+    
+    // Check if API key is still missing after reload
+    const activeKey = (reloadedSettings?.manualApiKey || manualApiKey).trim() || process.env.API_KEY || '';
+    if (!activeKey) {
+      // Post message in chat about missing API key
+      setTranscripts(prev => [...prev, { 
+        id: 'api-key-missing-' + Date.now(), 
+        role: 'system', 
+        text: 'API KEY MISSING - Please configure your API key in Settings to continue.', 
+        isComplete: true, 
+        timestamp: Date.now() 
+      }]);
+      
+      // Open settings
+      setSettingsOpen(true);
+      addLog('API key missing after settings reload - opening Settings', 'error');
+    } else {
+      addLog('API key found after settings reload', 'success');
+    }
   };
 
 
@@ -121,7 +138,7 @@ const App: React.FC = () => {
         setTranscripts([{
           id: 'welcome-init',
           role: 'system',
-          text: 'HERMES OS INITIALIZED.',
+          text: 'HERMES INITIALIZED.',
           isComplete: true,
           timestamp: Date.now()
         }]);
@@ -141,6 +158,79 @@ const App: React.FC = () => {
       totalTokens
     });
   }, [transcripts, voiceName, customContext, systemInstruction, manualApiKey, currentFolder, currentNote, totalTokens]);
+
+  // Check API key and show setup screen if needed
+  useEffect(() => {
+    const activeKey = (manualApiKey || '').trim() || process.env.API_KEY || '';
+    const shouldShowSetup = !activeKey;
+    setShowApiKeySetup(shouldShowSetup);
+  }, [manualApiKey]);
+
+  // Hook into settings updates from Obsidian
+  useEffect(() => {
+    const checkSettingsUpdate = async () => {
+      const reloadedSettings = await reloadAppSettings();
+      if (reloadedSettings) {
+        setVoiceName(reloadedSettings.voiceName || 'Zephyr');
+        setCustomContext(reloadedSettings.customContext || '');
+        setSystemInstruction(reloadedSettings.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
+        setManualApiKey(reloadedSettings.manualApiKey || '');
+        
+        // Check if API key was added
+        const activeKey = (reloadedSettings.manualApiKey || '').trim() || process.env.API_KEY || '';
+        if (activeKey && showApiKeySetup) {
+          setShowApiKeySetup(false);
+          addLog('API key configured successfully', 'success');
+        }
+      }
+    };
+
+    // Listen for direct settings updates from Obsidian
+    const handleSettingsUpdate = (settings: any) => {
+      setVoiceName(settings.voiceName || 'Zephyr');
+      setCustomContext(settings.customContext || '');
+      setSystemInstruction(settings.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
+      setManualApiKey(settings.manualApiKey || '');
+      
+      // Check if API key was added
+      const activeKey = (settings.manualApiKey || '').trim() || process.env.API_KEY || '';
+      if (activeKey && showApiKeySetup) {
+        setShowApiKeySetup(false);
+        addLog('API key configured successfully', 'success');
+      }
+    };
+
+    // Register global handler
+    (window as any).hermesSettingsUpdate = handleSettingsUpdate;
+
+    // Check settings updates periodically
+    const interval = setInterval(checkSettingsUpdate, 2000);
+    
+    return () => {
+      clearInterval(interval);
+      // Clean up global handler
+      delete (window as any).hermesSettingsUpdate;
+    };
+  }, [showApiKeySetup, addLog]);
+
+  const handleSystemMessage = useCallback((text: string, toolData?: ToolData) => {
+    setTranscripts(prev => {
+      if (toolData?.id) {
+        const existingIdx = prev.findIndex(t => t.toolData?.id === toolData.id);
+        if (existingIdx !== -1) {
+          const next = [...prev];
+          next[existingIdx] = {
+            ...next[existingIdx],
+            text,
+            toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || 'success' }
+          };
+          return next;
+        }
+      }
+      return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
+    });
+    setFileCount(listDirectory().length);
+  }, []);
 
   const assistantCallbacks = useMemo(() => ({
     onStatusChange: (s: ConnectionStatus) => {
@@ -165,24 +255,7 @@ const App: React.FC = () => {
         return [...prev, { id: Math.random().toString(36).substr(2, 9), role, text, isComplete, timestamp: Date.now() }];
       });
     },
-    onSystemMessage: (text: string, toolData?: ToolData) => {
-      setTranscripts(prev => {
-        if (toolData?.id) {
-          const existingIdx = prev.findIndex(t => t.toolData?.id === toolData.id);
-          if (existingIdx !== -1) {
-            const next = [...prev];
-            next[existingIdx] = {
-              ...next[existingIdx],
-              text,
-              toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || 'success' }
-            };
-            return next;
-          }
-        }
-        return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
-      });
-      setFileCount(listDirectory().length);
-    },
+    onSystemMessage: handleSystemMessage,
     onInterrupted: () => { setActiveSpeaker('none'); setMicVolume(0); },
     onFileStateChange: (folder: string, note: string | string[] | null) => { 
       setCurrentFolder(folder);
@@ -208,13 +281,13 @@ const App: React.FC = () => {
       if (tokens !== undefined) setTotalTokens(tokens); 
     },
     onVolume: (volume: number) => setMicVolume(volume)
-  }), [addLog, isObsidianEnvironment]);
+  }), [addLog, isObsidianEnvironment, handleSystemMessage]);
 
   const startSession = async () => {
     try {
       const activeKey = manualApiKey.trim() || process.env.API_KEY || '';
       if (!activeKey) {
-        handleMissingApiKey();
+        setShowApiKeySetup(true);
         return;
       }
       // @ts-ignore
@@ -267,7 +340,7 @@ const App: React.FC = () => {
     // Use text interface
     const activeKey = manualApiKey.trim() || process.env.API_KEY || '';
     if (!activeKey) {
-      handleMissingApiKey();
+      setShowApiKeySetup(true);
       return;
     }
     
@@ -286,24 +359,7 @@ const App: React.FC = () => {
             return [...prev, { id: Math.random().toString(36).substr(2, 9), role, text, isComplete, timestamp: Date.now() }];
           });
         },
-        onSystemMessage: (text, toolData) => {
-          setTranscripts(prev => {
-            if (toolData?.id) {
-              const existingIdx = prev.findIndex(t => t.toolData?.id === toolData.id);
-              if (existingIdx !== -1) {
-                const next = [...prev];
-                next[existingIdx] = {
-                  ...next[existingIdx],
-                  text,
-                  toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || 'success' }
-                };
-                return next;
-              }
-            }
-            return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
-          });
-          setFileCount(listDirectory().length);
-        },
+        onSystemMessage: handleSystemMessage,
         onFileStateChange: (folder, note) => {
           setCurrentFolder(folder);
           const notes = Array.isArray(note) ? note : (note ? [note] : []);
@@ -323,51 +379,70 @@ const App: React.FC = () => {
     await textInterfaceRef.current.sendMessage(message);
   };
 
+  const handleApiKeySave = async (apiKey: string) => {
+    setManualApiKey(apiKey);
+    addLog('API key saved successfully', 'success');
+    setShowApiKeySetup(false);
+  };
+
+  const handleOpenSettingsForApiKey = () => {
+    setSettingsOpen(true);
+  };
+
   return (
     <div className={`hermes-root flex flex-col overflow-hidden ${isObsidianEnvironment ? '' : 'standalone'}`}>
-      <Settings 
-        isOpen={settingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
-        voiceName={voiceName} 
-        setVoiceName={setVoiceName} 
-        customContext={customContext} 
-        setCustomContext={setCustomContext} 
-        systemInstruction={systemInstruction}
-        setSystemInstruction={setSystemInstruction}
-        manualApiKey={manualApiKey}
-        setManualApiKey={setManualApiKey}
-        onUpdateApiKey={() => (window as any).aistudio?.openSelectKey()} 
-      />
-      
-      <Header 
-        status={status}
-        showLogs={showKernel}
-        onToggleLogs={() => setShowKernel(!showKernel)}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
-      
-      <MainWindow 
-        showKernel={showKernel}
-        transcripts={transcripts} 
-        hasSavedConversation={hasSavedConversation}
-        onRestoreConversation={restoreConversation}
-        logs={logs}
-        usage={usage}
-        onFlushLogs={() => setLogs([])}
-        fileCount={fileCount}
-      />
-      
-      <InputBar 
-        inputText={inputText} 
-        setInputText={setInputText} 
-        onSendText={handleSendText} 
-        isListening={status === ConnectionStatus.CONNECTED} 
-        onStartSession={startSession} 
-        onStopSession={stopSession} 
-        status={status} 
-        activeSpeaker={activeSpeaker} 
-        volume={micVolume}
-      />
+      {showApiKeySetup ? (
+        <ApiKeySetup onApiKeySave={handleApiKeySave} />
+      ) : (
+        <>
+          <Settings 
+            isOpen={settingsOpen} 
+            onClose={() => setSettingsOpen(false)} 
+            voiceName={voiceName} 
+            setVoiceName={setVoiceName} 
+            customContext={customContext} 
+            setCustomContext={setCustomContext} 
+            systemInstruction={systemInstruction}
+            setSystemInstruction={setSystemInstruction}
+            manualApiKey={manualApiKey}
+            setManualApiKey={setManualApiKey}
+            onUpdateApiKey={() => (window as any).aistudio?.openSelectKey()} 
+          />
+          
+          <Header 
+            status={status}
+            showLogs={showKernel}
+            onToggleLogs={() => setShowKernel(!showKernel)}
+            onOpenSettings={() => setSettingsOpen(true)}
+            isListening={status === ConnectionStatus.CONNECTED}
+            onStopSession={stopSession}
+          />
+          
+          <MainWindow 
+            showKernel={showKernel}
+            transcripts={transcripts} 
+            hasSavedConversation={hasSavedConversation}
+            onRestoreConversation={restoreConversation}
+            logs={logs}
+            usage={usage}
+            onFlushLogs={() => setLogs([])}
+            fileCount={fileCount}
+          />
+          
+          <InputBar 
+            inputText={inputText} 
+            setInputText={setInputText} 
+            onSendText={handleSendText} 
+            isListening={status === ConnectionStatus.CONNECTED} 
+            onStartSession={startSession} 
+            onStopSession={stopSession} 
+            status={status} 
+            activeSpeaker={activeSpeaker} 
+            volume={micVolume}
+            hasApiKey={!showApiKeySetup}
+          />
+        </>
+      )}
     </div>
   );
 };

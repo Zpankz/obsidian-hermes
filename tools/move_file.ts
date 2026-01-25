@@ -1,5 +1,6 @@
 import { Type } from '@google/genai';
 import { moveFile } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'move_file',
@@ -30,6 +31,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     oldContent: args.sourcePath,
     newContent: args.targetPath
   });
-  callbacks.onFileState('/', [args.sourcePath, args.targetPath]);
+  const targetDirectory = getDirectoryFromPath(args.targetPath);
+  callbacks.onFileState(targetDirectory, [args.sourcePath, args.targetPath]);
   return { status: 'moved', from: args.sourcePath, to: args.targetPath };
 };

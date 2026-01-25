@@ -211,6 +211,30 @@ export const readFile = async (filename: string): Promise<string> => {
   return content;
 };
 
+export const createBinaryFile = async (filename: string, data: ArrayBuffer | Buffer): Promise<string> => {
+  if (inObsidian) {
+    // Extract directory path from filename
+    const dirPath = filename.substring(0, filename.lastIndexOf('/'));
+    if (dirPath && dirPath.length > 0) {
+      // Check if directory exists, create if it doesn't
+      // @ts-ignore
+      const folder = getObsidianApp().vault.getAbstractFileByPath(dirPath);
+      if (!folder) {
+        // @ts-ignore
+        await getObsidianApp().vault.createFolder(dirPath);
+      }
+    }
+    
+    // @ts-ignore
+    await getObsidianApp().vault.createBinary(filename, data);
+    return `Created binary file ${filename} in vault`;
+  }
+
+  // For development/testing environment, create a placeholder file
+  const placeholder = `[Binary file data - ${data.byteLength || (data as Buffer).length} bytes]\n\nThis would be a binary file (${filename}) in the Obsidian environment.`;
+  return await createFile(filename, placeholder);
+};
+
 export const createFile = async (filename: string, content: string): Promise<string> => {
   if (inObsidian) {
     // Extract directory path from filename

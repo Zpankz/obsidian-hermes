@@ -1,5 +1,6 @@
 import { Type } from '@google/genai';
 import { createDirectory } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'create_directory',
@@ -22,6 +23,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     filename: args.path,
     newContent: `Directory created: ${args.path}`
   });
-  callbacks.onFileState('/', args.path);
+  const directoryPath = args.path.startsWith('/') ? args.path : `/${args.path}/`;
+  callbacks.onFileState(directoryPath, args.path);
   return { status: 'created', path: args.path };
 };

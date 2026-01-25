@@ -72,5 +72,10 @@ export default class HermesPlugin extends Plugin {
 
     async saveSettings() {
         await (this as any).saveData(this.settings);
+        
+        // Notify React app about settings change
+        if (typeof window !== 'undefined' && (window as any).hermesSettingsUpdate) {
+            (window as any).hermesSettingsUpdate(this.settings);
+        }
     }
 }

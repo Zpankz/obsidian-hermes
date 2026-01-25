@@ -38,12 +38,17 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   const text = response.text || "No results found.";
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
 
+  // Create system message with search results
   callbacks.onSystem(`Internet Search: ${args.query}`, {
     name: 'internet_search',
-    filename: 'Web Resource',
+    filename: 'Web',
     newContent: text,
     groundingChunks: groundingChunks
   });
 
-  return { text, groundingChunks };
+  return { 
+    text, 
+    groundingChunks,
+    searchQuery: args.query
+  };
 };

@@ -1,6 +1,7 @@
 import { GoogleGenAI, Content, Part, FunctionCall } from '@google/genai';
 import { ConnectionStatus, VoiceAssistantCallbacks, AppSettings, UsageMetadata, ToolData } from '../types';
 import { COMMAND_DECLARATIONS, executeCommand } from './commands';
+import { withRetry, RetryCounter } from '../utils/retryUtils';
 
 export interface TextInterfaceCallbacks {
   onLog: (message: string, type: 'info' | 'action' | 'error', duration?: number, errorDetails?: any) => void;
@@ -17,6 +18,7 @@ export class GeminiTextInterface {
   private currentNote: string | null = null;
   private systemInstruction: string = '';
   private model = 'gemini-2.0-flash';
+  private retryCounter = new RetryCounter(2);
 
   constructor(private callbacks: TextInterfaceCallbacks) {}
 
@@ -59,48 +61,20 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
     // Show user message immediately
     this.callbacks.onTranscription('user', text, true);
 
-    try {
-      await this.processConversation();
-    } catch (err: any) {
-      // Verbose console logging
-      console.error('=== TEXT INTERFACE ERROR ===');
-      console.error('Error Type:', err.constructor.name);
-      console.error('Error Message:', err.message);
-      console.error('Error Stack:', err.stack);
-      console.error('API Call:', 'sendMessage');
-      console.error('Timestamp:', new Date().toISOString());
-      console.error('User Agent:', navigator.userAgent);
-      console.error('Model:', this.model);
-      console.error('Chat History Length:', this.chatHistory.length);
-      console.error('System Instruction Length:', this.systemInstruction.length);
-      console.error('Current Folder:', this.currentFolder);
-      console.error('Current Note:', this.currentNote);
-      console.error('=== END TEXT INTERFACE ERROR ===');
-      
-      const errorDetails = {
-        toolName: 'GeminiTextInterface',
-        apiCall: 'sendMessage',
-        stack: err.stack,
-        content: err.message,
-        userAgent: navigator.userAgent,
-        model: this.model,
-        chatHistoryLength: this.chatHistory.length,
-        systemInstructionLength: this.systemInstruction.length,
-        timestamp: new Date().toISOString(),
-        currentFolder: this.currentFolder,
-        currentNote: this.currentNote
-      };
-      this.callbacks.onLog(`Text API Error: ${err.message}`, 'error', undefined, errorDetails);
-      
-      // Show error as system message in chat
-      this.callbacks.onSystemMessage(`ERROR: ${err.message}`, {
-        id: 'error-' + Date.now(),
-        name: 'error',
-        filename: '',
-        status: 'error',
-        error: err.message
-      });
-    }
+    await withRetry(
+      async () => {
+        this.retryCounter.increment();
+        await this.processConversation();
+      },
+      {
+        maxRetries: 2,
+        delay: 1000,
+        onRetry: (attempt, error) => {
+          this.callbacks.onLog(`Text API failed, retrying attempt ${attempt}/2...`, 'info');
+          this.callbacks.onSystemMessage(`Text API failed, retrying attempt ${attempt}/2...`);
+        }
+      }
+    );
   }
 
   private async processConversation(): Promise<void> {
@@ -155,6 +129,10 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
               this.currentFolder = folder;
               this.currentNote = Array.isArray(note) ? note[note.length - 1] : note;
               this.callbacks.onFileStateChange(folder, note);
+            },
+            onStopSession: () => {
+              // For text interface, we don't have a session to stop, but we can log it
+              this.callbacks.onLog('Conversation ended via tool call', 'info');
             }
           });
 

@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { TranscriptionEntry } from '../types';
 import SystemMessage from './SystemMessage';
+import MarkdownRenderer from './MarkdownRenderer';
 import { HAIKUS } from '../utils/haikus';
 
 interface ChatWindowProps {
@@ -116,7 +117,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
                 <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-[12px] leading-relaxed border transition-all ${
                   entry.role === 'user' ? 'hermes-user-msg-bg hermes-user-msg-text hermes-border/10 rounded-tr-none shadow-lg' : 'hermes-hermes-msg-bg hermes-hermes-msg-text hermes-border/20 rounded-tl-none'
                 }`}>
-                  {entry.text || <span className="italic opacity-30">...</span>}
+                  {entry.role === 'user' ? (
+                    entry.text || <span className="italic opacity-30">...</span>
+                  ) : (
+                    <MarkdownRenderer content={entry.text || ''} className="hermes-hermes-msg-text" />
+                  )}
                 </div>
               </div>
             )}

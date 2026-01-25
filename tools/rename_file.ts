@@ -1,6 +1,7 @@
 
 import { Type } from '@google/genai';
 import { renameFile } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'rename_file',
@@ -25,6 +26,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     oldContent: args.oldFilename,
     newContent: args.newFilename
   });
-  callbacks.onFileState('/', args.newFilename);
+  const newFileDirectory = getDirectoryFromPath(args.newFilename);
+  callbacks.onFileState(newFileDirectory, args.newFilename);
   return { status: 'renamed', from: args.oldFilename, to: args.newFilename };
 };

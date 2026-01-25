@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { isObsidian } from '../utils/environment';
 
 const AVAILABLE_VOICES = ['Default', 'Professional', 'Friendly', 'Creative', 'Technical'];
 
@@ -31,46 +30,10 @@ const Settings: React.FC<SettingsProps> = ({
   setManualApiKey,
   onUpdateApiKey
 }) => {
-  // Handle opening settings in Obsidian vs popup
-  const handleOpenSettings = () => {
-    if (isObsidian()) {
-      // In Obsidian mode, open the plugin settings
-      try {
-        // @ts-ignore - Obsidian API
-        const { app } = window;
-        if (app && app.setting) {
-          app.setting.open();
-          // Navigate to community plugins and find our plugin
-          const communityPluginsTab = app.setting.pluginTabs.find((tab: any) => 
-            tab.id === 'community-plugins'
-          );
-          if (communityPluginsTab) {
-            app.setting.openTabById('community-plugins');
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to open Obsidian settings:', error);
-        // Fallback to popup if Obsidian settings fail
-        return false;
-      }
-      return true; // Successfully opened Obsidian settings
-    }
-    return false; // Use popup mode
-  };
-
-  // If in Obsidian mode, try to open Obsidian settings instead of showing popup
-  if (isOpen && isObsidian()) {
-    const openedObsidianSettings = handleOpenSettings();
-    if (openedObsidianSettings) {
-      onClose(); // Close the popup trigger
-      return null;
-    }
-  }
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] hermes-bg-tertiary/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[200] hermes-bg-tertiary/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300">
       <div className="max-w-3xl w-full space-y-8 hermes-glass p-12 rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh]">
         <div className="flex justify-between items-start hermes-border-b pb-8">
           <div>

@@ -1,6 +1,7 @@
 
 import { Type } from '@google/genai';
 import { readFile, updateFile } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'search_and_replace_regex_in_file',
@@ -33,6 +34,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     additions: 1, // Simplified
     removals: 1   // Simplified
   });
-  callbacks.onFileState('/', args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: 'success' };
 };

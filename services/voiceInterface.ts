@@ -3,6 +3,7 @@ import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { ConnectionStatus, VoiceAssistant, VoiceAssistantCallbacks, AppSettings, UsageMetadata } from '../types';
 import { decode, encode, decodeAudioData, float32ToInt16 } from '../utils/audioUtils';
 import { COMMAND_DECLARATIONS, executeCommand } from './commands';
+import { withRetry, RetryCounter } from '../utils/retryUtils';
 
 export class GeminiVoiceAssistant implements VoiceAssistant {
   private session: any = null;
@@ -17,10 +18,41 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
   
   private currentFolder = '/';
   private currentNote: string | null = null;
+  private retryCounter = new RetryCounter(2);
+  private storedApiKey: string = '';
+  private storedSettings: AppSettings | null = null;
+  private storedInitialState: { folder: string, note: string | null } | undefined;
 
   constructor(private callbacks: VoiceAssistantCallbacks) {}
 
   async start(
+    apiKey: string, 
+    settings: AppSettings, 
+    initialState?: { folder: string, note: string | null }
+  ): Promise<void> {
+    // Store parameters for retry
+    this.storedApiKey = apiKey;
+    this.storedSettings = settings;
+    this.storedInitialState = initialState;
+    this.retryCounter.reset();
+
+    await withRetry(
+      async () => {
+        this.retryCounter.increment();
+        await this.performStart(apiKey, settings, initialState);
+      },
+      {
+        maxRetries: 2,
+        delay: 1000,
+        onRetry: (attempt, error) => {
+          this.callbacks.onLog(`Connection failed, retrying attempt ${attempt}/2...`, 'info');
+          this.callbacks.onSystemMessage(`Connection failed, retrying attempt ${attempt}/2...`);
+        }
+      }
+    );
+  }
+
+  private async performStart(
     apiKey: string, 
     settings: AppSettings, 
     initialState?: { folder: string, note: string | null }
@@ -141,6 +173,25 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
               status: 'error',
               error: errorMsg
             });
+            
+            // Attempt recovery with retry logic
+            if (this.retryCounter.canRetry) {
+              this.callbacks.onLog(`Connection error, attempting recovery...`, 'info');
+              this.callbacks.onSystemMessage(`Connection error, attempting recovery...`);
+              
+              setTimeout(async () => {
+                try {
+                  this.stop();
+                  await this.performStart(this.storedApiKey, this.storedSettings!, this.storedInitialState);
+                } catch (retryErr) {
+                  this.callbacks.onLog(`Recovery failed: ${retryErr.message}`, 'error');
+                  this.callbacks.onSystemMessage(`Recovery failed: ${retryErr.message}`);
+                }
+              }, 1000);
+            } else {
+              this.callbacks.onLog(`could not recover!`, 'error');
+              this.callbacks.onSystemMessage(`could not recover!`);
+            }
             
             this.stop();
             this.callbacks.onStatusChange(ConnectionStatus.ERROR);
@@ -316,8 +367,20 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           const response = await executeCommand(fc.name, fc.args, {
             onLog: (m, t, d) => this.callbacks.onLog(m, t, d),
             onSystem: (t, d) => {
-              // Update the existing message with system tool data
-              if (d?.id) {
+              // For most tools, let them handle their own system messages
+              // But for web search, we need to handle it specially since the tool doesn't create the final message
+              if (fc.name === 'internet_search' && d?.groundingChunks) {
+                // Update the existing pending message with the web search results
+                this.callbacks.onSystemMessage(t, {
+                  id: toolCallId,
+                  name: fc.name,
+                  filename: (fc.args?.filename as string) || 'Web',
+                  status: 'success',
+                  newContent: d.newContent,
+                  groundingChunks: d.groundingChunks
+                });
+              } else if (d?.id) {
+                // Update the existing message with system tool data
                 this.callbacks.onSystemMessage(t, d);
               } else {
                 // Create a new system message for nested tool calls
@@ -328,6 +391,9 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
               this.currentFolder = folder;
               this.currentNote = Array.isArray(note) ? note[note.length - 1] : note;
               this.callbacks.onFileStateChange(folder, note);
+            },
+            onStopSession: () => {
+              this.stop();
             }
           });
           
@@ -342,16 +408,21 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             console.log('Timestamp:', new Date().toISOString());
             console.log('=== END TOOL RESPONSE DEBUG ===');
             
-            // Update the message to success status
-            this.callbacks.onSystemMessage(`${actionName} Complete`, {
-              id: toolCallId,
-              name: fc.name,
-              filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
-              status: 'success',
-              newContent: typeof response === 'string' ? response : JSON.stringify(response, null, 2),
-              files: response?.files || response?.directories?.map((d: any) => d.path) || response?.folders,
-              directoryInfo: response?.directoryInfo
-            });
+            // For web search, the tool already creates the system message, so don't create another one
+            // For other tools, create the completion message
+            if (fc.name !== 'internet_search') {
+              // Update the message to success status
+              this.callbacks.onSystemMessage(`${actionName} Complete`, {
+                id: toolCallId,
+                name: fc.name,
+                filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
+                status: 'success',
+                newContent: response?.text || (typeof response === 'string' ? response : JSON.stringify(response, null, 2)),
+                groundingChunks: response?.groundingChunks || [],
+                files: response?.files || response?.directories?.map((d: any) => d.path) || response?.folders,
+                directoryInfo: response?.directoryInfo
+              });
+            }
             
             s.sendToolResponse({ 
               functionResponses: { id: fc.id, name: fc.name, response: { result: response } } 

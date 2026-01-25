@@ -1,6 +1,7 @@
 
 import { Type } from '@google/genai';
 import { readFile, editFile } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'edit_file',
@@ -35,6 +36,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     additions: args.operation === 'append' ? 1 : (args.operation === 'replace_line' ? 1 : 0),
     removals: args.operation === 'remove_line' ? 1 : (args.operation === 'replace_line' ? 1 : 0)
   });
-  callbacks.onFileState('/', args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: 'edited' };
 };

@@ -12,7 +12,7 @@ Hermes is a high-performance, interactive voice interface for your Obsidian vaul
   - `search_keyword` / `search_regexp`: Global vault searching.
   - `internet_search`: Real-time web grounding via Google Search.
 - **Automatic Archiving**: Using the `topic_switch` tool, Hermes can summarize segments of your conversation and save them as markdown notes in your vault.
-- **Hermes OS Interface**: A sleek, terminal-inspired UI with kernel logs, token usage tracking, and markdown previews.
+- **Hermes Interface**: A sleek, terminal-inspired UI with kernel logs, token usage tracking, and markdown previews.
 
 ## 🚀 Installation
 

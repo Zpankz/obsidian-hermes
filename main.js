@@ -1360,7 +1360,7 @@ var require_react_dom_development = __commonJS({
         return dispatcher;
       }
       "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-      var React9 = require_react(), Internals = {
+      var React10 = require_react(), Internals = {
         d: {
           f: noop2,
           r: function() {
@@ -1378,7 +1378,7 @@ var require_react_dom_development = __commonJS({
         },
         p: 0,
         findDOMNode: null
-      }, REACT_PORTAL_TYPE = Symbol.for("react.portal"), ReactSharedInternals = React9.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+      }, REACT_PORTAL_TYPE = Symbol.for("react.portal"), ReactSharedInternals = React10.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
       "function" === typeof Map && null != Map.prototype && "function" === typeof Map.prototype.forEach && "function" === typeof Set && null != Set.prototype && "function" === typeof Set.prototype.clear && "function" === typeof Set.prototype.forEach || console.error(
         "React depends on Map and Set built-in types. Make sure that you load a polyfill in older browsers. https://reactjs.org/link/react-polyfills"
       );
@@ -2950,7 +2950,7 @@ var require_react_dom_client_development = __commonJS({
         "number" === type && getActiveElement(node.ownerDocument) === node || node.defaultValue === "" + value || (node.defaultValue = "" + value);
       }
       function validateOptionProps(element, props) {
-        null == props.value && ("object" === typeof props.children && null !== props.children ? React9.Children.forEach(props.children, function(child) {
+        null == props.value && ("object" === typeof props.children && null !== props.children ? React10.Children.forEach(props.children, function(child) {
           null == child || "string" === typeof child || "number" === typeof child || "bigint" === typeof child || didWarnInvalidChild || (didWarnInvalidChild = true, console.error(
             "Cannot infer the option value of complex children. Pass a `value` prop or use a plain string as children to <option>."
           ));
@@ -18788,14 +18788,14 @@ var require_react_dom_client_development = __commonJS({
         ));
       }
       "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-      var Scheduler = require_scheduler(), React9 = require_react(), ReactDOM = require_react_dom(), assign = Object.assign, REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element"), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy");
+      var Scheduler = require_scheduler(), React10 = require_react(), ReactDOM = require_react_dom(), assign = Object.assign, REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element"), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy");
       Symbol.for("react.scope");
       var REACT_ACTIVITY_TYPE = Symbol.for("react.activity");
       Symbol.for("react.legacy_hidden");
       Symbol.for("react.tracing_marker");
       var REACT_MEMO_CACHE_SENTINEL = Symbol.for("react.memo_cache_sentinel");
       Symbol.for("react.view_transition");
-      var MAYBE_ITERATOR_SYMBOL = Symbol.iterator, REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), isArrayImpl = Array.isArray, ReactSharedInternals = React9.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, ReactDOMSharedInternals = ReactDOM.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, NotPending = Object.freeze({
+      var MAYBE_ITERATOR_SYMBOL = Symbol.iterator, REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), isArrayImpl = Array.isArray, ReactSharedInternals = React10.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, ReactDOMSharedInternals = ReactDOM.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, NotPending = Object.freeze({
         pending: false,
         data: null,
         method: null,
@@ -21588,7 +21588,7 @@ var require_react_dom_client_development = __commonJS({
         }
       };
       (function() {
-        var isomorphicReactPackageVersion = React9.version;
+        var isomorphicReactPackageVersion = React10.version;
         if ("19.2.3" !== isomorphicReactPackageVersion)
           throw Error(
             'Incompatible React versions: The "react" and "react-dom" packages must have the exact same version. Instead got:\n  - react:      ' + (isomorphicReactPackageVersion + "\n  - react-dom:  19.2.3\nLearn more: https://react.dev/warnings/version-mismatch")
@@ -21760,6 +21760,18 @@ function getObsidianApp() {
   }
   return null;
 }
+function getDirectoryFromPath(filePath) {
+  if (!filePath || typeof filePath !== "string") {
+    return "/";
+  }
+  const normalizedPath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+  const lastSlashIndex = normalizedPath.lastIndexOf("/");
+  if (lastSlashIndex === -1) {
+    return "/";
+  }
+  const directory = normalizedPath.substring(0, lastSlashIndex);
+  return directory.startsWith("/") ? directory : `/${directory}/`;
+}
 var init_environment = __esm({
   "utils/environment.ts"() {
   }
@@ -21768,6 +21780,7 @@ var init_environment = __esm({
 // services/mockFiles.ts
 var mockFiles_exports = {};
 __export(mockFiles_exports, {
+  createBinaryFile: () => createBinaryFile,
   createDirectory: () => createDirectory,
   createFile: () => createFile,
   editFile: () => editFile,
@@ -21782,7 +21795,7 @@ __export(mockFiles_exports, {
   searchFiles: () => searchFiles,
   updateFile: () => updateFile
 });
-var inObsidian, DEFAULT_FILES, MOCK_FILES, initialized, initFileSystem, listDirectory, getVaultFiles, getFolderTree, getDirectoryList, readFile, createFile, updateFile, renameFile, moveFile, editFile, createDirectory, searchFiles;
+var inObsidian, DEFAULT_FILES, MOCK_FILES, initialized, initFileSystem, listDirectory, getVaultFiles, getFolderTree, getDirectoryList, readFile, createBinaryFile, createFile, updateFile, renameFile, moveFile, editFile, createDirectory, searchFiles;
 var init_mockFiles = __esm({
   "services/mockFiles.ts"() {
     init_persistence();
@@ -21933,6 +21946,23 @@ Vaults are better when they are interactive. Hermes is the messenger.`
         throw new Error(`File not found: ${filename}`);
       }
       return content;
+    };
+    createBinaryFile = async (filename, data) => {
+      if (inObsidian) {
+        const dirPath = filename.substring(0, filename.lastIndexOf("/"));
+        if (dirPath && dirPath.length > 0) {
+          const folder = getObsidianApp().vault.getAbstractFileByPath(dirPath);
+          if (!folder) {
+            await getObsidianApp().vault.createFolder(dirPath);
+          }
+        }
+        await getObsidianApp().vault.createBinary(filename, data);
+        return `Created binary file ${filename} in vault`;
+      }
+      const placeholder = `[Binary file data - ${data.byteLength || data.length} bytes]
+
+This would be a binary file (${filename}) in the Obsidian environment.`;
+      return await createFile(filename, placeholder);
     };
     createFile = async (filename, content) => {
       if (inObsidian) {
@@ -22311,18 +22341,18 @@ var require_react_jsx_runtime_development = __commonJS({
       function isValidElement(object) {
         return "object" === typeof object && null !== object && object.$$typeof === REACT_ELEMENT_TYPE;
       }
-      var React9 = require_react(), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), ReactSharedInternals = React9.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, hasOwnProperty = Object.prototype.hasOwnProperty, isArrayImpl = Array.isArray, createTask = console.createTask ? console.createTask : function() {
+      var React10 = require_react(), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), ReactSharedInternals = React10.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, hasOwnProperty = Object.prototype.hasOwnProperty, isArrayImpl = Array.isArray, createTask = console.createTask ? console.createTask : function() {
         return null;
       };
-      React9 = {
+      React10 = {
         react_stack_bottom_frame: function(callStackForError) {
           return callStackForError();
         }
       };
       var specialPropKeyWarningShown;
       var didWarnAboutElementRef = {};
-      var unknownOwnerDebugStack = React9.react_stack_bottom_frame.bind(
-        React9,
+      var unknownOwnerDebugStack = React10.react_stack_bottom_frame.bind(
+        React10,
         UnknownOwner
       )();
       var unknownOwnerDebugTask = createTask(getTaskName(UnknownOwner));
@@ -22375,12 +22405,12 @@ module.exports = __toCommonJS(main_exports);
 var import_obsidian3 = require("obsidian");
 
 // HermesMainViewObsidian.tsx
-var import_react8 = __toESM(require_react());
+var import_react9 = __toESM(require_react());
 var import_obsidian = require("obsidian");
 var import_client = __toESM(require_client());
 
 // App.tsx
-var import_react7 = __toESM(require_react());
+var import_react8 = __toESM(require_react());
 init_mockFiles();
 
 // persistence/persistence-local-storage.ts
@@ -22413,6 +22443,20 @@ var loadAppSettingsAsync = async () => {
   if (cachedSettings)
     return cachedSettings;
   return loadAppSettings();
+};
+var reloadAppSettings = async () => {
+  cachedSettings = null;
+  const data = localStorage.getItem(SETTINGS_KEY);
+  if (!data)
+    return null;
+  try {
+    const parsed = JSON.parse(data);
+    cachedSettings = parsed;
+    return parsed;
+  } catch (e) {
+    console.error("Failed to load settings", e);
+    return null;
+  }
 };
 var saveChatHistory = async (history) => {
   try {
@@ -22468,6 +22512,10 @@ var loadAppSettingsAsync2 = async () => {
   }
   return null;
 };
+var reloadAppSettings2 = async () => {
+  cachedSettings2 = null;
+  return await loadAppSettingsAsync2();
+};
 var saveChatHistory2 = async (history) => {
   try {
     if (obsidianPlugin) {
@@ -22509,6 +22557,12 @@ var loadAppSettingsAsync3 = async () => {
     return loadAppSettingsAsync2();
   }
   return loadAppSettingsAsync();
+};
+var reloadAppSettings3 = async () => {
+  if (useObsidian) {
+    return reloadAppSettings2();
+  }
+  return reloadAppSettings();
 };
 var saveChatHistory3 = async (history) => {
   if (useObsidian) {
@@ -33039,14 +33093,14 @@ var Models = class extends BaseModule {
       if (isCallableTool(tool)) {
         const callableTool = tool;
         const toolDeclaration = await callableTool.tool();
-        for (const declaration18 of (_c = toolDeclaration.functionDeclarations) !== null && _c !== void 0 ? _c : []) {
-          if (!declaration18.name) {
+        for (const declaration20 of (_c = toolDeclaration.functionDeclarations) !== null && _c !== void 0 ? _c : []) {
+          if (!declaration20.name) {
             throw new Error("Function declaration name is required.");
           }
-          if (afcTools.has(declaration18.name)) {
-            throw new Error(`Duplicate tool declaration name: ${declaration18.name}`);
+          if (afcTools.has(declaration20.name)) {
+            throw new Error(`Duplicate tool declaration name: ${declaration20.name}`);
           }
-          afcTools.set(declaration18.name, callableTool);
+          afcTools.set(declaration20.name, callableTool);
         }
       }
     }
@@ -37783,7 +37837,7 @@ var execute4 = async (args, callbacks) => {
   callbacks.onSystem(`Directory Structure Scanned`, {
     name: "dirlist",
     filename: "Directory List",
-    files: directories
+    directoryInfo: directories.map((dir) => ({ ...dir, hasChildren: dir.children.length > 0 }))
   });
   return { directories };
 };
@@ -37796,6 +37850,7 @@ __export(read_file_exports, {
   instruction: () => instruction5
 });
 init_mockFiles();
+init_environment();
 var declaration5 = {
   name: "read_file",
   description: "Read the full content of a specified file using path relative to vault root.",
@@ -37818,7 +37873,8 @@ var execute5 = async (args, callbacks) => {
     additions: 0,
     removals: 0
   });
-  callbacks.onFileState("/", args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { content: readContent };
 };
 
@@ -37830,6 +37886,7 @@ __export(create_file_exports, {
   instruction: () => instruction6
 });
 init_mockFiles();
+init_environment();
 var declaration6 = {
   name: "create_file",
   description: "Create a new file with initial content using path relative to vault root.",
@@ -37853,7 +37910,8 @@ var execute6 = async (args, callbacks) => {
     additions: args.content.split("\n").length,
     removals: 0
   });
-  callbacks.onFileState("/", args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: "created" };
 };
 
@@ -37865,6 +37923,7 @@ __export(update_file_exports, {
   instruction: () => instruction7
 });
 init_mockFiles();
+init_environment();
 var declaration7 = {
   name: "update_file",
   description: "Overwrite the entire content of an existing file.",
@@ -37893,7 +37952,8 @@ var execute7 = async (args, callbacks) => {
     additions,
     removals
   });
-  callbacks.onFileState("/", args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: "updated" };
 };
 
@@ -37905,6 +37965,7 @@ __export(edit_file_exports, {
   instruction: () => instruction8
 });
 init_mockFiles();
+init_environment();
 var declaration8 = {
   name: "edit_file",
   description: "Perform granular line-based edits on a file.",
@@ -37935,7 +37996,8 @@ var execute8 = async (args, callbacks) => {
     additions: args.operation === "append" ? 1 : args.operation === "replace_line" ? 1 : 0,
     removals: args.operation === "remove_line" ? 1 : args.operation === "replace_line" ? 1 : 0
   });
-  callbacks.onFileState("/", args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: "edited" };
 };
 
@@ -37947,6 +38009,7 @@ __export(rename_file_exports, {
   instruction: () => instruction9
 });
 init_mockFiles();
+init_environment();
 var declaration9 = {
   name: "rename_file",
   description: "Rename an existing file to a new name.",
@@ -37968,7 +38031,8 @@ var execute9 = async (args, callbacks) => {
     oldContent: args.oldFilename,
     newContent: args.newFilename
   });
-  callbacks.onFileState("/", args.newFilename);
+  const newFileDirectory = getDirectoryFromPath(args.newFilename);
+  callbacks.onFileState(newFileDirectory, args.newFilename);
   return { status: "renamed", from: args.oldFilename, to: args.newFilename };
 };
 
@@ -37980,6 +38044,7 @@ __export(move_file_exports, {
   instruction: () => instruction10
 });
 init_mockFiles();
+init_environment();
 var declaration10 = {
   name: "move_file",
   description: "Move a file from one folder to another using paths relative to vault root",
@@ -38007,7 +38072,8 @@ var execute10 = async (args, callbacks) => {
     oldContent: args.sourcePath,
     newContent: args.targetPath
   });
-  callbacks.onFileState("/", [args.sourcePath, args.targetPath]);
+  const targetDirectory = getDirectoryFromPath(args.targetPath);
+  callbacks.onFileState(targetDirectory, [args.sourcePath, args.targetPath]);
   return { status: "moved", from: args.sourcePath, to: args.targetPath };
 };
 
@@ -38080,6 +38146,7 @@ __export(search_replace_file_exports, {
   instruction: () => instruction13
 });
 init_mockFiles();
+init_environment();
 var declaration13 = {
   name: "search_and_replace_regex_in_file",
   description: "Search and replace text in a specific file using regex.",
@@ -38108,7 +38175,8 @@ var execute13 = async (args, callbacks) => {
     additions: 1,
     removals: 1
   });
-  callbacks.onFileState("/", args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: "success" };
 };
 
@@ -38234,7 +38302,8 @@ var execute16 = async (args, callbacks) => {
     filename: args.path,
     newContent: `Directory created: ${args.path}`
   });
-  callbacks.onFileState("/", args.path);
+  const directoryPath = args.path.startsWith("/") ? args.path : `/${args.path}/`;
+  callbacks.onFileState(directoryPath, args.path);
   return { status: "created", path: args.path };
 };
 
@@ -38275,11 +38344,128 @@ var execute17 = async (args, callbacks) => {
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
   callbacks.onSystem(`Internet Search: ${args.query}`, {
     name: "internet_search",
-    filename: "Web Resource",
+    filename: "Web",
     newContent: text,
     groundingChunks
   });
-  return { text, groundingChunks };
+  return {
+    text,
+    groundingChunks,
+    searchQuery: args.query
+  };
+};
+
+// tools/end_conversation.ts
+var end_conversation_exports = {};
+__export(end_conversation_exports, {
+  declaration: () => declaration18,
+  execute: () => execute18,
+  instruction: () => instruction18
+});
+var declaration18 = {
+  name: "end_conversation",
+  description: "End the current voice conversation session and stop the voice interface.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {},
+    required: []
+  }
+};
+var instruction18 = `
+CONVERSATION CONTROL:
+1. Use "end_conversation" when the user indicates they want to stop talking or end the conversation.
+2. This will immediately stop the voice interface and disconnect the session.
+3. Do NOT say "Done." after calling this. The session will simply end.`;
+var execute18 = async (args, callbacks) => {
+  callbacks.onSystem("Ending conversation...", {
+    name: "end_conversation",
+    filename: "Session",
+    status: "success"
+  });
+  if (callbacks.onStopSession) {
+    callbacks.onStopSession();
+  }
+  return { status: "conversation_ended" };
+};
+
+// tools/generate_image_from_context.ts
+var generate_image_from_context_exports = {};
+__export(generate_image_from_context_exports, {
+  declaration: () => declaration19,
+  execute: () => execute19,
+  instruction: () => instruction19
+});
+init_mockFiles();
+init_environment();
+var declaration19 = {
+  name: "generate_image_from_context",
+  description: "Generate an image based on the current context or provided prompt using Gemini API and save it to the vault.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      prompt: { type: Type.STRING, description: "The prompt describing what image to generate. If not provided, will use current context." },
+      filename: { type: Type.STRING, description: 'The filename to save the image as (e.g., "generated-image.png"). If not provided, will auto-generate.' }
+    },
+    required: []
+  }
+};
+var instruction19 = `- generate_image_from_context: Use this to create images based on conversation context or specific prompts. Images are saved to the current vault directory.`;
+var execute19 = async (args, callbacks) => {
+  const settings = loadAppSettings3();
+  const apiKey = settings?.manualApiKey?.trim() || process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API key not found. Please set your Gemini API key in the plugin settings.");
+  }
+  const ai = new GoogleGenAI({ apiKey });
+  let prompt = args.prompt;
+  if (!prompt) {
+    prompt = "Generate an image based on the current conversation context and topic being discussed.";
+  }
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      contents: `Generate an image based on this prompt: ${prompt}. Please return the image as base64 data.`,
+      config: {
+        responseMimeType: "text/plain"
+      }
+    });
+    const text = response.text || "";
+    let imageData = "";
+    const base64Match = text.match(/data:image\/[a-z]+;base64,([A-Za-z0-9+/=]+)/);
+    if (base64Match) {
+      imageData = base64Match[1];
+    } else {
+      imageData = text.trim();
+    }
+    if (!imageData) {
+      throw new Error("Failed to generate image data");
+    }
+    let filename = args.filename;
+    if (!filename) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+      filename = `generated-image-${timestamp}.png`;
+    }
+    if (!filename.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
+      filename += ".png";
+    }
+    const binaryData = Buffer.from(imageData, "base64");
+    await createBinaryFile(filename, binaryData);
+    callbacks.onSystem(`Generated image: ${filename}`, {
+      name: "generate_image_from_context",
+      filename,
+      newContent: `Generated image (${binaryData.byteLength} bytes)`,
+      description: `Image generated from prompt: ${prompt}`
+    });
+    const imageDirectory = getDirectoryFromPath(filename);
+    callbacks.onFileState(imageDirectory, filename);
+    return {
+      filename,
+      size: binaryData.byteLength,
+      description: `Image generated from prompt: ${prompt}`
+    };
+  } catch (error) {
+    throw new Error(`Failed to generate image: ${error.message}`);
+  }
 };
 
 // services/commands.ts
@@ -38300,7 +38486,9 @@ var TOOLS = {
   search_and_replace_regex_in_file: search_replace_file_exports,
   search_and_replace_regex_global: search_replace_global_exports,
   topic_switch: topic_switch_exports,
-  internet_search: web_search_exports
+  internet_search: web_search_exports,
+  generate_image_from_context: generate_image_from_context_exports,
+  end_conversation: end_conversation_exports
 };
 var COMMAND_DECLARATIONS = Object.values(TOOLS).map((t) => t.declaration);
 var executeCommand = async (name, args, callbacks) => {
@@ -38566,6 +38754,47 @@ Current content shows first 50,000 characters only.`;
   return result;
 }
 
+// utils/retryUtils.ts
+async function withRetry(operation, options = { maxRetries: 2, delay: 1e3 }) {
+  let lastError;
+  for (let attempt = 0; attempt <= options.maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt === options.maxRetries) {
+        throw new Error("could not recover!");
+      }
+      if (options.onRetry) {
+        options.onRetry(attempt + 1, lastError);
+      }
+      await new Promise((resolve) => setTimeout(resolve, options.delay));
+    }
+  }
+  throw lastError;
+}
+var RetryCounter = class {
+  constructor(maxRetries = 2) {
+    this.maxRetries = maxRetries;
+    this.attempts = 0;
+  }
+  get retryCount() {
+    return this.attempts;
+  }
+  get canRetry() {
+    return this.attempts < this.maxRetries;
+  }
+  increment() {
+    this.attempts++;
+  }
+  reset() {
+    this.attempts = 0;
+  }
+  get shouldBail() {
+    return this.attempts >= this.maxRetries;
+  }
+};
+
 // services/voiceInterface.ts
 var GeminiVoiceAssistant = class {
   constructor(callbacks) {
@@ -38580,8 +38809,31 @@ var GeminiVoiceAssistant = class {
     this.currentOutputText = "";
     this.currentFolder = "/";
     this.currentNote = null;
+    this.retryCounter = new RetryCounter(2);
+    this.storedApiKey = "";
+    this.storedSettings = null;
   }
   async start(apiKey, settings, initialState) {
+    this.storedApiKey = apiKey;
+    this.storedSettings = settings;
+    this.storedInitialState = initialState;
+    this.retryCounter.reset();
+    await withRetry(
+      async () => {
+        this.retryCounter.increment();
+        await this.performStart(apiKey, settings, initialState);
+      },
+      {
+        maxRetries: 2,
+        delay: 1e3,
+        onRetry: (attempt, error) => {
+          this.callbacks.onLog(`Connection failed, retrying attempt ${attempt}/2...`, "info");
+          this.callbacks.onSystemMessage(`Connection failed, retrying attempt ${attempt}/2...`);
+        }
+      }
+    );
+  }
+  async performStart(apiKey, settings, initialState) {
     try {
       if (initialState) {
         this.currentFolder = initialState.folder;
@@ -38685,6 +38937,22 @@ ${settings.customContext}`.trim();
               status: "error",
               error: errorMsg
             });
+            if (this.retryCounter.canRetry) {
+              this.callbacks.onLog(`Connection error, attempting recovery...`, "info");
+              this.callbacks.onSystemMessage(`Connection error, attempting recovery...`);
+              setTimeout(async () => {
+                try {
+                  this.stop();
+                  await this.performStart(this.storedApiKey, this.storedSettings, this.storedInitialState);
+                } catch (retryErr) {
+                  this.callbacks.onLog(`Recovery failed: ${retryErr.message}`, "error");
+                  this.callbacks.onSystemMessage(`Recovery failed: ${retryErr.message}`);
+                }
+              }, 1e3);
+            } else {
+              this.callbacks.onLog(`could not recover!`, "error");
+              this.callbacks.onSystemMessage(`could not recover!`);
+            }
             this.stop();
             this.callbacks.onStatusChange("ERROR" /* ERROR */);
           },
@@ -38827,7 +39095,16 @@ ${settings.customContext}`.trim();
           const response = await executeCommand(fc.name, fc.args, {
             onLog: (m2, t, d2) => this.callbacks.onLog(m2, t, d2),
             onSystem: (t, d2) => {
-              if (d2?.id) {
+              if (fc.name === "internet_search" && d2?.groundingChunks) {
+                this.callbacks.onSystemMessage(t, {
+                  id: toolCallId,
+                  name: fc.name,
+                  filename: fc.args?.filename || "Web",
+                  status: "success",
+                  newContent: d2.newContent,
+                  groundingChunks: d2.groundingChunks
+                });
+              } else if (d2?.id) {
                 this.callbacks.onSystemMessage(t, d2);
               } else {
                 this.callbacks.onSystemMessage(t, d2);
@@ -38837,6 +39114,9 @@ ${settings.customContext}`.trim();
               this.currentFolder = folder;
               this.currentNote = Array.isArray(note) ? note[note.length - 1] : note;
               this.callbacks.onFileStateChange(folder, note);
+            },
+            onStopSession: () => {
+              this.stop();
             }
           });
           sessionPromise.then((s) => {
@@ -38848,15 +39128,18 @@ ${settings.customContext}`.trim();
             console.log("Response Type:", typeof response);
             console.log("Timestamp:", new Date().toISOString());
             console.log("=== END TOOL RESPONSE DEBUG ===");
-            this.callbacks.onSystemMessage(`${actionName} Complete`, {
-              id: toolCallId,
-              name: fc.name,
-              filename: fc.args?.filename || (fc.name === "internet_search" ? "Web" : "Registry"),
-              status: "success",
-              newContent: typeof response === "string" ? response : JSON.stringify(response, null, 2),
-              files: response?.files || response?.directories?.map((d2) => d2.path) || response?.folders,
-              directoryInfo: response?.directoryInfo
-            });
+            if (fc.name !== "internet_search") {
+              this.callbacks.onSystemMessage(`${actionName} Complete`, {
+                id: toolCallId,
+                name: fc.name,
+                filename: fc.args?.filename || (fc.name === "internet_search" ? "Web" : "Registry"),
+                status: "success",
+                newContent: response?.text || (typeof response === "string" ? response : JSON.stringify(response, null, 2)),
+                groundingChunks: response?.groundingChunks || [],
+                files: response?.files || response?.directories?.map((d2) => d2.path) || response?.folders,
+                directoryInfo: response?.directoryInfo
+              });
+            }
             s.sendToolResponse({
               functionResponses: { id: fc.id, name: fc.name, response: { result: response } }
             });
@@ -39000,6 +39283,7 @@ var GeminiTextInterface = class {
     this.currentNote = null;
     this.systemInstruction = "";
     this.model = "gemini-2.0-flash";
+    this.retryCounter = new RetryCounter(2);
   }
   async initialize(apiKey, settings, initialState) {
     if (initialState) {
@@ -39029,44 +39313,20 @@ ${settings.customContext}`.trim();
       parts: [{ text }]
     });
     this.callbacks.onTranscription("user", text, true);
-    try {
-      await this.processConversation();
-    } catch (err) {
-      console.error("=== TEXT INTERFACE ERROR ===");
-      console.error("Error Type:", err.constructor.name);
-      console.error("Error Message:", err.message);
-      console.error("Error Stack:", err.stack);
-      console.error("API Call:", "sendMessage");
-      console.error("Timestamp:", new Date().toISOString());
-      console.error("User Agent:", navigator.userAgent);
-      console.error("Model:", this.model);
-      console.error("Chat History Length:", this.chatHistory.length);
-      console.error("System Instruction Length:", this.systemInstruction.length);
-      console.error("Current Folder:", this.currentFolder);
-      console.error("Current Note:", this.currentNote);
-      console.error("=== END TEXT INTERFACE ERROR ===");
-      const errorDetails = {
-        toolName: "GeminiTextInterface",
-        apiCall: "sendMessage",
-        stack: err.stack,
-        content: err.message,
-        userAgent: navigator.userAgent,
-        model: this.model,
-        chatHistoryLength: this.chatHistory.length,
-        systemInstructionLength: this.systemInstruction.length,
-        timestamp: new Date().toISOString(),
-        currentFolder: this.currentFolder,
-        currentNote: this.currentNote
-      };
-      this.callbacks.onLog(`Text API Error: ${err.message}`, "error", void 0, errorDetails);
-      this.callbacks.onSystemMessage(`ERROR: ${err.message}`, {
-        id: "error-" + Date.now(),
-        name: "error",
-        filename: "",
-        status: "error",
-        error: err.message
-      });
-    }
+    await withRetry(
+      async () => {
+        this.retryCounter.increment();
+        await this.processConversation();
+      },
+      {
+        maxRetries: 2,
+        delay: 1e3,
+        onRetry: (attempt, error) => {
+          this.callbacks.onLog(`Text API failed, retrying attempt ${attempt}/2...`, "info");
+          this.callbacks.onSystemMessage(`Text API failed, retrying attempt ${attempt}/2...`);
+        }
+      }
+    );
   }
   async processConversation() {
     if (!this.ai)
@@ -39108,6 +39368,9 @@ ${settings.customContext}`.trim();
               this.currentFolder = folder;
               this.currentNote = Array.isArray(note) ? note[note.length - 1] : note;
               this.callbacks.onFileStateChange(folder, note);
+            },
+            onStopSession: () => {
+              this.callbacks.onLog("Conversation ended via tool call", "info");
             }
           });
           functionResponses.push({
@@ -39195,7 +39458,8 @@ var toolInstructions = [
   instruction13,
   instruction14,
   instruction15,
-  instruction17
+  instruction17,
+  instruction18
 ].join("\n\n");
 var DEFAULT_SYSTEM_INSTRUCTION = `You are an advanced voice assistant (Hermes) with file system access and internet capabilities.
 Vault structure: Flat markdown files.
@@ -39335,9 +39599,23 @@ var SettingsButton_default = SettingsButton;
 
 // components/Header.tsx
 var import_jsx_runtime2 = __toESM(require_jsx_runtime());
-var Header = ({ status, showLogs, onToggleLogs, onOpenSettings }) => {
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("header", { className: "flex items-center justify-between px-6 py-2 hermes-border-b hermes-header-bg shrink-0 z-50", children: [
+var Header = ({ status, showLogs, onToggleLogs, onOpenSettings, isListening, onStopSession }) => {
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("header", { className: `relative flex items-center justify-between px-6 py-2 hermes-border-b shrink-0 z-50 ${isListening ? "hermes-header-bg-listening" : "hermes-header-bg"}`, children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex items-center space-x-6", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-col", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h1", { className: "text-lg font-semibold hermes-text-normal", children: "Hermes" }) }) }),
+    isListening && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "absolute left-1/2 transform -translate-x-1/2 flex items-center", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "button",
+      {
+        onClick: onStopSession,
+        className: "w-[52px] h-[52px] flex items-center justify-center bg-red-600 text-white rounded-full transition-all hover:bg-red-700 active:scale-95 shadow-lg shadow-red-600/50",
+        title: "Stop Listening",
+        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("svg", { className: "w-6 h-6", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 14c-4.42 0-8 2-8 5v1h16v-1c0-3-3.58-5-8-5z" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "opacity-40", d: "M19 8c1.33 1.33 1.33 3.67 0 5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "opacity-70", d: "M21 6c2 2 2 6 0 8" })
+        ] })
+      }
+    ) }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center space-x-1", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         "button",
@@ -39355,7 +39633,6 @@ var Header = ({ status, showLogs, onToggleLogs, onOpenSettings }) => {
 var Header_default = Header;
 
 // components/Settings.tsx
-init_environment();
 var import_jsx_runtime3 = __toESM(require_jsx_runtime());
 var AVAILABLE_VOICES = ["Default", "Professional", "Friendly", "Creative", "Technical"];
 var Settings = ({
@@ -39371,37 +39648,9 @@ var Settings = ({
   setManualApiKey,
   onUpdateApiKey
 }) => {
-  const handleOpenSettings = () => {
-    if (isObsidian()) {
-      try {
-        const { app: app2 } = window;
-        if (app2 && app2.setting) {
-          app2.setting.open();
-          const communityPluginsTab = app2.setting.pluginTabs.find(
-            (tab) => tab.id === "community-plugins"
-          );
-          if (communityPluginsTab) {
-            app2.setting.openTabById("community-plugins");
-          }
-        }
-      } catch (error) {
-        console.warn("Failed to open Obsidian settings:", error);
-        return false;
-      }
-      return true;
-    }
-    return false;
-  };
-  if (isOpen && isObsidian()) {
-    const openedObsidianSettings = handleOpenSettings();
-    if (openedObsidianSettings) {
-      onClose();
-      return null;
-    }
-  }
   if (!isOpen)
     return null;
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "fixed inset-0 z-[100] hermes-bg-tertiary/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "max-w-3xl w-full space-y-8 hermes-glass p-12 rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh]", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "fixed inset-0 z-[200] hermes-bg-tertiary/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "max-w-3xl w-full space-y-8 hermes-glass p-12 rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh]", children: [
     /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex justify-between items-start hermes-border-b pb-8", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h2", { className: "text-2xl font-semibold mb-2 hermes-text-normal", children: "Settings" }),
@@ -41046,13 +41295,17 @@ var ToolResult = ({ toolData, isLast }) => {
         children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-3 overflow-hidden", children: [
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: `text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 ${isPending ? "hermes-interactive-bg/20 hermes-text-accent" : toolData.name.includes("create") ? "hermes-success-bg/20 hermes-success" : toolData.name.includes("read") ? "hermes-interactive-bg/20 hermes-text-accent" : toolData.name.includes("rename") ? "hermes-warning-bg/20 hermes-warning" : toolData.name.includes("search") ? "hermes-info-bg/20 hermes-info" : toolData.name.includes("replace") ? "hermes-warning-bg/20 hermes-warning" : toolData.name === "internet_search" ? "hermes-info-bg/20 hermes-info" : "hermes-text-muted-bg/20 hermes-text-muted"}`, children: getActionLabel(toolData.name) }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-[11px] font-mono hermes-text-normal truncate max-w-[300px]", children: toolData.name === "internet_search" ? `Uplink: Web Query` : `${toolData.filename}` })
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-[11px] font-mono hermes-text-normal truncate max-w-[300px]", children: toolData.name === "internet_search" ? `Searching: ${toolData.filename}` : `${toolData.filename}` })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: isPending ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-1 px-2", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: isPending ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center space-x-1 px-2", children: toolData.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "loading-dots-container", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "loading-dot" }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "loading-dot" }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "loading-dot" })
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-1", children: [
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-1 h-1 hermes-text-accent rounded-full", children: "." }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-1 h-1 hermes-text-accent rounded-full", children: "." }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-1 h-1 hermes-text-accent rounded-full", children: "." })
-          ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+          ] }) }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
             "svg",
             {
               className: `w-4 h-4 hermes-text-muted transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`,
@@ -41126,6 +41379,43 @@ var ToolResult_default = ToolResult;
 
 // components/SystemMessage.tsx
 var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+var WebSearchView2 = ({ content, chunks }) => {
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "p-4 space-y-4", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "pb-4 border-b border-gray-800 mb-4", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(MarkdownRenderer_default, { content }) }),
+    chunks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "space-y-3", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "text-[8px] font-black uppercase tracking-[0.2em] text-blue-400/70 ml-1", children: "Source Grounding" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "grid grid-cols-1 gap-2", children: [
+        chunks.slice(0, 10).map((chunk, i) => {
+          const item = chunk.web || chunk.maps;
+          if (!item)
+            return null;
+          return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+            "a",
+            {
+              href: item.uri,
+              target: "_blank",
+              rel: "noopener noreferrer",
+              className: "flex items-center space-x-3 p-3 rounded-xl bg-gray-800/30 border border-gray-700/30 hover:bg-gray-700/20 transition-all group shadow-sm",
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "w-8 h-8 rounded-lg bg-gray-600/20 flex items-center justify-center shrink-0 border border-gray-600/20", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("svg", { className: "w-4 h-4 text-blue-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" }) }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "flex flex-col truncate", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "text-[11px] font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate", children: item.title }),
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "text-[9px] text-gray-500 truncate font-mono", children: new URL(item.uri).hostname })
+                ] })
+              ]
+            },
+            i
+          );
+        }),
+        chunks.length > 10 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "text-gray-500 italic text-[9px] pt-2 px-3 border-t border-gray-700", children: [
+          "... and ",
+          chunks.length - 10,
+          " more sources (truncated)"
+        ] })
+      ] })
+    ] })
+  ] });
+};
 var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
   const [isExpanded, setIsExpanded] = (0, import_react3.useState)(false);
   const [manuallyToggled, setManuallyToggled] = (0, import_react3.useState)(false);
@@ -41176,6 +41466,8 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
         return "GLOBAL";
       case "internet_search":
         return "WEB";
+      case "end_conversation":
+        return "END";
       case "error":
         return "ERROR";
       default:
@@ -41185,24 +41477,24 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
   const getStyles = () => {
     if (isError) {
       return {
-        backgroundColor: "rgba(239, 68, 68, 0.15)",
-        border: "1px solid rgba(239, 68, 68, 0.3)",
-        headerBg: "rgba(239, 68, 68, 0.05)",
-        contentBg: "rgba(239, 68, 68, 0.08)",
-        borderColor: "rgba(239, 68, 68, 0.2)",
+        backgroundColor: "transparent",
+        border: "none",
+        headerBg: "transparent",
+        contentBg: "rgba(239, 68, 68, 0.05)",
+        borderColor: "rgba(239, 68, 68, 0.1)",
         accentColor: "#ef4444",
-        textColor: "#f87171",
+        textColor: "#ef4444",
         mutedColor: "#fca5a5"
       };
     }
     return {
-      backgroundColor: "rgba(156, 163, 175, 0.1)",
-      border: "1px solid rgba(156, 163, 175, 0.2)",
-      headerBg: "rgba(156, 163, 175, 0.05)",
-      contentBg: "rgba(156, 163, 175, 0.08)",
-      borderColor: "rgba(156, 163, 175, 0.15)",
+      backgroundColor: "transparent",
+      border: "none",
+      headerBg: "transparent",
+      contentBg: "rgba(156, 163, 175, 0.03)",
+      borderColor: "rgba(156, 163, 175, 0.08)",
       accentColor: "#9ca3af",
-      textColor: "#d1d5db",
+      textColor: "#9ca3af",
       mutedColor: "#e5e7eb"
     };
   };
@@ -41220,18 +41512,18 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
           "div",
           {
             onClick: toggle,
-            className: `flex items-center justify-between px-4 py-3 ${hasExpandableContent && !isPending ? "cursor-pointer" : "cursor-default"} transition-colors`,
+            className: `flex items-center justify-between px-2 py-1.5 ${hasExpandableContent && !isPending ? "cursor-pointer" : "cursor-default"} transition-colors`,
             style: {
               backgroundColor: styles.headerBg
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "flex items-center space-x-3 overflow-hidden", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "flex items-center space-x-2 overflow-hidden", children: [
                 toolData && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
                   "span",
                   {
-                    className: "text-[9px] font-black px-1.5 py-0.5 rounded shrink-0",
+                    className: "text-[9px] font-black px-1 py-0.5 rounded shrink-0",
                     style: {
-                      backgroundColor: isError ? "rgba(239, 68, 68, 0.2)" : "rgba(156, 163, 175, 0.15)",
+                      backgroundColor: "transparent",
                       color: styles.accentColor
                     },
                     children: getActionLabel(toolData.name)
@@ -41242,15 +41534,19 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
                   {
                     className: "text-[11px] font-mono truncate max-w-[400px]",
                     style: { color: styles.textColor },
-                    children: toolData?.filename || children
+                    children: toolData?.name === "internet_search" && toolData?.filename ? `Searching: ${toolData.filename}` : toolData?.filename || children
                   }
                 ),
-                isError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "text-[8px] px-2 py-0.5 rounded font-bold", style: {
-                  backgroundColor: "rgba(239, 68, 68, 0.2)",
+                isError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "text-[8px] px-1 py-0.5 rounded font-bold", style: {
+                  backgroundColor: "transparent",
                   color: "#ef4444"
                 }, children: "ERROR" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: isPending ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-1 px-2", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { color: styles.accentColor }, children: "..." }) }) : hasExpandableContent ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: isPending ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-1 px-2", children: toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "loading-dots-container", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" })
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { color: styles.accentColor }, children: "..." }) }) : hasExpandableContent ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
                 "svg",
                 {
                   className: `w-4 h-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`,
@@ -41272,13 +41568,13 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
               backgroundColor: styles.contentBg,
               borderTop: styles.borderColor
             },
-            children: toolData?.name === "list_directory" || toolData?.name === "dirlist" || toolData?.name === "get_folder_tree" || toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ToolResult_default, { toolData, isLast }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
-              toolData?.newContent && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "p-4 font-mono text-[10px] whitespace-pre-wrap", style: { color: styles.textColor }, children: toolData.newContent }),
-              toolData?.files && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "p-4 font-mono text-[10px]", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "space-y-1", children: toolData.files.map((file, index) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "flex items-center space-x-2 px-2 py-1 rounded", style: { color: styles.textColor }, children: [
+            children: toolData?.name === "list_directory" || toolData?.name === "dirlist" || toolData?.name === "get_folder_tree" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ToolResult_default, { toolData, isLast }) : toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "p-2", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(WebSearchView2, { content: toolData.newContent || "", chunks: toolData.groundingChunks || [] }) }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+              toolData?.newContent && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "p-2 font-mono text-[10px] whitespace-pre-wrap", style: { color: styles.textColor }, children: toolData.newContent }),
+              toolData?.files && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "p-2 font-mono text-[10px]", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "space-y-1", children: toolData.files.map((file, index) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "flex items-center space-x-2 px-1 py-0.5 rounded", style: { color: styles.textColor }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u{1F4C4}" }),
                 /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "truncate", children: file })
               ] }, index)) }) }),
-              toolData?.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "p-4 font-mono text-[10px] italic", style: { color: "#fca5a5" }, children: [
+              toolData?.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "p-2 font-mono text-[10px] italic", style: { color: "#fca5a5" }, children: [
                 "Error: ",
                 toolData.error
               ] })
@@ -41379,7 +41675,7 @@ var ChatWindow = ({ transcripts, hasSavedConversation, onRestoreConversation }) 
           }
           return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: `flex flex-col ${entry.role === "user" ? "items-end" : "items-start"} animate-in fade-in slide-in-from-bottom-2`, children: entry.role === "system" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "w-full", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "flex justify-center w-full py-2", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(SystemMessage_default, { toolData: entry.toolData, isLast, children: entry.text }) }) }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: `flex flex-col ${entry.role === "user" ? "items-end" : "items-start"} w-full`, children: [
             /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: `text-[8px] font-black uppercase tracking-widest mb-1 opacity-40 ${entry.role === "user" ? "mr-2" : "ml-2"}`, children: entry.role === "user" ? "User" : "Hermes" }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: `max-w-[85%] px-5 py-3 rounded-2xl text-[12px] leading-relaxed border transition-all ${entry.role === "user" ? "hermes-user-msg-bg hermes-user-msg-text hermes-border/10 rounded-tr-none shadow-lg" : "hermes-hermes-msg-bg hermes-hermes-msg-text hermes-border/20 rounded-tl-none"}`, children: entry.text || /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "italic opacity-30", children: "..." }) })
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: `max-w-[85%] px-5 py-3 rounded-2xl text-[12px] leading-relaxed border transition-all ${entry.role === "user" ? "hermes-user-msg-bg hermes-user-msg-text hermes-border/10 rounded-tr-none shadow-lg" : "hermes-hermes-msg-bg hermes-hermes-msg-text hermes-border/20 rounded-tl-none"}`, children: entry.role === "user" ? entry.text || /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "italic opacity-30", children: "..." }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(MarkdownRenderer_default, { content: entry.text || "", className: "hermes-hermes-msg-text" }) })
           ] }) }, entry.id);
         })
       ]
@@ -41579,7 +41875,8 @@ var InputBar = ({
   onStopSession,
   status,
   activeSpeaker,
-  volume
+  volume,
+  hasApiKey
 }) => {
   const [chatHistory, setChatHistory] = (0, import_react6.useState)([]);
   const [historyIndex, setHistoryIndex] = (0, import_react6.useState)(-1);
@@ -41618,7 +41915,7 @@ var InputBar = ({
       setHistoryIndex(-1);
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("footer", { className: "h-[100px] pb-5 px-8 hermes-footer-bg backdrop-blur-2xl hermes-border-t flex items-center justify-center shrink-0", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "flex items-center space-x-6 w-full max-w-5xl", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("footer", { className: `h-[100px] pb-5 px-8 backdrop-blur-2xl hermes-border-t flex items-center justify-center shrink-0 ${isListening ? "hermes-footer-bg-listening" : "hermes-footer-bg"}`, children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "flex items-center space-x-6 w-full max-w-5xl", children: [
     /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(
       "form",
       {
@@ -41633,15 +41930,17 @@ var InputBar = ({
               value: inputText,
               onChange: (e) => setInputText(e.target.value),
               onKeyDown: handleKeyDown,
-              placeholder: "Message Hermes...",
-              className: "flex-1 hermes-input-bg hermes-input-text hermes-input-border border rounded-lg px-4 py-2 text-sm focus:outline-none focus:hermes-input-border-focus"
+              placeholder: hasApiKey ? "Message Hermes..." : "API key required...",
+              disabled: !hasApiKey,
+              className: `flex-1 h-[52px] hermes-input-bg hermes-input-text hermes-input-border border rounded-lg px-4 text-sm focus:outline-none focus:hermes-input-border-focus ${!hasApiKey ? "opacity-50 cursor-not-allowed" : ""}`
             }
           ),
           /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(
             "button",
             {
               type: "submit",
-              className: "flex items-center justify-center p-2 ml-2 hermes-text-muted hermes-hover:text-normal transition-colors",
+              disabled: !hasApiKey || !inputText.trim(),
+              className: `flex items-center justify-center w-[52px] h-[52px] ml-2 transition-colors ${hasApiKey && inputText.trim() ? "hermes-text-muted hermes-hover:text-normal" : "opacity-50 cursor-not-allowed"}`,
               children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M13 5l7 7-7 7M5 5l7 7-7 7" }) })
             }
           )
@@ -41690,9 +41989,9 @@ var InputBar = ({
       "button",
       {
         onClick: onStartSession,
-        disabled: status === "CONNECTING" /* CONNECTING */,
-        className: "w-[52px] h-[52px] flex items-center justify-center hermes-interactive-bg hermes-text-normal rounded-lg transition-all disabled:opacity-50 hermes-border/20 active:scale-95 group",
-        title: "Start Voice Session",
+        disabled: status === "CONNECTING" /* CONNECTING */ || !hasApiKey,
+        className: `w-[52px] h-[52px] flex items-center justify-center rounded-lg transition-all active:scale-95 group ${hasApiKey ? "hermes-interactive-bg hermes-text-normal hermes-border/20 hover:scale-110" : "opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-700"}`,
+        title: hasApiKey ? "Start Voice Session" : "API key required",
         children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("svg", { className: "w-6 h-6 transition-transform group-hover:scale-110", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
           /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("path", { d: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" }),
           /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("path", { d: "M12 14c-4.42 0-8 2-8 5v1h16v-1c0-3-3.58-5-8-5z" }),
@@ -41705,41 +42004,126 @@ var InputBar = ({
 };
 var InputBar_default = InputBar;
 
-// App.tsx
+// components/ApiKeySetup.tsx
+var import_react7 = __toESM(require_react());
 var import_jsx_runtime12 = __toESM(require_jsx_runtime());
+var ApiKeySetup = ({ onApiKeySave }) => {
+  const [apiKey, setApiKey] = (0, import_react7.useState)("");
+  const [isSaving, setIsSaving] = (0, import_react7.useState)(false);
+  const handleSave = async () => {
+    if (!apiKey.trim())
+      return;
+    setIsSaving(true);
+    try {
+      await onApiKeySave(apiKey.trim());
+      setApiKey("");
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "flex flex-col items-center justify-center min-h-[400px] p-8", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "max-w-2xl text-center space-y-6", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "w-20 h-20 mx-auto mb-4 flex items-center justify-center rounded-full bg-blue-500/10", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("svg", { className: "w-10 h-10 text-blue-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" }) }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("h1", { className: "text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2", children: "Welcome to Hermes" }),
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("p", { className: "text-lg text-gray-600 dark:text-gray-400", children: "Your Obsidian Interactive Voice Assistant \u2014 the bridge between you and your notes" }),
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("p", { className: "text-gray-600 dark:text-gray-400 leading-relaxed", children: "To use Hermes Voice Assistant, you need a Gemini API key from Google AI Studio. The API key allows the assistant to connect to Google's language models." }),
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-left", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("h2", { className: "text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100", children: "How to get your API key:" }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("ol", { className: "space-y-3 text-gray-700 dark:text-gray-300", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "flex items-start", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3", children: "1" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { children: [
+            "Visit ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("a", { href: "https://aistudio.google.com/app/apikey", target: "_blank", rel: "noopener noreferrer", className: "text-blue-500 hover:text-blue-600 underline", children: "Google AI Studio" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "flex items-start", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3", children: "2" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "Sign in with your Google account" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "flex items-start", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3", children: "3" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: 'Click "Create API Key" and give it a name' })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "flex items-start", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3", children: "4" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "Copy your API key" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "flex items-start", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3", children: "5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "Paste it in the Settings panel" })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "space-y-4", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "flex flex-col space-y-2", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("label", { className: "text-sm font-medium text-gray-700 dark:text-gray-300", children: "Your Gemini API Key" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+          "input",
+          {
+            type: "password",
+            value: apiKey,
+            onChange: (e) => setApiKey(e.target.value),
+            placeholder: "Enter your Gemini API Key...",
+            className: "w-full h-12 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-4 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono placeholder-gray-500 dark:placeholder-gray-400"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+        "button",
+        {
+          onClick: handleSave,
+          disabled: !apiKey.trim() || isSaving,
+          className: `w-full py-4 px-8 font-semibold rounded-lg transition-colors text-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] ${apiKey.trim() && !isSaving ? "bg-blue-500 hover:bg-blue-600 text-white" : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"}`,
+          children: isSaving ? "Saving..." : "Save API Key"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("p", { className: "text-sm text-gray-500 dark:text-gray-500", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("a", { href: "https://github.com/symunona/obsidian-haiku", children: "Go see me on github" }),
+      ". Or buy me a tea."
+    ] })
+  ] }) });
+};
+var ApiKeySetup_default = ApiKeySetup;
+
+// App.tsx
+var import_jsx_runtime13 = __toESM(require_jsx_runtime());
 var App = () => {
-  const saved = (0, import_react7.useMemo)(() => {
+  const saved = (0, import_react8.useMemo)(() => {
     const data = loadAppSettings3();
     return data || {};
   }, []);
-  (0, import_react7.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     const data = loadAppSettings3();
     setHasSavedConversation(!!data?.transcripts && data.transcripts.length > 0);
   }, []);
-  const [status, setStatus] = (0, import_react7.useState)("DISCONNECTED" /* DISCONNECTED */);
-  const [logs, setLogs] = (0, import_react7.useState)([]);
-  const [inputText, setInputText] = (0, import_react7.useState)("");
-  const [settingsOpen, setSettingsOpen] = (0, import_react7.useState)(false);
-  const [showKernel, setShowKernel] = (0, import_react7.useState)(false);
-  const [activeSpeaker, setActiveSpeaker] = (0, import_react7.useState)("none");
-  const [micVolume, setMicVolume] = (0, import_react7.useState)(0);
-  const [transcripts, setTranscripts] = (0, import_react7.useState)([]);
-  const [hasSavedConversation, setHasSavedConversation] = (0, import_react7.useState)(false);
-  const [voiceName, setVoiceName] = (0, import_react7.useState)(() => saved.voiceName || "Zephyr");
-  const [customContext, setCustomContext] = (0, import_react7.useState)(() => saved.customContext || "");
-  const [systemInstruction, setSystemInstruction] = (0, import_react7.useState)(() => saved.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
-  const [manualApiKey, setManualApiKey] = (0, import_react7.useState)(() => saved.manualApiKey || "");
-  const [currentFolder, setCurrentFolder] = (0, import_react7.useState)(() => saved.currentFolder || "/");
-  const [currentNote, setCurrentNote] = (0, import_react7.useState)(() => saved.currentNote || null);
-  const [totalTokens, setTotalTokens] = (0, import_react7.useState)(() => saved.totalTokens || 0);
-  const [usage, setUsage] = (0, import_react7.useState)({ totalTokenCount: saved.totalTokens || 0 });
-  const [fileCount, setFileCount] = (0, import_react7.useState)(0);
-  const assistantRef = (0, import_react7.useRef)(null);
-  const textInterfaceRef = (0, import_react7.useRef)(null);
-  const isObsidianEnvironment = (0, import_react7.useMemo)(() => {
+  const [status, setStatus] = (0, import_react8.useState)("DISCONNECTED" /* DISCONNECTED */);
+  const [logs, setLogs] = (0, import_react8.useState)([]);
+  const [inputText, setInputText] = (0, import_react8.useState)("");
+  const [settingsOpen, setSettingsOpen] = (0, import_react8.useState)(false);
+  const [showKernel, setShowKernel] = (0, import_react8.useState)(false);
+  const [activeSpeaker, setActiveSpeaker] = (0, import_react8.useState)("none");
+  const [micVolume, setMicVolume] = (0, import_react8.useState)(0);
+  const [transcripts, setTranscripts] = (0, import_react8.useState)([]);
+  const [hasSavedConversation, setHasSavedConversation] = (0, import_react8.useState)(false);
+  const [voiceName, setVoiceName] = (0, import_react8.useState)(() => saved.voiceName || "Zephyr");
+  const [customContext, setCustomContext] = (0, import_react8.useState)(() => saved.customContext || "");
+  const [systemInstruction, setSystemInstruction] = (0, import_react8.useState)(() => saved.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
+  const [manualApiKey, setManualApiKey] = (0, import_react8.useState)(() => saved.manualApiKey || "");
+  const [currentFolder, setCurrentFolder] = (0, import_react8.useState)(() => saved.currentFolder || "/");
+  const [currentNote, setCurrentNote] = (0, import_react8.useState)(() => saved.currentNote || null);
+  const [totalTokens, setTotalTokens] = (0, import_react8.useState)(() => saved.totalTokens || 0);
+  const [usage, setUsage] = (0, import_react8.useState)({ totalTokenCount: saved.totalTokens || 0 });
+  const [fileCount, setFileCount] = (0, import_react8.useState)(0);
+  const [showApiKeySetup, setShowApiKeySetup] = (0, import_react8.useState)(false);
+  const assistantRef = (0, import_react8.useRef)(null);
+  const textInterfaceRef = (0, import_react8.useRef)(null);
+  const isObsidianEnvironment = (0, import_react8.useMemo)(() => {
     return isObsidian();
   }, []);
-  const addLog = (0, import_react7.useCallback)((message, type = "info", duration, errorDetails) => {
+  const addLog = (0, import_react8.useCallback)((message, type = "info", duration, errorDetails) => {
     setLogs((prev) => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
       message,
@@ -41757,18 +42141,28 @@ var App = () => {
       addLog("Previous conversation restored", "info");
     }
   };
-  const handleMissingApiKey = () => {
-    setTranscripts((prev) => [...prev, {
-      id: "api-key-missing-" + Date.now(),
-      role: "system",
-      text: "API KEY MISSING - Please configure your API key in Settings to continue.",
-      isComplete: true,
-      timestamp: Date.now()
-    }]);
-    setSettingsOpen(true);
-    addLog("API key missing - opening Settings", "error");
+  const handleMissingApiKey = async () => {
+    addLog("Reloading plugin settings...", "info");
+    const reloadedSettings = await reloadAppSettings3();
+    if (reloadedSettings?.manualApiKey) {
+      setManualApiKey(reloadedSettings.manualApiKey);
+    }
+    const activeKey = (reloadedSettings?.manualApiKey || manualApiKey).trim() || process.env.API_KEY || "";
+    if (!activeKey) {
+      setTranscripts((prev) => [...prev, {
+        id: "api-key-missing-" + Date.now(),
+        role: "system",
+        text: "API KEY MISSING - Please configure your API key in Settings to continue.",
+        isComplete: true,
+        timestamp: Date.now()
+      }]);
+      setSettingsOpen(true);
+      addLog("API key missing after settings reload - opening Settings", "error");
+    } else {
+      addLog("API key found after settings reload", "success");
+    }
   };
-  (0, import_react7.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     const lastMsg = transcripts[transcripts.length - 1];
     if (lastMsg?.role === "system" && lastMsg.toolData?.name === "topic_switch") {
       const summary = lastMsg.toolData.newContent || "Shift";
@@ -41788,7 +42182,7 @@ History length: ${toArchive.length} entries`,
       }
     }
   }, [transcripts, addLog]);
-  (0, import_react7.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     initFileSystem().then(() => {
       const files = listDirectory();
       setFileCount(files.length);
@@ -41797,14 +42191,14 @@ History length: ${toArchive.length} entries`,
         setTranscripts([{
           id: "welcome-init",
           role: "system",
-          text: "HERMES OS INITIALIZED.",
+          text: "HERMES INITIALIZED.",
           isComplete: true,
           timestamp: Date.now()
         }]);
       }
     });
   }, [addLog]);
-  (0, import_react7.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     saveAppSettings3({
       transcripts,
       voiceName,
@@ -41816,7 +42210,63 @@ History length: ${toArchive.length} entries`,
       totalTokens
     });
   }, [transcripts, voiceName, customContext, systemInstruction, manualApiKey, currentFolder, currentNote, totalTokens]);
-  const assistantCallbacks = (0, import_react7.useMemo)(() => ({
+  (0, import_react8.useEffect)(() => {
+    const activeKey = (manualApiKey || "").trim() || process.env.API_KEY || "";
+    const shouldShowSetup = !activeKey;
+    setShowApiKeySetup(shouldShowSetup);
+  }, [manualApiKey]);
+  (0, import_react8.useEffect)(() => {
+    const checkSettingsUpdate = async () => {
+      const reloadedSettings = await reloadAppSettings3();
+      if (reloadedSettings) {
+        setVoiceName(reloadedSettings.voiceName || "Zephyr");
+        setCustomContext(reloadedSettings.customContext || "");
+        setSystemInstruction(reloadedSettings.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
+        setManualApiKey(reloadedSettings.manualApiKey || "");
+        const activeKey = (reloadedSettings.manualApiKey || "").trim() || process.env.API_KEY || "";
+        if (activeKey && showApiKeySetup) {
+          setShowApiKeySetup(false);
+          addLog("API key configured successfully", "success");
+        }
+      }
+    };
+    const handleSettingsUpdate = (settings) => {
+      setVoiceName(settings.voiceName || "Zephyr");
+      setCustomContext(settings.customContext || "");
+      setSystemInstruction(settings.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION);
+      setManualApiKey(settings.manualApiKey || "");
+      const activeKey = (settings.manualApiKey || "").trim() || process.env.API_KEY || "";
+      if (activeKey && showApiKeySetup) {
+        setShowApiKeySetup(false);
+        addLog("API key configured successfully", "success");
+      }
+    };
+    window.hermesSettingsUpdate = handleSettingsUpdate;
+    const interval = setInterval(checkSettingsUpdate, 2e3);
+    return () => {
+      clearInterval(interval);
+      delete window.hermesSettingsUpdate;
+    };
+  }, [showApiKeySetup, addLog]);
+  const handleSystemMessage = (0, import_react8.useCallback)((text, toolData) => {
+    setTranscripts((prev) => {
+      if (toolData?.id) {
+        const existingIdx = prev.findIndex((t) => t.toolData?.id === toolData.id);
+        if (existingIdx !== -1) {
+          const next = [...prev];
+          next[existingIdx] = {
+            ...next[existingIdx],
+            text,
+            toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || "success" }
+          };
+          return next;
+        }
+      }
+      return [...prev, { id: "sys-" + Date.now(), role: "system", text, isComplete: true, toolData, timestamp: Date.now() }];
+    });
+    setFileCount(listDirectory().length);
+  }, []);
+  const assistantCallbacks = (0, import_react8.useMemo)(() => ({
     onStatusChange: (s) => {
       setStatus(s);
       if (s === "CONNECTED" /* CONNECTED */) {
@@ -41839,24 +42289,7 @@ History length: ${toArchive.length} entries`,
         return [...prev, { id: Math.random().toString(36).substr(2, 9), role, text, isComplete, timestamp: Date.now() }];
       });
     },
-    onSystemMessage: (text, toolData) => {
-      setTranscripts((prev) => {
-        if (toolData?.id) {
-          const existingIdx = prev.findIndex((t) => t.toolData?.id === toolData.id);
-          if (existingIdx !== -1) {
-            const next = [...prev];
-            next[existingIdx] = {
-              ...next[existingIdx],
-              text,
-              toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || "success" }
-            };
-            return next;
-          }
-        }
-        return [...prev, { id: "sys-" + Date.now(), role: "system", text, isComplete: true, toolData, timestamp: Date.now() }];
-      });
-      setFileCount(listDirectory().length);
-    },
+    onSystemMessage: handleSystemMessage,
     onInterrupted: () => {
       setActiveSpeaker("none");
       setMicVolume(0);
@@ -41884,12 +42317,12 @@ History length: ${toArchive.length} entries`,
         setTotalTokens(tokens);
     },
     onVolume: (volume) => setMicVolume(volume)
-  }), [addLog, isObsidianEnvironment]);
+  }), [addLog, isObsidianEnvironment, handleSystemMessage]);
   const startSession = async () => {
     try {
       const activeKey = manualApiKey.trim() || process.env.API_KEY || "";
       if (!activeKey) {
-        handleMissingApiKey();
+        setShowApiKeySetup(true);
         return;
       }
       if (window.aistudio && !await window.aistudio.hasSelectedApiKey())
@@ -41935,7 +42368,7 @@ System Instruction: ${systemInstruction}`,
     }
     const activeKey = manualApiKey.trim() || process.env.API_KEY || "";
     if (!activeKey) {
-      handleMissingApiKey();
+      setShowApiKeySetup(true);
       return;
     }
     if (!textInterfaceRef.current) {
@@ -41952,24 +42385,7 @@ System Instruction: ${systemInstruction}`,
             return [...prev, { id: Math.random().toString(36).substr(2, 9), role, text, isComplete, timestamp: Date.now() }];
           });
         },
-        onSystemMessage: (text, toolData) => {
-          setTranscripts((prev) => {
-            if (toolData?.id) {
-              const existingIdx = prev.findIndex((t) => t.toolData?.id === toolData.id);
-              if (existingIdx !== -1) {
-                const next = [...prev];
-                next[existingIdx] = {
-                  ...next[existingIdx],
-                  text,
-                  toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || "success" }
-                };
-                return next;
-              }
-            }
-            return [...prev, { id: "sys-" + Date.now(), role: "system", text, isComplete: true, toolData, timestamp: Date.now() }];
-          });
-          setFileCount(listDirectory().length);
-        },
+        onSystemMessage: handleSystemMessage,
         onFileStateChange: (folder, note) => {
           setCurrentFolder(folder);
           const notes = Array.isArray(note) ? note : note ? [note] : [];
@@ -41987,8 +42403,16 @@ System Instruction: ${systemInstruction}`,
     }
     await textInterfaceRef.current.sendMessage(message);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: `hermes-root flex flex-col overflow-hidden ${isObsidianEnvironment ? "" : "standalone"}`, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+  const handleApiKeySave = async (apiKey) => {
+    setManualApiKey(apiKey);
+    addLog("API key saved successfully", "success");
+    setShowApiKeySetup(false);
+  };
+  const handleOpenSettingsForApiKey = () => {
+    setSettingsOpen(true);
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: `hermes-root flex flex-col overflow-hidden ${isObsidianEnvironment ? "" : "standalone"}`, children: showApiKeySetup ? /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(ApiKeySetup_default, { onApiKeySave: handleApiKeySave }) : /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(import_jsx_runtime13.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
       Settings_default,
       {
         isOpen: settingsOpen,
@@ -42004,16 +42428,18 @@ System Instruction: ${systemInstruction}`,
         onUpdateApiKey: () => window.aistudio?.openSelectKey()
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
       Header_default,
       {
         status,
         showLogs: showKernel,
         onToggleLogs: () => setShowKernel(!showKernel),
-        onOpenSettings: () => setSettingsOpen(true)
+        onOpenSettings: () => setSettingsOpen(true),
+        isListening: status === "CONNECTED" /* CONNECTED */,
+        onStopSession: stopSession
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
       MainWindow_default,
       {
         showKernel,
@@ -42026,7 +42452,7 @@ System Instruction: ${systemInstruction}`,
         fileCount
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
       InputBar_default,
       {
         inputText,
@@ -42037,15 +42463,16 @@ System Instruction: ${systemInstruction}`,
         onStopSession: stopSession,
         status,
         activeSpeaker,
-        volume: micVolume
+        volume: micVolume,
+        hasApiKey: !showApiKeySetup
       }
     )
-  ] });
+  ] }) });
 };
 var App_default = App;
 
 // HermesMainViewObsidian.tsx
-var import_jsx_runtime13 = __toESM(require_jsx_runtime());
+var import_jsx_runtime14 = __toESM(require_jsx_runtime());
 var VIEW_TYPE_HERMES = "hermes-voice-assistant";
 var HermesMainViewObsidian = class extends import_obsidian.ItemView {
   constructor(leaf) {
@@ -42067,7 +42494,7 @@ var HermesMainViewObsidian = class extends import_obsidian.ItemView {
     const mount = container.createDiv({ cls: "hermes-root obsidian" });
     this.root = (0, import_client.createRoot)(mount);
     this.root.render(
-      /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(import_react8.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(App_default, {}) })
+      /* @__PURE__ */ (0, import_jsx_runtime14.jsx)(import_react9.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime14.jsx)(App_default, {}) })
     );
   }
   async onClose() {
@@ -42208,6 +42635,9 @@ var HermesPlugin = class extends import_obsidian3.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+    if (typeof window !== "undefined" && window.hermesSettingsUpdate) {
+      window.hermesSettingsUpdate(this.settings);
+    }
   }
 };
 /**

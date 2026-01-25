@@ -158,16 +158,26 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
           </span>
           
           <span className="text-[11px] font-mono hermes-text-normal truncate max-w-[300px]">
-             {toolData.name === 'internet_search' ? `Uplink: Web Query` : `${toolData.filename}`}
+             {toolData.name === 'internet_search' ? `Searching: ${toolData.filename}` : `${toolData.filename}`}
           </span>
         </div>
         
         <div className="flex items-center space-x-4 shrink-0">
           {isPending ? (
             <div className="flex items-center space-x-1 px-2">
-              <div className="w-1 h-1 hermes-text-accent rounded-full">.</div>
-              <div className="w-1 h-1 hermes-text-accent rounded-full">.</div>
-              <div className="w-1 h-1 hermes-text-accent rounded-full">.</div>
+              {toolData.name === 'internet_search' ? (
+                <div className="loading-dots-container">
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-1">
+                  <div className="w-1 h-1 hermes-text-accent rounded-full">.</div>
+                  <div className="w-1 h-1 hermes-text-accent rounded-full">.</div>
+                  <div className="w-1 h-1 hermes-text-accent rounded-full">.</div>
+                </div>
+              )}
             </div>
           ) : (
             <svg 

@@ -1,6 +1,7 @@
 
 import { Type } from '@google/genai';
 import { readFile, updateFile } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'update_file',
@@ -34,6 +35,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     additions,
     removals
   });
-  callbacks.onFileState('/', args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { status: 'updated' };
 };

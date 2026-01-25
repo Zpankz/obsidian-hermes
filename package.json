@@ -4,7 +4,7 @@
   "description": "Obsidian plugin for Hermes Voice Assistant",
   "main": "main.js",
   "scripts": {
-    "dev": "esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --watch --jsx=automatic",
+    "dev": "concurrently \"pnpm build-css --watch\" \"esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --watch --jsx=automatic\"",
     "build": "npm run build-css && esbuild main.ts --bundle --outfile=main.js --external:obsidian --format=cjs --minify --jsx=automatic",
     "build-css": "tailwindcss -i ./styles-input.css -o ./styles.css --minify",
     "watch-css": "tailwindcss -i ./styles-input.css -o ./styles.css --watch",

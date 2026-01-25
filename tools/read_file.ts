@@ -1,6 +1,7 @@
 
 import { Type } from '@google/genai';
 import { readFile } from '../services/mockFiles';
+import { getDirectoryFromPath } from '../utils/environment';
 
 export const declaration = {
   name: 'read_file',
@@ -26,6 +27,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     additions: 0,
     removals: 0
   });
-  callbacks.onFileState('/', args.filename);
+  const fileDirectory = getDirectoryFromPath(args.filename);
+  callbacks.onFileState(fileDirectory, args.filename);
   return { content: readContent };
 };

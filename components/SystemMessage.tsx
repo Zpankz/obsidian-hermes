@@ -1,6 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { ToolData } from '../types';
 import ToolResult from './ToolResult';
+import MarkdownRenderer from './MarkdownRenderer';
+
+// Import WebSearchView from ToolResult
+const WebSearchView: React.FC<{ content: string, chunks: any[] }> = ({ content, chunks }) => {
+  return (
+    <div className="p-4 space-y-4">
+      <div className="pb-4 border-b border-gray-800 mb-4">
+        <MarkdownRenderer content={content} />
+      </div>
+      {chunks.length > 0 && (
+        <div className="space-y-3">
+          <div className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-400/70 ml-1">Source Grounding</div>
+          <div className="grid grid-cols-1 gap-2">
+            {chunks.slice(0, 10).map((chunk, i) => {
+              const item = chunk.web || chunk.maps;
+              if (!item) return null;
+              return (
+                <a 
+                  key={i} 
+                  href={item.uri} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-3 p-3 rounded-xl bg-gray-800/30 border border-gray-700/30 hover:bg-gray-700/20 transition-all group shadow-sm"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gray-600/20 flex items-center justify-center shrink-0 border border-gray-600/20">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col truncate">
+                    <span className="text-[11px] font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate">{item.title}</span>
+                    <span className="text-[9px] text-gray-500 truncate font-mono">{new URL(item.uri).hostname}</span>
+                  </div>
+                </a>
+              );
+            })}
+            {chunks.length > 10 && (
+              <div className="text-gray-500 italic text-[9px] pt-2 px-3 border-t border-gray-700">
+                ... and {chunks.length - 10} more sources (truncated)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface SystemMessageProps {
   children: React.ReactNode;
@@ -48,6 +95,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
       case 'search_and_replace_regex_in_file': return 'REPLACE';
       case 'search_and_replace_regex_global': return 'GLOBAL';
       case 'internet_search': return 'WEB';
+      case 'end_conversation': return 'END';
       case 'error': return 'ERROR';
       default: return 'ACTION';
     }
@@ -57,26 +105,26 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
   const getStyles = () => {
     if (isError) {
       return {
-        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-        border: '1px solid rgba(239, 68, 68, 0.3)',
-        headerBg: 'rgba(239, 68, 68, 0.05)',
-        contentBg: 'rgba(239, 68, 68, 0.08)',
-        borderColor: 'rgba(239, 68, 68, 0.2)',
+        backgroundColor: 'transparent',
+        border: 'none',
+        headerBg: 'transparent',
+        contentBg: 'rgba(239, 68, 68, 0.05)',
+        borderColor: 'rgba(239, 68, 68, 0.1)',
         accentColor: '#ef4444',
-        textColor: '#f87171',
+        textColor: '#ef4444',
         mutedColor: '#fca5a5'
       };
     }
     
-    // Default/pending/success state - secondary grey
+    // Default/pending/success state - transparent with minimal styling
     return {
-      backgroundColor: 'rgba(156, 163, 175, 0.1)',
-      border: '1px solid rgba(156, 163, 175, 0.2)',
-      headerBg: 'rgba(156, 163, 175, 0.05)',
-      contentBg: 'rgba(156, 163, 175, 0.08)',
-      borderColor: 'rgba(156, 163, 175, 0.15)',
+      backgroundColor: 'transparent',
+      border: 'none',
+      headerBg: 'transparent',
+      contentBg: 'rgba(156, 163, 175, 0.03)',
+      borderColor: 'rgba(156, 163, 175, 0.08)',
       accentColor: '#9ca3af',
-      textColor: '#d1d5db',
+      textColor: '#9ca3af',
       mutedColor: '#e5e7eb'
     };
   };
@@ -93,17 +141,17 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
     >
       <div 
         onClick={toggle}
-        className={`flex items-center justify-between px-4 py-3 ${hasExpandableContent && !isPending ? 'cursor-pointer' : 'cursor-default'} transition-colors`}
+        className={`flex items-center justify-between px-2 py-1.5 ${hasExpandableContent && !isPending ? 'cursor-pointer' : 'cursor-default'} transition-colors`}
         style={{ 
           backgroundColor: styles.headerBg
         }}
       >
-        <div className="flex items-center space-x-3 overflow-hidden">
+        <div className="flex items-center space-x-2 overflow-hidden">
           {toolData && (
             <span 
-              className="text-[9px] font-black px-1.5 py-0.5 rounded shrink-0"
+              className="text-[9px] font-black px-1 py-0.5 rounded shrink-0"
               style={{ 
-                backgroundColor: isError ? 'rgba(239, 68, 68, 0.2)' : 'rgba(156, 163, 175, 0.15)',
+                backgroundColor: 'transparent',
                 color: styles.accentColor
               }}
             >
@@ -115,12 +163,15 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
             className="text-[11px] font-mono truncate max-w-[400px]"
             style={{ color: styles.textColor }}
           >
-            {toolData?.filename || children}
+            {toolData?.name === 'internet_search' && toolData?.filename ? 
+              `Searching: ${toolData.filename}` : 
+              (toolData?.filename || children)
+            }
           </span>
           
           {isError && (
-            <span className="text-[8px] px-2 py-0.5 rounded font-bold" style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+            <span className="text-[8px] px-1 py-0.5 rounded font-bold" style={{
+              backgroundColor: 'transparent',
               color: '#ef4444'
             }}>
               ERROR
@@ -132,7 +183,15 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
         <div className="flex items-center space-x-4 shrink-0">
           {isPending ? (
             <div className="flex items-center space-x-1 px-2">
-              <span style={{ color: styles.accentColor }}>...</span>
+              {toolData?.name === 'internet_search' ? (
+                <div className="loading-dots-container">
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                </div>
+              ) : (
+                <span style={{ color: styles.accentColor }}>...</span>
+              )}
             </div>
           ) : hasExpandableContent ? (
             <svg 
@@ -155,21 +214,25 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
           }}
         >
           {/* Use ToolResult for complex tool displays */}
-          {(toolData?.name === 'list_directory' || toolData?.name === 'dirlist' || toolData?.name === 'get_folder_tree' || toolData?.name === 'internet_search') ? (
+          {(toolData?.name === 'list_directory' || toolData?.name === 'dirlist' || toolData?.name === 'get_folder_tree') ? (
             <ToolResult toolData={toolData} isLast={isLast} />
+          ) : toolData?.name === 'internet_search' ? (
+            <div className="p-2">
+              <WebSearchView content={toolData.newContent || ''} chunks={toolData.groundingChunks || []} />
+            </div>
           ) : (
             <>
               {toolData?.newContent && (
-                <div className="p-4 font-mono text-[10px] whitespace-pre-wrap" style={{ color: styles.textColor }}>
+                <div className="p-2 font-mono text-[10px] whitespace-pre-wrap" style={{ color: styles.textColor }}>
                   {toolData.newContent}
                 </div>
               )}
               
               {toolData?.files && (
-                <div className="p-4 font-mono text-[10px]">
+                <div className="p-2 font-mono text-[10px]">
                   <div className="space-y-1">
                     {toolData.files.map((file: string, index: number) => (
-                      <div key={index} className="flex items-center space-x-2 px-2 py-1 rounded" style={{ color: styles.textColor }}>
+                      <div key={index} className="flex items-center space-x-2 px-1 py-0.5 rounded" style={{ color: styles.textColor }}>
                         <span>📄</span>
                         <span className="truncate">{file}</span>
                       </div>
@@ -179,7 +242,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
               )}
 
               {toolData?.error && (
-                <div className="p-4 font-mono text-[10px] italic" style={{ color: '#fca5a5' }}>
+                <div className="p-2 font-mono text-[10px] italic" style={{ color: '#fca5a5' }}>
                   Error: {toolData.error}
                 </div>
               )}
