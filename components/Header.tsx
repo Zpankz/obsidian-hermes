@@ -12,14 +12,10 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ status, showLogs, onToggleLogs, onOpenSettings }) => {
   return (
-    <header className="flex items-center justify-between px-6 py-4 hermes-border-b hermes-glass shrink-0 z-50">
+    <header className="flex items-center justify-between px-6 py-2 hermes-border-b hermes-header-bg shrink-0 z-50">
       <div className="flex items-center space-x-6">
         <div className="flex flex-col">
           <h1 className="text-lg font-semibold hermes-text-normal">Hermes</h1>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${status === ConnectionStatus.CONNECTED ? 'hermes-success-bg' : status === ConnectionStatus.CONNECTING ? 'hermes-warning-bg animate-pulse' : 'hermes-text-faint'}`} />
-            <span className="text-xs hermes-text-muted">{status}</span>
-          </div>
         </div>
       </div>
       

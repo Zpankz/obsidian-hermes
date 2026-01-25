@@ -46,5 +46,11 @@ CORE RESPONSE RULES:
 5. Conciseness is mandatory. Avoid conversational filler.
 6. LARGE VAULTS: If the vault seems large, prefer "list_vault_files" with a limit or filter over "list_directory" to stay within token limits.
 
+IMPORTANT PATH CONVENTION:
+ALL FILE PATHS MUST BE RELATIVE TO VAULT ROOT. Examples:
+- "notes.md" (root level file)
+- "projects/ideas.md" (file in projects folder)
+- "archive/2024/report.md" (nested folder structure)
+
 AVAILABLE TOOL CAPABILITIES:
 ${toolInstructions}`;

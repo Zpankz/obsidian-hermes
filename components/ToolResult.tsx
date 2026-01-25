@@ -1,30 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ToolData, FileDiff, GroundingChunk } from '../types';
-import { marked } from 'marked';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface ToolResultProps {
   toolData: ToolData;
   isLast: boolean;
 }
-
-const MarkdownPreview: React.FC<{ content: string }> = ({ content }) => {
-  const html = useMemo(() => {
-    try {
-      // Use synchronous parsing to avoid hydration issues if any
-      return marked.parse(content || '', { gfm: true, breaks: true });
-    } catch (e) {
-      return `<p class="hermes-error font-mono text-xs">ERR: Markdown parsing failed.</p>`;
-    }
-  }, [content]);
-
-  return (
-    <div 
-      className="prose prose-invert prose-sm max-w-none prose-headings:hermes-text-accent prose-a:hermes-text-accent prose-code:hermes-bg-tertiary prose-code:px-1 prose-code:rounded prose-pre:hermes-bg-tertiary prose-pre:hermes-border prose-pre:hermes-border/10 font-sans leading-relaxed hermes-text-normal"
-      dangerouslySetInnerHTML={{ __html: html as string }}
-    />
-  );
-};
 
 const DiffView: React.FC<{ diff: FileDiff }> = ({ diff }) => {
   const diffLines = useMemo(() => {
@@ -72,7 +54,7 @@ const WebSearchView: React.FC<{ content: string, chunks: GroundingChunk[] }> = (
   return (
     <div className="p-6 hermes-bg-tertiary space-y-4 animate-in fade-in duration-500">
       <div className="pb-4 hermes-border-b mb-4">
-        <MarkdownPreview content={content} />
+        <MarkdownRenderer content={content} />
       </div>
       {chunks.length > 0 && (
         <div className="space-y-3">
@@ -140,6 +122,8 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
       case 'rename_file': return 'RENAME';
       case 'move_file': return 'MOVE';
       case 'list_directory': return 'SCAN';
+      case 'dirlist': return 'DIRS';
+      case 'get_folder_tree': return 'TREE';
       case 'search_keyword': return 'SEARCH';
       case 'search_regexp': return 'GREP';
       case 'search_and_replace_regex_in_file': return 'REPLACE';
@@ -204,21 +188,105 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
 
           {['read_file', 'create_file'].includes(toolData.name) && toolData.newContent !== undefined && (
             <div className="p-8 hermes-glass shadow-inner">
-               <MarkdownPreview content={toolData.newContent} />
+               <MarkdownRenderer content={toolData.newContent} />
             </div>
           )}
 
           {toolData.name === 'list_directory' && toolData.files && (
-            <div className="p-4 font-mono text-[10px] space-y-1">
-              {toolData.files.slice(0, 50).map((file, idx) => (
-                <div key={file} className="flex items-center space-x-3 hermes-text-muted py-1 hermes-hover:accent transition-colors">
-                  <span className="hermes-text-faint w-4">{idx + 1}.</span>
-                  <span>{file}</span>
+            <div className="p-4 font-mono text-[10px]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="hermes-text-muted">
+                  {toolData.truncated ? 
+                    `${toolData.shownItems} of ${toolData.totalItems} items (Page ${toolData.currentPage} of ${toolData.totalPages})` : 
+                    `${toolData.files.length} items found`
+                  }
+                </span>
+                {toolData.truncated && (
+                  <span className="hermes-text-accent font-bold text-[9px] px-2 py-1 hermes-interactive-bg/20 rounded">
+                    TRUNCATED
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {toolData.files.map((file: string, index: number) => (
+                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors">
+                    <span className="hermes-text-muted select-none">{'📄'}</span>
+                    <span className="truncate">{file}</span>
+                  </div>
+                ))}
+              </div>
+              {toolData.truncated && (
+                <div className="mt-3 pt-3 hermes-border-t hermes-text-muted italic text-[9px] text-center">
+                  ... and {toolData.totalItems - toolData.shownItems} more items (use pagination for more)
                 </div>
-              ))}
-              {toolData.files.length > 50 && (
-                <div className="hermes-text-muted italic text-[9px] pt-2 px-4 hermes-border-t">
-                  ... and {toolData.files.length - 50} more items (truncated)
+              )}
+            </div>
+          )}
+
+          {toolData.name === 'dirlist' && toolData.directoryInfo && (
+            <div className="p-4 font-mono text-[10px]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="hermes-text-muted">
+                  {toolData.truncated ? 
+                    `${toolData.shownItems} of ${toolData.totalItems} directories (Page ${toolData.currentPage} of ${toolData.totalPages})` : 
+                    `${toolData.directoryInfo.length} directories found`
+                  }
+                </span>
+                {toolData.truncated && (
+                  <span className="hermes-text-accent font-bold text-[9px] px-2 py-1 hermes-interactive-bg/20 rounded">
+                    TRUNCATED
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {toolData.directoryInfo.map((dir: any, index: number) => (
+                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors">
+                    <span className="hermes-text-muted select-none">
+                      {dir.hasChildren ? '📁' : '📂'}
+                    </span>
+                    <span className="truncate">{dir.path || '/'}</span>
+                    {dir.hasChildren && (
+                      <span className="hermes-text-muted text-[8px] px-1 py-0.5 hermes-bg-secondary/10 rounded">
+                        has subdirs
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {toolData.truncated && (
+                <div className="mt-3 pt-3 hermes-border-t hermes-text-muted italic text-[9px] text-center">
+                  ... and {toolData.totalItems - toolData.shownItems} more directories (use search for specific paths)
+                </div>
+              )}
+            </div>
+          )}
+
+          {toolData.name === 'get_folder_tree' && toolData.files && (
+            <div className="p-4 font-mono text-[10px]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="hermes-text-muted">
+                  {toolData.truncated ? 
+                    `${toolData.shownItems} of ${toolData.totalItems} folders (Page ${toolData.currentPage} of ${toolData.totalPages})` : 
+                    `${toolData.files.length} folders found`
+                  }
+                </span>
+                {toolData.truncated && (
+                  <span className="hermes-text-accent font-bold text-[9px] px-2 py-1 hermes-interactive-bg/20 rounded">
+                    TRUNCATED
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {toolData.files.map((folder: string, index: number) => (
+                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors">
+                    <span className="hermes-text-muted select-none">{'📁'}</span>
+                    <span className="truncate">{folder}</span>
+                  </div>
+                ))}
+              </div>
+              {toolData.truncated && (
+                <div className="mt-3 pt-3 hermes-border-t hermes-text-muted italic text-[9px] text-center">
+                  ... and {toolData.totalItems - toolData.shownItems} more folders
                 </div>
               )}
             </div>

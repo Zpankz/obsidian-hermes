@@ -40,8 +40,6 @@ export const loadAppSettings = (): any | null => {
 };
 
 export const loadAppSettingsAsync = async (): Promise<any | null> => {
-  if (cachedSettings) return cachedSettings;
-  
   if (obsidianPlugin) {
     try {
       const data = await (obsidianPlugin as any).loadData();
@@ -54,4 +52,29 @@ export const loadAppSettingsAsync = async (): Promise<any | null> => {
   }
   
   return null;
+};
+
+export const reloadAppSettings = async (): Promise<any | null> => {
+  // Clear cache and reload from Obsidian
+  cachedSettings = null;
+  return await loadAppSettingsAsync();
+};
+
+export const saveChatHistory = async (history: string[]): Promise<void> => {
+  try {
+    if (obsidianPlugin) {
+      const currentData = await (obsidianPlugin as any).loadData() || {};
+      currentData.chatHistory = history;
+      await (obsidianPlugin as any).saveData(currentData);
+    }
+  } catch (e) {
+    console.error('Failed to save chat history', e);
+  }
+};
+
+export const loadChatHistory = (): string[] => {
+  if (cachedSettings?.chatHistory) {
+    return cachedSettings.chatHistory;
+  }
+  return [];
 };

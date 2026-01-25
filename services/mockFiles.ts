@@ -135,7 +135,7 @@ export const getFolderTree = (): string[] => {
     return allFiles.filter((f: any) => f.children !== undefined).map((f: any) => f.path).sort();
   } else {
     const paths = Object.keys(MOCK_FILES);
-    const folders = new Set<string>(['/']);
+    const folders = new Set<string>();
     paths.forEach(p => {
       const parts = p.split('/');
       parts.pop(); // Remove filename
@@ -213,6 +213,18 @@ export const readFile = async (filename: string): Promise<string> => {
 
 export const createFile = async (filename: string, content: string): Promise<string> => {
   if (inObsidian) {
+    // Extract directory path from filename
+    const dirPath = filename.substring(0, filename.lastIndexOf('/'));
+    if (dirPath && dirPath.length > 0) {
+      // Check if directory exists, create if it doesn't
+      // @ts-ignore
+      const folder = getObsidianApp().vault.getAbstractFileByPath(dirPath);
+      if (!folder) {
+        // @ts-ignore
+        await getObsidianApp().vault.createFolder(dirPath);
+      }
+    }
+    
     // @ts-ignore
     await getObsidianApp().vault.create(filename, content);
     return `Created ${filename} in vault`;
@@ -328,6 +340,32 @@ export const editFile = async (filename: string, operation: string, text?: strin
   const newContent = lines.join('\n');
   await updateFile(filename, newContent);
   return `Successfully performed ${operation} on ${filename}`;
+};
+
+export const createDirectory = async (path: string): Promise<string> => {
+  if (inObsidian) {
+    // @ts-ignore
+    const folder = getObsidianApp().vault.getAbstractFileByPath(path);
+    if (folder) {
+      throw new Error(`Directory already exists: ${path}`);
+    }
+    // @ts-ignore
+    await getObsidianApp().vault.createFolder(path);
+    return `Created directory ${path} in vault`;
+  }
+
+  // For mock environment, check if any files exist in this directory path
+  const normalizedPath = path.toLowerCase().replace(/\\/g, '/');
+  const existingFiles = Object.keys(MOCK_FILES).filter(key => 
+    key.startsWith(normalizedPath + '/')
+  );
+  
+  if (existingFiles.length > 0) {
+    throw new Error(`Directory already exists or contains files: ${path}`);
+  }
+  
+  // In mock environment, directories are implicit, so we just return success
+  return `Successfully created directory ${path}`;
 };
 
 export const searchFiles = async (query: string, isRegex: boolean = false, flags: string = 'i'): Promise<SearchResult[]> => {

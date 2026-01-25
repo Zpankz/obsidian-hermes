@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { TranscriptionEntry } from '../types';
-import ToolResult from './ToolResult';
+import SystemMessage from './SystemMessage';
 import { HAIKUS } from '../utils/haikus';
 
 interface ChatWindowProps {
@@ -9,6 +9,14 @@ interface ChatWindowProps {
   hasSavedConversation?: boolean;
   onRestoreConversation?: () => void;
 }
+
+const getSystemMessageType = (text: string): 'error' | 'warning' | 'success' | 'info' => {
+  const lower = text.toLowerCase();
+  if (lower.includes('error') || lower.includes('missing') || lower.includes('failed')) return 'error';
+  if (lower.includes('warning') || lower.includes('caution')) return 'warning';
+  if (lower.includes('success') || lower.includes('complete') || lower.includes('saved')) return 'success';
+  return 'info';
+};
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversation, onRestoreConversation }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,7 +49,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
     <div 
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-grow overflow-y-auto px-8 py-8 space-y-6 scroll-smooth custom-scrollbar"
+      className="flex-1 min-h-0 overflow-y-auto px-8 py-8 space-y-6 scroll-smooth custom-scrollbar"
     >
       {isEmpty && (
         <div className="h-full flex flex-col items-center justify-center text-center animate-in fade-in duration-1000">
@@ -54,10 +62,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
                 — {randomHaiku.theme}
               </p>
             </div>
-            
-            <p className="text-sm hermes-text-muted pt-12">
-              Waiting for connection...
-            </p>
+
             
             {hasSavedConversation && onRestoreConversation && (
               <div className="pt-8">
@@ -97,15 +102,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
           <div key={entry.id} className={`flex flex-col ${entry.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}>
             {entry.role === 'system' ? (
               <div className="w-full">
-                {entry.toolData ? (
-                  <ToolResult toolData={entry.toolData} isLast={isLast} />
-                ) : (
-                  <div className="flex justify-center w-full py-2">
-                    <div className="px-4 py-1.5 hermes-interactive-bg/5 hermes-border/10 hermes-text-accent/60 rounded-xl text-[9px] font-mono tracking-tight">
-                      {entry.text}
-                    </div>
-                  </div>
-                )}
+                <div className="flex justify-center w-full py-2">
+                  <SystemMessage toolData={entry.toolData} isLast={isLast}>
+                    {entry.text}
+                  </SystemMessage>
+                </div>
               </div>
             ) : (
               <div className={`flex flex-col ${entry.role === 'user' ? 'items-end' : 'items-start'} w-full`}>
@@ -113,7 +114,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
                   {entry.role === 'user' ? 'User' : 'Hermes'}
                 </span>
                 <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-[12px] leading-relaxed border transition-all ${
-                  entry.role === 'user' ? 'hermes-interactive-bg hermes-text-normal hermes-border/10 rounded-tr-none shadow-lg' : 'hermes-glass rounded-tl-none'
+                  entry.role === 'user' ? 'hermes-user-msg-bg hermes-user-msg-text hermes-border/10 rounded-tr-none shadow-lg' : 'hermes-hermes-msg-bg hermes-hermes-msg-text hermes-border/20 rounded-tl-none'
                 }`}>
                   {entry.text || <span className="italic opacity-30">...</span>}
                 </div>

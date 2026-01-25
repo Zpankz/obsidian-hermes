@@ -14,6 +14,7 @@ import * as search_regexp from '../tools/search_regexp';
 import * as search_replace_file from '../tools/search_replace_file';
 import * as search_replace_global from '../tools/search_replace_global';
 import * as topic_switch from '../tools/topic_switch';
+import * as create_directory from '../tools/create_directory';
 import * as web_search from '../tools/web_search';
 import { ToolData } from '../types';
 
@@ -24,6 +25,7 @@ const TOOLS: Record<string, any> = {
   dirlist,
   read_file,
   create_file,
+  create_directory,
   update_file,
   edit_file,
   rename_file,
@@ -82,29 +84,12 @@ export const executeCommand = async (
   try {
     const result = await tool.execute(args, wrappedCallbacks);
     
-    // Check if result exceeds threshold
-    if (result && result.files && result.files.length > 200) {
-      const error = new Error(`Tool returned ${result.files.length} entries, exceeding threshold of 200. Please refine your search.`);
-      const duration = Math.round(performance.now() - startTime);
-      const errorDetails = {
-        toolName: name,
-        content: `Returned ${result.files.length} files: ${result.files.slice(0, 5).join(', ')}${result.files.length > 5 ? '...' : ''}`,
-        contentSize: result.files.length,
-        apiCall: 'threshold_check'
-      };
-      callbacks.onLog(`Error in ${name}: ${error.message}`, 'error', duration, errorDetails);
-      wrappedCallbacks.onSystem(`Error: ${error.message}`, { 
-        name, 
-        filename: args.filename || (name === 'internet_search' ? 'Web' : 'unknown'), 
-        error: error.message,
-        status: 'error'
-      } as ToolData);
-      throw error;
-    }
+    // Check if result exceeds threshold and needs truncation
+    const truncatedResult = truncateLargeResult(name, result, wrappedCallbacks);
     
     const duration = Math.round(performance.now() - startTime);
     callbacks.onLog(`Executed ${name} in ${duration}ms`, 'action', duration);
-    return result;
+    return truncatedResult;
   } catch (error: any) {
     const duration = Math.round(performance.now() - startTime);
     const errorDetails = {
@@ -124,3 +109,203 @@ export const executeCommand = async (
     throw error;
   }
 };
+
+// Helper function to truncate large results and add pagination info
+function truncateLargeResult(toolName: string, result: any, callbacks: any): any {
+  const MAX_ITEMS = 100;
+  
+  // Handle different result structures
+  if (result?.files && Array.isArray(result.files)) {
+    const totalFiles = result.files.length;
+    
+    if (totalFiles > MAX_ITEMS) {
+      const truncatedFiles = result.files.slice(0, MAX_ITEMS);
+      const totalPages = Math.ceil(totalFiles / MAX_ITEMS);
+      const currentPage = 1;
+      
+      // Create truncation notice for AI
+      const truncationNotice = `\n\n=== RESULT TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalFiles} items (Page ${currentPage} of ${totalPages}).\n\nTo see more results, consider:\n- Using list_vault_files with pagination (limit/offset parameters)\n- Using search_keyword or search_regexp for targeted searches\n- Using get_folder_tree for folder structure only\n- Adding a filter parameter to narrow results\n\nCurrent results show first ${MAX_ITEMS} items only.`;
+      
+      // Log truncation info
+      console.log(`=== TOOL RESULT TRUNCATION ===`);
+      console.log(`Tool: ${toolName}`);
+      console.log(`Original items: ${totalFiles}`);
+      console.log(`Truncated to: ${MAX_ITEMS}`);
+      console.log(`Total pages: ${totalPages}`);
+      console.log(`=== END TOOL RESULT TRUNCATION ===`);
+      
+      // Update system message with truncation info
+      callbacks.onSystem(`Registry Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFiles} items)`, {
+        name: toolName,
+        filename: 'Vault Root',
+        files: truncatedFiles,
+        truncated: true,
+        totalItems: totalFiles,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages
+      });
+      
+      // Return truncated result with notice
+      return {
+        ...result,
+        files: truncatedFiles,
+        truncated: true,
+        totalItems: totalFiles,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages,
+        truncationNotice
+      };
+    }
+  }
+  
+  if (result?.folders && Array.isArray(result.folders)) {
+    const totalFolders = result.folders.length;
+    
+    if (totalFolders > MAX_ITEMS) {
+      const truncatedFolders = result.folders.slice(0, MAX_ITEMS);
+      const totalPages = Math.ceil(totalFolders / MAX_ITEMS);
+      const currentPage = 1;
+      
+      const truncationNotice = `\n\n=== RESULT TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalFolders} folders (Page ${currentPage} of ${totalPages}).\n\nFor large folder structures, consider:\n- Using search_keyword to find specific folders\n- Using list_vault_files with filter parameter\n- Asking for a specific subfolder path\n\nCurrent results show first ${MAX_ITEMS} folders only.`;
+      
+      console.log(`=== TOOL RESULT TRUNCATION ===`);
+      console.log(`Tool: ${toolName}`);
+      console.log(`Original folders: ${totalFolders}`);
+      console.log(`Truncated to: ${MAX_ITEMS}`);
+      console.log(`Total pages: ${totalPages}`);
+      console.log(`=== END TOOL RESULT TRUNCATION ===`);
+      
+      callbacks.onSystem(`Folder Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFolders} folders)`, {
+        name: toolName,
+        filename: 'Folder Tree',
+        files: truncatedFolders,
+        truncated: true,
+        totalItems: totalFolders,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages
+      });
+      
+      return {
+        ...result,
+        folders: truncatedFolders,
+        truncated: true,
+        totalItems: totalFolders,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages,
+        truncationNotice
+      };
+    }
+  }
+  
+  // Handle directory list (hierarchical structure)
+  if (result?.directories && Array.isArray(result.directories)) {
+    const flattenDirectories = (dirs: any[], count = 0): { items: any[], total: number } => {
+      let items: any[] = [];
+      let total = count;
+      
+      dirs.forEach(dir => {
+        items.push({ path: dir.path, type: 'directory', hasChildren: dir.children && dir.children.length > 0 });
+        total++;
+        
+        if (dir.children && dir.children.length > 0) {
+          const childResult = flattenDirectories(dir.children, total);
+          items = items.concat(childResult.items);
+          total = childResult.total;
+        }
+      });
+      
+      return { items, total };
+    };
+    
+    const { items: flatDirs, total: totalDirectories } = flattenDirectories(result.directories);
+    
+    if (totalDirectories > MAX_ITEMS) {
+      const truncatedDirs = flatDirs.slice(0, MAX_ITEMS);
+      const totalPages = Math.ceil(totalDirectories / MAX_ITEMS);
+      const currentPage = 1;
+      
+      const truncationNotice = `\n\n=== DIRECTORY LIST TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalDirectories} directories (Page ${currentPage} of ${totalPages}).\n\nFor large directory structures, consider:\n- Using search_keyword to find specific directories\n- Using list_vault_files with filter parameter\n- Asking for a specific directory path\n- Using get_folder_tree for a simple folder list\n\nCurrent results show first ${MAX_ITEMS} directories only.`;
+      
+      console.log(`=== DIRECTORY LIST TRUNCATION ===`);
+      console.log(`Tool: ${toolName}`);
+      console.log(`Original directories: ${totalDirectories}`);
+      console.log(`Truncated to: ${MAX_ITEMS}`);
+      console.log(`Total pages: ${totalPages}`);
+      console.log(`=== END DIRECTORY LIST TRUNCATION ===`);
+      
+      callbacks.onSystem(`Directory Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalDirectories} directories)`, {
+        name: toolName,
+        filename: 'Directory List',
+        files: truncatedDirs.map(d => d.path),
+        truncated: true,
+        totalItems: totalDirectories,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages,
+        directoryInfo: truncatedDirs
+      });
+      
+      return {
+        ...result,
+        directories: truncatedDirs,
+        truncated: true,
+        totalItems: totalDirectories,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages,
+        truncationNotice
+      };
+    }
+  }
+  
+  // Handle search results that might be large
+  if (result?.results && Array.isArray(result.results)) {
+    const totalResults = result.results.length;
+    
+    if (totalResults > MAX_ITEMS) {
+      const truncatedResults = result.results.slice(0, MAX_ITEMS);
+      const totalPages = Math.ceil(totalResults / MAX_ITEMS);
+      const currentPage = 1;
+      
+      const truncationNotice = `\n\n=== SEARCH RESULTS TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalResults} results (Page ${currentPage} of ${totalPages}).\n\nFor more results, consider:\n- Refining your search terms\n- Using pagination parameters if available\n- Adding filters to narrow the search\n\nCurrent results show first ${MAX_ITEMS} matches only.`;
+      
+      console.log(`=== SEARCH RESULT TRUNCATION ===`);
+      console.log(`Tool: ${toolName}`);
+      console.log(`Original results: ${totalResults}`);
+      console.log(`Truncated to: ${MAX_ITEMS}`);
+      console.log(`Total pages: ${totalPages}`);
+      console.log(`=== END SEARCH RESULT TRUNCATION ===`);
+      
+      return {
+        ...result,
+        results: truncatedResults,
+        truncated: true,
+        totalItems: totalResults,
+        shownItems: MAX_ITEMS,
+        currentPage: currentPage,
+        totalPages: totalPages,
+        truncationNotice
+      };
+    }
+  }
+  
+  // Check if result is a large string (like file content)
+  if (typeof result === 'string' && result.length > 50000) {
+    const truncatedContent = result.substring(0, 50000);
+    const truncationNotice = `\n\n=== CONTENT TRUNCATED ===\nShowing first 50,000 characters of ${result.length} total characters.\n\nFor large files, consider:\n- Reading specific sections with line numbers\n- Searching for specific content within the file\n- Using more targeted read operations\n\nCurrent content shows first 50,000 characters only.`;
+    
+    console.log(`=== CONTENT TRUNCATION ===`);
+    console.log(`Tool: ${toolName}`);
+    console.log(`Original length: ${result.length}`);
+    console.log(`Truncated to: 50000`);
+    console.log(`=== END CONTENT TRUNCATION ===`);
+    
+    return truncatedContent + truncationNotice;
+  }
+  
+  return result;
+}

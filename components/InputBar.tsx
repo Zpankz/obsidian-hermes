@@ -1,6 +1,7 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '../types';
+import { loadChatHistory } from '../persistence/persistence';
 
 interface InputBarProps {
   inputText: string;
@@ -25,28 +26,73 @@ const InputBar: React.FC<InputBarProps> = ({
   activeSpeaker,
   volume,
 }) => {
+  const [chatHistory, setChatHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load chat history on component mount
+  useEffect(() => {
+    const history = loadChatHistory();
+    setChatHistory(history);
+  }, []);
+
   // Normalize volume for visualization (0-1)
   const normalizedVolume = useMemo(() => Math.min(1, Math.max(0, volume * 10)), [volume]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (chatHistory.length > 0) {
+        const newIndex = historyIndex < chatHistory.length - 1 ? historyIndex + 1 : chatHistory.length - 1;
+        setHistoryIndex(newIndex);
+        setInputText(chatHistory[chatHistory.length - 1 - newIndex]);
+        
+        // Select all text when navigating through history
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.select();
+          }
+        }, 0);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setInputText(chatHistory[chatHistory.length - 1 - newIndex]);
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        setInputText('');
+      }
+    } else if (e.key === 'Escape') {
+      setHistoryIndex(-1);
+    } else {
+      // Reset history index when typing anything else
+      setHistoryIndex(-1);
+    }
+  };
+
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-[80px] px-8 hermes-bg-secondary/95 backdrop-blur-2xl hermes-border-t flex items-center justify-center z-[50]">
+    <footer className="h-[100px] pb-5 px-8 hermes-footer-bg backdrop-blur-2xl hermes-border-t flex items-center justify-center shrink-0">
       <div className="flex items-center space-x-6 w-full max-w-5xl">
 
         {/* Text Input Form */}
         <form 
           onSubmit={onSendText} 
-          className="flex-grow flex items-center h-[52px] hermes-bg-secondary/40 hermes-border/10 rounded-2xl px-6 hermes-focus:border/50 hermes-focus:bg-secondary/60 transition-all shadow-inner overflow-hidden mb-0"
+          className="flex-grow flex items-center"
         >
           <input 
+            ref={inputRef}
             type="text" 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Message Hermes..." 
-            className="flex-grow bg-transparent border-none outline-none text-sm hermes-text-normal placeholder:hermes-text-faint h-full"
+            className="flex-1 hermes-input-bg hermes-input-text hermes-input-border border rounded-lg px-4 py-2 text-sm focus:outline-none focus:hermes-input-border-focus"
           />
           <button 
             type="submit" 
-            className="flex items-center justify-center p-1 ml-2 hermes-text-muted hermes-hover:accent transition-colors"
+            className="flex items-center justify-center p-2 ml-2 hermes-text-muted hermes-hover:text-normal transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />

@@ -4,18 +4,18 @@ import { createFile } from '../services/mockFiles';
 
 export const declaration = {
   name: 'create_file',
-  description: 'Create a new file with initial content.',
+  description: 'Create a new file with initial content using path relative to vault root.',
   parameters: {
     type: Type.OBJECT,
     properties: {
-      filename: { type: Type.STRING },
+      filename: { type: Type.STRING, description: 'Path relative to vault root (e.g., "projects/notes.md" or "notes.md" for root level)' },
       content: { type: Type.STRING }
     },
     required: ['filename', 'content']
   }
 };
 
-export const instruction = `- create_file: Use this to initialize new notes in the vault. Always provide meaningful initial content.`;
+export const instruction = `- create_file: Use this to initialize new notes in the vault. All paths are relative to vault root (e.g., "projects/notes.md" or "notes.md" for root level). Always provide meaningful initial content.`;
 
 export const execute = async (args: any, callbacks: any): Promise<any> => {
   await createFile(args.filename, args.content);

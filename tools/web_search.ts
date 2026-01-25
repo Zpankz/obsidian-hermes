@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { loadAppSettings } from '../persistence/persistence';
 
 export const declaration = {
   name: 'internet_search',
@@ -16,8 +17,15 @@ export const declaration = {
 export const instruction = `- internet_search: Use this to fetch real-time data or information not contained within the local vault. Always use this tool for questions about current events, celebrities, weather, or general knowledge.`;
 
 export const execute = async (args: any, callbacks: any): Promise<any> => {
-  // Use the API key from environment
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Get API key from settings or environment
+  const settings = loadAppSettings();
+  const apiKey = settings?.manualApiKey?.trim() || process.env.API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('API key not found. Please set your Gemini API key in the plugin settings.');
+  }
+  
+  const ai = new GoogleGenAI({ apiKey });
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',

@@ -3,24 +3,24 @@ import { moveFile } from '../services/mockFiles';
 
 export const declaration = {
   name: 'move_file',
-  description: 'Move a file from one folder to another',
+  description: 'Move a file from one folder to another using paths relative to vault root',
   parameters: {
     type: Type.OBJECT,
     properties: {
       sourcePath: {
         type: Type.STRING,
-        description: 'Current path of the file to move (e.g., "projects/notes.md")'
+        description: 'Current path relative to vault root (e.g., "projects/notes.md" or "notes.md" for root level)'
       },
       targetPath: {
         type: Type.STRING, 
-        description: 'New path for the file (e.g., "archive/projects/notes.md")'
+        description: 'New path relative to vault root (e.g., "archive/projects/notes.md" or "notes.md" for root level)'
       }
     },
     required: ['sourcePath', 'targetPath']
   }
 };
 
-export const instruction = `- move_file: Move a file from one location to another in the vault. Use this to reorganize files between folders.`;
+export const instruction = `- move_file: Move a file using paths relative to vault root. All paths are relative to vault root (e.g., "projects/notes.md" or "notes.md" for root level files). Use this to reorganize files between folders.`;
 
 export const execute = async (args: any, callbacks: any): Promise<any> => {
   const result = await moveFile(args.sourcePath, args.targetPath);

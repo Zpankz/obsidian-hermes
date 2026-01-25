@@ -47,3 +47,24 @@ export const loadAppSettingsAsync = async (): Promise<any | null> => {
   }
   return localStoragePersistence.loadAppSettingsAsync();
 };
+
+export const reloadAppSettings = async (): Promise<any | null> => {
+  if (useObsidian) {
+    return obsidianPersistence.reloadAppSettings();
+  }
+  return localStoragePersistence.reloadAppSettings();
+};
+
+export const saveChatHistory = async (history: string[]): Promise<void> => {
+  if (useObsidian) {
+    return obsidianPersistence.saveChatHistory(history);
+  }
+  return localStoragePersistence.saveChatHistory(history);
+};
+
+export const loadChatHistory = (): string[] => {
+  if (useObsidian) {
+    return obsidianPersistence.loadChatHistory();
+  }
+  return localStoragePersistence.loadChatHistory();
+};

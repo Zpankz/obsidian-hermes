@@ -21,6 +21,10 @@ export class HermesMainViewObsidian extends ItemView {
     return 'Hermes Voice Assistant';
   }
 
+  getIcon(): string {
+    return 'mic-vocal';
+  }
+
   async onOpen(): Promise<void> {
     const container = this.containerEl.children[1];
     container.empty();

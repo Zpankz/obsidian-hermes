@@ -1,7 +1,7 @@
 
 import { Plugin, WorkspaceLeaf } from 'obsidian';
 import { HermesMainViewObsidian, VIEW_TYPE_HERMES } from './HermesMainViewObsidian';
-import { setObsidianPlugin, loadAppSettingsAsync } from './persistence/persistence';
+import { setObsidianPlugin, loadAppSettingsAsync, reloadAppSettings } from './persistence/persistence';
 import { HermesSettingsTab, HermesSettings, DEFAULT_HERMES_SETTINGS } from './obsidian/HermesSettingsTab';
 
 export default class HermesPlugin extends Plugin {
@@ -25,7 +25,7 @@ export default class HermesPlugin extends Plugin {
         );
 
         // Add a ribbon icon to open the assistant
-        (this as any).addRibbonIcon('microphone', 'Hermes Voice Assistant', () => {
+        (this as any).addRibbonIcon('mic-vocal', 'Hermes Voice Assistant', () => {
             this.activateView();
         });
 

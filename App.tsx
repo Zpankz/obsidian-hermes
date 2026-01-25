@@ -1,17 +1,18 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LogEntry, TranscriptionEntry, ConnectionStatus, ToolData, UsageMetadata } from './types';
-import { initFileSystem, listDirectory, createFile } from './services/mockFiles';
-import { saveAppSettings, loadAppSettings, isObsidianMode } from './services/persistence';
+import { initFileSystem, listDirectory } from './services/mockFiles';
+import { saveAppSettings, loadAppSettings, saveChatHistory, loadChatHistory } from './persistence/persistence';
 import { GeminiVoiceAssistant } from './services/voiceInterface';
+import { GeminiTextInterface } from './services/textInterface';
 import { DEFAULT_SYSTEM_INSTRUCTION } from './utils/defaultPrompt';
 import { isObsidian } from './utils/environment';
+import { archiveConversation } from './utils/archiveConversation';
 
 // Components
 import Header from './components/Header';
 import Settings from './components/Settings';
-import KernelLog from './components/KernelLog';
-import ChatWindow from './components/ChatWindow';
+import MainWindow from './components/MainWindow';
 import InputBar from './components/InputBar';
 
 const App: React.FC = () => {
@@ -30,7 +31,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [inputText, setInputText] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
+  const [showKernel, setShowKernel] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState<'user' | 'model' | 'none'>('none');
   const [micVolume, setMicVolume] = useState(0);
   
@@ -47,6 +48,7 @@ const App: React.FC = () => {
   const [fileCount, setFileCount] = useState<number>(0);
 
   const assistantRef = useRef<GeminiVoiceAssistant | null>(null);
+  const textInterfaceRef = useRef<GeminiTextInterface | null>(null);
 
   const isObsidianEnvironment = useMemo(() => {
     return isObsidian();
@@ -72,63 +74,21 @@ const App: React.FC = () => {
     }
   };
 
-  const archiveConversation = useCallback(async (summary: string, history: TranscriptionEntry[]) => {
-    const now = new Date();
-    const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
-    const safeTopic = summary.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 40);
-    const filename = `chat-history-${timestamp}-${safeTopic}.md`;
+  const handleMissingApiKey = () => {
+    // Post message in chat
+    setTranscripts(prev => [...prev, { 
+      id: 'api-key-missing-' + Date.now(), 
+      role: 'system', 
+      text: 'API KEY MISSING - Please configure your API key in Settings to continue.', 
+      isComplete: true, 
+      timestamp: Date.now() 
+    }]);
+    
+    // Open settings
+    setSettingsOpen(true);
+    addLog('API key missing - opening Settings', 'error');
+  };
 
-    const filteredHistory = history.filter(t => {
-      if (t.id === 'welcome-init') return false;
-      if (t.role === 'model' && t.text.trim().toLowerCase().replace(/\./g, '') === 'done') return false;
-      return true;
-    });
-
-    const markdown = filteredHistory
-      .map((t, i, arr) => {
-        let block = '';
-        if (t.role === 'user') {
-          block = `**User**: ${t.text}`;
-        } else if (t.role === 'model') {
-          block = `> ${t.text.split('\n').join('\n> ')}`;
-        } else if (t.role === 'system') {
-          if (t.toolData?.name === 'rename_file') {
-            block = `**RENAME** ~~${t.toolData.oldContent}~~ -> [[${t.toolData.newContent}]]`;
-          } else if (t.toolData?.name === 'topic_switch') {
-            block = `## ${t.toolData.newContent}`;
-          } else {
-            let output = `\`\`\`system\n${t.text}\n\`\`\``;
-            if (t.toolData) {
-              const fileRef = `[[${t.toolData.filename}]]`;
-              if (t.toolData.oldContent !== undefined && t.toolData.newContent !== undefined && t.toolData.oldContent !== t.toolData.newContent) {
-                output += `\n\n${fileRef}\n\n--- Removed\n\`\`\`markdown\n${t.toolData.oldContent || '(empty)'}\n\`\`\`\n\n+++ Added\n\`\`\`markdown\n${t.toolData.newContent || '(empty)'}\n\`\`\``;
-              } else if (t.toolData.name === 'read_file' || t.toolData.name === 'create_file') {
-                 output += `\n\n${fileRef}\n\`\`\`markdown\n${t.toolData.newContent}\n\`\`\``;
-              }
-            }
-            block = output;
-          }
-        }
-        const next = arr[i + 1];
-        const isUserGroup = t.role === 'user' && next?.role === 'user';
-        return block + (isUserGroup ? '\n\n' : '\n\n---\n\n');
-      })
-      .join('');
-
-    try {
-      await createFile(filename, `# Conversation Archive: ${summary}\n\n${markdown}`);
-      addLog(`Segment archived to ${filename}`, 'action');
-    } catch (err: any) {
-      const errorDetails = {
-        toolName: 'archiveConversation',
-        content: `Summary: ${summary}\nHistory length: ${history.length} entries`,
-        contentSize: summary.length + JSON.stringify(history).length,
-        stack: err.stack,
-        apiCall: 'createFile'
-      };
-      addLog(`Persistence Failure: ${err.message}`, 'error', undefined, errorDetails);
-    }
-  }, [addLog]);
 
   useEffect(() => {
     const lastMsg = transcripts[transcripts.length - 1];
@@ -136,10 +96,21 @@ const App: React.FC = () => {
       const summary = lastMsg.toolData.newContent || 'Shift';
       const toArchive = transcripts.slice(0, -1);
       if (toArchive.length > 0) {
-        archiveConversation(summary, toArchive);
+        archiveConversation(summary, toArchive)
+          .then(message => addLog(message, 'action'))
+          .catch(err => {
+            const errorDetails = {
+              toolName: 'archiveConversation',
+              content: `Summary: ${summary}\nHistory length: ${toArchive.length} entries`,
+              contentSize: summary.length + JSON.stringify(toArchive).length,
+              stack: err.message,
+              apiCall: 'createFile'
+            };
+            addLog(`Persistence Failure: ${err.message}`, 'error', undefined, errorDetails);
+          });
       }
     }
-  }, [transcripts, archiveConversation]);
+  }, [transcripts, addLog]);
 
   useEffect(() => {
     initFileSystem().then(() => {
@@ -181,7 +152,7 @@ const App: React.FC = () => {
         setMicVolume(0);
       }
     },
-    onLog: (m: string, t: LogEntry['type'], d?: number) => addLog(m, t, d),
+    onLog: (m: string, t: LogEntry['type'], d?: number, e?: LogEntry['errorDetails']) => addLog(m, t, d, e),
     onTranscription: (role: 'user' | 'model', text: string, isComplete: boolean) => {
       setActiveSpeaker(isComplete ? 'none' : role);
       setTranscripts(prev => {
@@ -243,9 +214,12 @@ const App: React.FC = () => {
     try {
       const activeKey = manualApiKey.trim() || process.env.API_KEY || '';
       if (!activeKey) {
-        // @ts-ignore
-        if (window.aistudio && !(await window.aistudio.hasSelectedApiKey())) await window.aistudio.openSelectKey();
+        handleMissingApiKey();
+        return;
       }
+      // @ts-ignore
+      if (window.aistudio && !(await window.aistudio.hasSelectedApiKey())) await window.aistudio.openSelectKey();
+      
       assistantRef.current = new GeminiVoiceAssistant(assistantCallbacks);
       await assistantRef.current.start(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
     } catch (err: any) {
@@ -270,17 +244,87 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSendText = (e: React.FormEvent) => {
+  const handleSendText = async (e: React.FormEvent) => {
     e.preventDefault(); 
-    if (inputText.trim()) { 
-      assistantCallbacks.onTranscription('user', inputText, true); 
-      assistantRef.current?.sendText(inputText); 
-      setInputText(''); 
+    if (!inputText.trim()) return;
+    
+    const message = inputText.trim();
+    setInputText('');
+    
+    // Save message to chat history
+    const currentHistory = loadChatHistory();
+    const updatedHistory = [...currentHistory, message];
+    await saveChatHistory(updatedHistory);
+    
+    // If voice session is active, stop it first before using text API
+    if (status === ConnectionStatus.CONNECTED && assistantRef.current) {
+      assistantRef.current.stop();
+      assistantRef.current = null;
+      setActiveSpeaker('none');
+      setMicVolume(0);
     }
+    
+    // Use text interface
+    const activeKey = manualApiKey.trim() || process.env.API_KEY || '';
+    if (!activeKey) {
+      handleMissingApiKey();
+      return;
+    }
+    
+    // Initialize text interface if needed
+    if (!textInterfaceRef.current) {
+      textInterfaceRef.current = new GeminiTextInterface({
+        onLog: (m, t, d, e) => addLog(m, t, d, e),
+        onTranscription: (role, text, isComplete) => {
+          setTranscripts(prev => {
+            const activeIdx = prev.reduceRight((acc, e, i) => (acc !== -1 ? acc : (e.role === role && !e.isComplete ? i : -1)), -1);
+            if (activeIdx !== -1) {
+              const updated = [...prev];
+              updated[activeIdx] = { ...updated[activeIdx], text: text || updated[activeIdx].text, isComplete };
+              return updated;
+            }
+            return [...prev, { id: Math.random().toString(36).substr(2, 9), role, text, isComplete, timestamp: Date.now() }];
+          });
+        },
+        onSystemMessage: (text, toolData) => {
+          setTranscripts(prev => {
+            if (toolData?.id) {
+              const existingIdx = prev.findIndex(t => t.toolData?.id === toolData.id);
+              if (existingIdx !== -1) {
+                const next = [...prev];
+                next[existingIdx] = {
+                  ...next[existingIdx],
+                  text,
+                  toolData: { ...next[existingIdx].toolData, ...toolData, status: toolData.status || 'success' }
+                };
+                return next;
+              }
+            }
+            return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
+          });
+          setFileCount(listDirectory().length);
+        },
+        onFileStateChange: (folder, note) => {
+          setCurrentFolder(folder);
+          const notes = Array.isArray(note) ? note : (note ? [note] : []);
+          if (notes.length > 0) {
+            setCurrentNote(notes[notes.length - 1]);
+          }
+        },
+        onUsageUpdate: (usage) => {
+          setUsage(usage);
+          if (usage.totalTokenCount !== undefined) setTotalTokens(usage.totalTokenCount);
+        }
+      });
+      
+      await textInterfaceRef.current.initialize(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
+    }
+    
+    await textInterfaceRef.current.sendMessage(message);
   };
 
   return (
-    <div className={`hermes-root h-screen flex flex-col selection:bg-blue-500/30 overflow-hidden font-sans ${isObsidianEnvironment ? '' : 'standalone'}`}>
+    <div className={`hermes-root flex flex-col overflow-hidden ${isObsidianEnvironment ? '' : 'standalone'}`}>
       <Settings 
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)} 
@@ -297,30 +341,33 @@ const App: React.FC = () => {
       
       <Header 
         status={status}
-        showLogs={showLogs}
-        onToggleLogs={() => setShowLogs(!showLogs)}
+        showLogs={showKernel}
+        onToggleLogs={() => setShowKernel(!showKernel)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       
-      <main className="flex-grow flex flex-col overflow-hidden relative pb-[80px]">
-        <ChatWindow 
-          transcripts={transcripts} 
-          hasSavedConversation={hasSavedConversation}
-          onRestoreConversation={restoreConversation}
-        />
-        <KernelLog isVisible={showLogs} logs={logs} usage={usage} onFlush={() => setLogs([])} fileCount={fileCount} />
-        <InputBar 
-          inputText={inputText} 
-          setInputText={setInputText} 
-          onSendText={handleSendText} 
-          isListening={status === ConnectionStatus.CONNECTED} 
-          onStartSession={startSession} 
-          onStopSession={stopSession} 
-          status={status} 
-          activeSpeaker={activeSpeaker} 
-          volume={micVolume}
-        />
-      </main>
+      <MainWindow 
+        showKernel={showKernel}
+        transcripts={transcripts} 
+        hasSavedConversation={hasSavedConversation}
+        onRestoreConversation={restoreConversation}
+        logs={logs}
+        usage={usage}
+        onFlushLogs={() => setLogs([])}
+        fileCount={fileCount}
+      />
+      
+      <InputBar 
+        inputText={inputText} 
+        setInputText={setInputText} 
+        onSendText={handleSendText} 
+        isListening={status === ConnectionStatus.CONNECTED} 
+        onStartSession={startSession} 
+        onStopSession={stopSession} 
+        status={status} 
+        activeSpeaker={activeSpeaker} 
+        volume={micVolume}
+      />
     </div>
   );
 };

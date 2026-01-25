@@ -52,9 +52,16 @@ export interface ToolData {
   removals?: number;
   error?: string;
   files?: string[];
+  directoryInfo?: any[];
   searchResults?: SearchResult[];
   multiDiffs?: FileDiff[];
   groundingChunks?: GroundingChunk[];
+  truncated?: boolean;
+  totalItems?: number;
+  shownItems?: number;
+  currentPage?: number;
+  totalPages?: number;
+  truncationNotice?: string;
 }
 
 export interface TranscriptionEntry {

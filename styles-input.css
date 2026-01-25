@@ -1,29 +1,134 @@
 @tailwind components;
 @tailwind utilities;
 
-@import './obsidian-colors.css';
+/* ============================================
+   HERMES STYLES - All variables consolidated
+   ============================================ */
 
-.hermes-voice-assistant, [data-type="hermes-voice-assistant"] .view-content{
-  margin: 0; padding: 0;
+/* Tailwind utility classes */
+@layer utilities {
+  /* Layout utilities */
+  .hermes-footer-bg { background-color: var(--hermes-footer-bg); }
+  .hermes-header-bg { background-color: var(--hermes-header-bg); }
+  
+  /* Message utilities */
+  .hermes-user-msg-bg { background-color: var(--hermes-user-msg-bg); }
+  .hermes-user-msg-text { color: var(--hermes-user-msg-text); }
+  .hermes-hermes-msg-bg { background-color: var(--hermes-hermes-msg-bg); }
+  .hermes-hermes-msg-text { color: var(--hermes-hermes-msg-text); }
+  .hermes-system-msg-bg { background-color: var(--hermes-system-msg-bg); }
+  .hermes-system-msg-text { color: var(--hermes-system-msg-text); }
+  
+  /* System message type colors - hardcoded for reliability */
+  .hermes-system-error-bg { background-color: rgba(239, 68, 68, 0.25) !important; }
+  .hermes-system-error-text { color: #ef4444 !important; }
+  .hermes-system-warning-bg { background-color: rgba(245, 158, 11, 0.2) !important; }
+  .hermes-system-warning-text { color: #f59e0b !important; }
+  .hermes-system-success-bg { background-color: rgba(16, 185, 129, 0.2) !important; }
+  .hermes-system-success-text { color: #10b981 !important; }
+  .hermes-system-info-bg { background-color: rgba(59, 130, 246, 0.2) !important; }
+  .hermes-system-info-text { color: #3b82f6 !important; }
+  
+  /* Text utilities */
+  .hermes-text-normal { color: var(--hermes-text-normal); }
+  .hermes-text-muted { color: var(--hermes-text-muted); }
+  .hermes-text-faint { color: var(--hermes-text-faint); }
+  .hermes-text-accent { color: var(--hermes-text-accent); }
+  
+  /* Status utilities */
+  .hermes-success { color: #10b981; }
+  .hermes-success-bg { background-color: #10b981; }
+  .hermes-warning { color: #f59e0b; }
+  .hermes-warning-bg { background-color: #f59e0b; }
+  .hermes-error { color: #ef4444; }
+  .hermes-error-bg { background-color: #ef4444; }
+  .hermes-info { color: #3b82f6; }
+  .hermes-info-bg { background-color: #3b82f6; }
+  
+  /* Interactive utilities */
+  .hermes-interactive-bg { background-color: var(--hermes-interactive); }
+  
+  /* Hover utilities - BLUE (hermes-hover: prefix) */
+  .hermes-hover\:bg-secondary\/5:hover { background-color: rgba(59, 130, 246, 0.05) !important; }
+  .hermes-hover\:bg-secondary\/10:hover { background-color: rgba(59, 130, 246, 0.1) !important; }
+  .hermes-hover\:bg-secondary\/20:hover { background-color: rgba(59, 130, 246, 0.2) !important; }
+  .hermes-hover\:bg-secondary\/50:hover { background-color: rgba(59, 130, 246, 0.5) !important; }
+  .hermes-hover\:border\/10:hover { border-color: rgba(59, 130, 246, 0.1) !important; }
+  .hermes-hover\:border\/20:hover { border-color: rgba(59, 130, 246, 0.2) !important; }
+  .hermes-hover\:text-normal:hover { color: #3b82f6 !important; }
+  .hermes-hover\:interactive-bg:hover { background-color: rgba(59, 130, 246, 0.1) !important; }
+  .hermes-hover\:error-bg\/20:hover { background-color: rgba(239, 68, 68, 0.2) !important; }
+  .hermes-hover\:accent:hover { color: var(--hermes-text-accent) !important; }
+  
+  /* Border utilities */
+  .hermes-border-b { border-bottom: 1px solid var(--hermes-border); }
+  .hermes-border-t { border-top: 1px solid var(--hermes-border); }
+  .hermes-border\/10 { border-color: rgba(100, 116, 139, 0.1); }
+  .hermes-border\/20 { border-color: rgba(100, 116, 139, 0.2); }
 }
 
+/* CSS Variables for Obsidian integration */
 .hermes-root {
-  /* Use Obsidian's default theme variables */
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
-  font-family: var(--font-text);
+  /* Primary backgrounds */
+  --hermes-bg-primary: var(--background-primary, #1e1e1e);
+  --hermes-bg-secondary: var(--background-secondary, #252525);
+  --hermes-bg-secondary-alt: var(--background-secondary-alt, #2a2a2a);
+  --hermes-bg-tertiary: var(--background-tertiary, #303030);
+  
+  /* Text colors */
+  --hermes-text-normal: var(--text-normal, #e0e0e0);
+  --hermes-text-muted: var(--text-muted, #999999);
+  --hermes-text-faint: var(--text-faint, #666666);
+  --hermes-text-accent: var(--text-accent, #7c3aed);
+  
+  /* Borders */
+  --hermes-border: var(--background-modifier-border, #404040);
+  
+  /* Interactive */
+  --hermes-interactive: var(--interactive-normal, #484848);
+  --hermes-interactive-hover: var(--interactive-hover, #585858);
+  --hermes-interactive-accent: var(--interactive-accent, #7c3aed);
+  
+  /* Header/Footer/Input */
+  --hermes-header-bg: var(--titlebar-background, var(--background-secondary-alt, #2a2a2a));
+  --hermes-footer-bg: var(--background-secondary-alt, #2a2a2a);
+  --hermes-input-bg: var(--background-primary, #1e1e1e);
+  --hermes-input-text: var(--text-normal, #e0e0e0);
+  --hermes-input-border: var(--background-modifier-border, #404040);
+  --hermes-input-border-focus: var(--interactive-accent, #7c3aed);
+  
+  /* Message colors */
+  --hermes-user-msg-bg: var(--interactive-accent, #7c3aed);
+  --hermes-user-msg-text: var(--text-on-accent, #ffffff);
+  --hermes-hermes-msg-bg: var(--background-primary, #1e1e1e);
+  --hermes-hermes-msg-text: var(--text-normal, #e0e0e0);
+  --hermes-system-msg-bg: var(--background-modifier-form-field, #303030);
+  --hermes-system-msg-text: var(--text-muted, #999999);
+  
+  /* Base styles */
+  background-color: var(--background-secondary, #252525);
+  color: var(--text-normal, #e0e0e0);
+  font-family: var(--font-text, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  height: 100%;
 }
 
-/* Standalone mode fallback */
+/* Obsidian view container */
+.hermes-voice-assistant, 
+[data-type="hermes-voice-assistant"] .view-content {
+  margin: 0;
+  padding: 0;
+}
+
+/* Standalone mode (outside Obsidian) */
 .hermes-root.standalone {
   background-color: #1e1e1e;
   color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Glass panel effect */
 .hermes-root .glass-panel {
-  background: var(--background-secondary-alt);
-  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary-alt, #2a2a2a);
+  border: 1px solid var(--background-modifier-border, #404040);
 }
 
 .hermes-root.standalone .glass-panel {
@@ -31,6 +136,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Custom scrollbar */
 .hermes-root .log-container::-webkit-scrollbar {
   width: 6px;
 }
