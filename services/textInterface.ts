@@ -210,4 +210,26 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
   getHistory(): Content[] {
     return this.chatHistory;
   }
+
+  async generateSummary(conversationText: string): Promise<string> {
+    if (!this.ai) {
+      throw new Error('Text interface not initialized');
+    }
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: this.model,
+        contents: [{
+          role: 'user',
+          parts: [{ text: `Please provide a concise summary (2-3 sentences) of the following conversation:\n\n${conversationText}` }]
+        }]
+      });
+
+      const candidate = response.candidates?.[0];
+      const textParts = candidate?.content?.parts?.filter(part => part.text);
+      return textParts?.map(part => part.text).join('') || '';
+    } catch (error: any) {
+      throw new Error(`Failed to generate summary: ${error.message}`);
+    }
+  }
 }

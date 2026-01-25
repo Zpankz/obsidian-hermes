@@ -721,6 +721,10 @@
   margin-top: 1rem;
   margin-bottom: 1rem;
 }
+.hermes-root .my-1 {
+  margin-top: .25rem;
+  margin-bottom: .25rem;
+}
 .hermes-root .mb-1 {
   margin-bottom: .25rem;
 }
@@ -759,6 +763,9 @@
 }
 .hermes-root .mt-4 {
   margin-top: 1rem;
+}
+.hermes-root .ml-auto {
+  margin-left: auto;
 }
 .hermes-root .block {
   display: block;
@@ -897,6 +904,9 @@
 }
 .hermes-root .max-w-none {
   max-width: none;
+}
+.hermes-root .max-w-\[200px\] {
+  max-width: 200px;
 }
 .hermes-root .flex-1 {
   flex: 1 1 0%;
@@ -1045,6 +1055,11 @@
   --tw-space-y-reverse:0;
   margin-top: calc(2rem*(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(2rem*var(--tw-space-y-reverse));
+}
+.hermes-root :is(.space-y-0\.5>:not([hidden])~:not([hidden])) {
+  --tw-space-y-reverse:0;
+  margin-top: calc(.125rem*(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(.125rem*var(--tw-space-y-reverse));
 }
 .hermes-root .overflow-hidden {
   overflow: hidden;

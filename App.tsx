@@ -113,7 +113,11 @@ const App: React.FC = () => {
       const summary = lastMsg.toolData.newContent || 'Shift';
       const toArchive = transcripts.slice(0, -1);
       if (toArchive.length > 0) {
-        archiveConversation(summary, toArchive)
+        // Get current settings to access chatHistoryFolder
+        const currentSettings = loadAppSettings();
+        const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
+        
+        archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current)
           .then(message => addLog(message, 'action'))
           .catch(err => {
             const errorDetails = {
@@ -229,7 +233,11 @@ const App: React.FC = () => {
     const toArchive = transcripts.filter(t => t.id !== 'welcome-init');
     if (toArchive.length > 0) {
       try {
-        const message = await archiveConversation(summary, toArchive);
+        // Get current settings to access chatHistoryFolder
+        const currentSettings = loadAppSettings();
+        const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
+        
+        const message = await archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current);
         addLog(message, 'action');
         // Clear the transcripts after successful archiving
         setTranscripts([{

@@ -38319,8 +38319,6 @@ var execute16 = async (args, callbacks) => {
     filename: args.path,
     newContent: `Directory created: ${args.path}`
   });
-  const directoryPath = args.path.startsWith("/") ? args.path : `/${args.path}/`;
-  callbacks.onFileState(directoryPath, args.path);
   return { status: "created", path: args.path };
 };
 
@@ -39074,7 +39072,7 @@ ${settings.customContext}`.trim();
             const responseData = JSON.stringify({ result: response });
             console.log(`Tool response: ${fc.name}, size: ${responseData.length} chars`);
             if (!toolUpdatedMessage) {
-              let displayContent = response?.text || (typeof response === "string" ? response : JSON.stringify(response, null, 2));
+              let displayContent = "";
               if (fc.name === "create_file" || fc.name === "create_directory") {
                 const path2 = fc.args?.filename || fc.args?.path;
                 if (path2 && typeof path2 === "string") {
@@ -39082,17 +39080,29 @@ ${settings.customContext}`.trim();
                   const containingFolder = lastSlashIndex === -1 ? "/" : path2.substring(0, lastSlashIndex + 1);
                   displayContent = `Created in: ${containingFolder}`;
                 }
+              } else if (fc.name === "move_file" || fc.name === "rename_file") {
+                displayContent = `Moved from: ${fc.args?.sourcePath || fc.args?.oldPath} to: ${fc.args?.targetPath || fc.args?.newPath}`;
+              } else if (fc.name === "update_file" || fc.name === "edit_file") {
+                displayContent = `Updated: ${fc.args?.filename}`;
+              } else if (fc.name === "delete_file") {
+                displayContent = `Deleted: ${fc.args?.filename}`;
+              } else if (response?.text) {
+                displayContent = response.text;
+              } else if (typeof response === "string") {
+                displayContent = response;
               }
-              this.callbacks.onSystemMessage(`${actionName} Complete`, {
-                id: toolCallId,
-                name: fc.name,
-                filename: fc.args?.filename || (fc.name === "internet_search" ? "Web" : "Registry"),
-                status: "success",
-                newContent: displayContent,
-                groundingChunks: response?.groundingChunks || [],
-                files: response?.files || response?.directories?.map((d2) => d2.path) || response?.folders,
-                directoryInfo: response?.directoryInfo
-              });
+              if (displayContent) {
+                this.callbacks.onSystemMessage(`${actionName} Complete`, {
+                  id: toolCallId,
+                  name: fc.name,
+                  filename: fc.args?.filename || (fc.name === "internet_search" ? "Web" : "Registry"),
+                  status: "success",
+                  newContent: displayContent,
+                  groundingChunks: response?.groundingChunks || [],
+                  files: response?.files || response?.directories?.map((d2) => d2.path) || response?.folders,
+                  directoryInfo: response?.directoryInfo
+                });
+              }
             }
             s.sendToolResponse({
               functionResponses: { id: fc.id, name: fc.name, response: { result: response } }
@@ -39358,6 +39368,27 @@ ${settings.customContext}`.trim();
   getHistory() {
     return this.chatHistory;
   }
+  async generateSummary(conversationText) {
+    if (!this.ai) {
+      throw new Error("Text interface not initialized");
+    }
+    try {
+      const response = await this.ai.models.generateContent({
+        model: this.model,
+        contents: [{
+          role: "user",
+          parts: [{ text: `Please provide a concise summary (2-3 sentences) of the following conversation:
+
+${conversationText}` }]
+        }]
+      });
+      const candidate = response.candidates?.[0];
+      const textParts = candidate?.content?.parts?.filter((part) => part.text);
+      return textParts?.map((part) => part.text).join("") || "";
+    } catch (error) {
+      throw new Error(`Failed to generate summary: ${error.message}`);
+    }
+  }
 };
 
 // utils/defaultPrompt.ts
@@ -39404,11 +39435,17 @@ ${toolInstructions}`;
 init_environment();
 
 // utils/archiveConversation.ts
-var archiveConversation = async (summary, history) => {
+var archiveConversation = async (summary, history, chatHistoryFolder, textInterface) => {
+  let summaryText = summary;
+  if (typeof summary === "object" && summary !== null) {
+    summaryText = summary.summary || summary.title || JSON.stringify(summary);
+  }
+  summaryText = String(summaryText || "Conversation");
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:T]/g, "-").split(".")[0];
-  const safeTopic = summary.toLowerCase().replace(/[^a-z0-9]/g, "-").substring(0, 40);
-  const filename = `chat-history/chat-history-${timestamp}-${safeTopic}.md`;
+  const safeTopic = summaryText.toLowerCase().replace(/[^a-z0-9]/g, "-").substring(0, 40);
+  const historyFolder = chatHistoryFolder || "chat-history";
+  const filename = `${historyFolder}/chat-history-${timestamp}-${safeTopic}.md`;
   const filteredHistory = history.filter((t) => {
     if (t.id === "welcome-init")
       return false;
@@ -39458,10 +39495,13 @@ var archiveConversation = async (summary, history) => {
     const firstEntry = group[0];
     let block = "";
     const mergedText = group.map((e) => e.text).join(" ").trim();
+    const convertFileLinks = (text) => {
+      return text.replace(/(?:file:\s*|)([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))/g, "[[$1]]").replace(/"([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))"/g, "[[$1]]").replace(/`([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))`/g, "[[$1]]");
+    };
     if (firstEntry.role === "user") {
-      block = mergedText;
+      block = convertFileLinks(mergedText);
     } else if (firstEntry.role === "model") {
-      block = `> ${mergedText.split("\n").join("\n> ")}`;
+      block = `> ${convertFileLinks(mergedText).split("\n").join("\n> ")}`;
     } else if (firstEntry.role === "system") {
       const systemBlocks = group.map((entry) => {
         if (entry.toolData?.name === "rename_file") {
@@ -39514,22 +39554,34 @@ ${entry.toolData.newContent}
     }
     return block;
   }).filter((block) => block.trim() !== "").join("\n\n");
+  let aiSummary = "";
+  if (textInterface && filteredHistory.length > 0) {
+    try {
+      const conversationText = filteredHistory.filter((entry) => entry.role === "user" || entry.role === "model").map((entry) => `${entry.role}: ${entry.text}`).join("\n");
+      if (conversationText.trim()) {
+        aiSummary = await textInterface.generateSummary(conversationText);
+      }
+    } catch (error) {
+      console.warn("Failed to generate AI summary:", error.message);
+    }
+  }
   try {
     const { createFile: createFile2, createDirectory: createDirectory2 } = await Promise.resolve().then(() => (init_mockFiles(), mockFiles_exports));
     try {
-      await createDirectory2("chat-history");
+      await createDirectory2(historyFolder);
     } catch (err) {
       if (!err.message.includes("already exists")) {
         throw err;
       }
     }
     const frontmatter = `---
-title: ${summary}
+title: ${summaryText}
 date: ${startDate}
 end_date: ${endDate}
 duration: ${duration}
 tags: [${tagString}]
 format: hermes-chat-archive
+${aiSummary ? `summary: ${aiSummary.replace(/"/g, '\\"')}` : ""}
 ---
 
 `;
@@ -39594,18 +39646,7 @@ var Header = ({ status, showLogs, onToggleLogs, onOpenSettings, isListening, onS
         ] })
       }
     ) }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center space-x-1", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        "button",
-        {
-          onClick: onToggleLogs,
-          className: `p-2 transition-all ${showLogs ? "hermes-text-accent" : "hermes-text-muted hermes-hover:text-normal"}`,
-          title: "Toggle System Log",
-          children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" }) })
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingsButton_default, { onOpenSettings })
-    ] })
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex items-center space-x-1", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingsButton_default, { onOpenSettings }) })
   ] });
 };
 var Header_default = Header;
@@ -41216,6 +41257,29 @@ var WebSearchView = ({ content, chunks }) => {
 var ToolResult = ({ toolData, isLast }) => {
   const [isExpanded, setIsExpanded] = (0, import_react2.useState)(false);
   const [manuallyToggled, setManuallyToggled] = (0, import_react2.useState)(false);
+  const toolInfo = (0, import_react2.useMemo)(() => {
+    const declaration21 = COMMAND_DECLARATIONS.find((d2) => d2.name === toolData.name);
+    return declaration21;
+  }, [toolData.name]);
+  const getToolDetails = () => {
+    const details = [];
+    if (toolInfo?.parameters?.properties) {
+      const params = Object.keys(toolInfo.parameters.properties);
+      if (params.length > 0) {
+        details.push(params.join(", "));
+      }
+    }
+    if (toolData.name === "search_keyword" && toolData.filename !== "Global Search") {
+      details.push(`"${toolData.filename}"`);
+    }
+    if (toolData.files && Array.isArray(toolData.files)) {
+      details.push(`${toolData.files.length} items`);
+    }
+    if (toolData.directoryInfo && Array.isArray(toolData.directoryInfo)) {
+      details.push(`${toolData.directoryInfo.length} dirs`);
+    }
+    return details;
+  };
   (0, import_react2.useEffect)(() => {
     if (isLast && !manuallyToggled && toolData.status !== "pending") {
       setIsExpanded(true);
@@ -41264,18 +41328,30 @@ var ToolResult = ({ toolData, isLast }) => {
     }
   };
   const isPending = toolData.status === "pending";
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: `w-full my-2 hermes-border rounded-xl overflow-hidden transition-all shadow-md ${isPending ? "hermes-border/20 hermes-interactive-bg/5" : "hermes-border/10 hermes-bg-secondary/40 hermes-hover:border/20"}`, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: `w-full my-1 hermes-border rounded-xl overflow-hidden transition-all shadow-md ${isPending ? "hermes-border/20 hermes-interactive-bg/5" : "hermes-border/10 hermes-bg-secondary/40 hermes-hover:border/20"}`, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
       "div",
       {
         onClick: toggle,
-        className: `flex items-center justify-between px-4 py-3 ${isPending ? "cursor-default" : "cursor-pointer hermes-hover:bg-secondary/5"} transition-colors group`,
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-3 overflow-hidden", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: `text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 ${isPending ? "hermes-interactive-bg/20 hermes-text-accent" : toolData.name.includes("create") ? "hermes-success-bg/20 hermes-success" : toolData.name.includes("read") ? "hermes-interactive-bg/20 hermes-text-accent" : toolData.name.includes("rename") ? "hermes-warning-bg/20 hermes-warning" : toolData.name.includes("search") ? "hermes-info-bg/20 hermes-info" : toolData.name.includes("replace") ? "hermes-warning-bg/20 hermes-warning" : toolData.name === "internet_search" ? "hermes-info-bg/20 hermes-info" : "hermes-text-muted-bg/20 hermes-text-muted"}`, children: getActionLabel(toolData.name) }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-[11px] font-mono hermes-text-normal truncate max-w-[300px]", children: toolData.name === "internet_search" ? `Searching: ${toolData.filename}` : `${toolData.filename}` })
+        className: `flex items-center justify-between px-3 py-2 ${isPending ? "cursor-default" : "cursor-pointer hermes-hover:bg-secondary/5"} transition-colors group`,
+        children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 overflow-hidden", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: `text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 ${isPending ? "hermes-interactive-bg/20 hermes-text-accent" : toolData.name.includes("create") ? "hermes-success-bg/20 hermes-success" : toolData.name.includes("read") ? "hermes-interactive-bg/20 hermes-text-accent" : toolData.name.includes("rename") ? "hermes-warning-bg/20 hermes-warning" : toolData.name.includes("search") ? "hermes-info-bg/20 hermes-info" : toolData.name.includes("replace") ? "hermes-warning-bg/20 hermes-warning" : toolData.name === "internet_search" ? "hermes-info-bg/20 hermes-info" : "hermes-text-muted-bg/20 hermes-text-muted"}`, children: getActionLabel(toolData.name) }),
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-[11px] font-mono hermes-text-normal truncate", children: toolData.name === "internet_search" ? `Searching: ${toolData.filename}` : `${toolData.filename}` }),
+          getToolDetails().length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "text-[9px] hermes-text-muted font-mono truncate", children: [
+            "\xB7 ",
+            getToolDetails().join(" \xB7 ")
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: isPending ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center space-x-1 px-2", children: toolData.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "loading-dots-container", children: [
+          !isPending && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+            "svg",
+            {
+              className: `w-4 h-4 hermes-text-muted transition-transform duration-300 shrink-0 ml-auto ${isExpanded ? "rotate-180" : ""}`,
+              fill: "none",
+              viewBox: "0 0 24 24",
+              stroke: "currentColor",
+              children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" })
+            }
+          ),
+          isPending && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center space-x-1 px-2 shrink-0 ml-auto", children: toolData.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "loading-dots-container", children: [
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "loading-dot" }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "loading-dot" }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "loading-dot" })
@@ -41283,17 +41359,8 @@ var ToolResult = ({ toolData, isLast }) => {
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-1 h-1 hermes-text-accent rounded-full", children: "." }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-1 h-1 hermes-text-accent rounded-full", children: "." }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-1 h-1 hermes-text-accent rounded-full", children: "." })
-          ] }) }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-            "svg",
-            {
-              className: `w-4 h-4 hermes-text-muted transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`,
-              fill: "none",
-              viewBox: "0 0 24 24",
-              stroke: "currentColor",
-              children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" })
-            }
-          ) })
-        ]
+          ] }) })
+        ] })
       }
     ),
     isExpanded && !isPending && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "hermes-border-t hermes-bg-tertiary max-h-[600px] overflow-y-auto custom-scrollbar", children: [
@@ -41304,7 +41371,7 @@ var ToolResult = ({ toolData, isLast }) => {
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted", children: toolData.truncated ? `${toolData.shownItems} of ${toolData.totalItems} items (Page ${toolData.currentPage} of ${toolData.totalPages})` : `${toolData.files.length} items found` }),
           toolData.truncated && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-accent font-bold text-[9px] px-2 py-1 hermes-interactive-bg/20 rounded", children: "TRUNCATED" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-1", children: toolData.files.map((file, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-0.5", children: toolData.files.map((file, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors", children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted select-none", children: "\u{1F4C4}" }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "truncate", children: file })
         ] }, index)) }),
@@ -41319,7 +41386,7 @@ var ToolResult = ({ toolData, isLast }) => {
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted", children: toolData.truncated ? `${toolData.shownItems} of ${toolData.totalItems} directories (Page ${toolData.currentPage} of ${toolData.totalPages})` : `${toolData.directoryInfo.length} directories found` }),
           toolData.truncated && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-accent font-bold text-[9px] px-2 py-1 hermes-interactive-bg/20 rounded", children: "TRUNCATED" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-1", children: toolData.directoryInfo.map((dir, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-0.5", children: toolData.directoryInfo.map((dir, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors", children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted select-none", children: dir.hasChildren ? "\u{1F4C1}" : "\u{1F4C2}" }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "truncate", children: dir.path || "/" }),
           dir.hasChildren && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted text-[8px] px-1 py-0.5 hermes-bg-secondary/10 rounded", children: "has subdirs" })
@@ -41335,7 +41402,7 @@ var ToolResult = ({ toolData, isLast }) => {
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted", children: toolData.truncated ? `${toolData.shownItems} of ${toolData.totalItems} folders (Page ${toolData.currentPage} of ${toolData.totalPages})` : `${toolData.files.length} folders found` }),
           toolData.truncated && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-accent font-bold text-[9px] px-2 py-1 hermes-interactive-bg/20 rounded", children: "TRUNCATED" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-1", children: toolData.files.map((folder, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-0.5", children: toolData.files.map((folder, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors", children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "hermes-text-muted select-none", children: "\u{1F4C1}" }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "truncate", children: folder })
         ] }, index)) }),
@@ -42180,7 +42247,9 @@ var App = () => {
       const summary = lastMsg.toolData.newContent || "Shift";
       const toArchive = transcripts.slice(0, -1);
       if (toArchive.length > 0) {
-        archiveConversation(summary, toArchive).then((message) => addLog(message, "action")).catch((err) => {
+        const currentSettings = loadAppSettings3();
+        const chatHistoryFolder = currentSettings?.chatHistoryFolder || "chat-history";
+        archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current).then((message) => addLog(message, "action")).catch((err) => {
           const errorDetails = {
             toolName: "archiveConversation",
             content: `Summary: ${summary}
@@ -42273,7 +42342,9 @@ History length: ${toArchive.length} entries`,
     const toArchive = transcripts.filter((t) => t.id !== "welcome-init");
     if (toArchive.length > 0) {
       try {
-        const message = await archiveConversation(summary, toArchive);
+        const currentSettings = loadAppSettings3();
+        const chatHistoryFolder = currentSettings?.chatHistoryFolder || "chat-history";
+        const message = await archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current);
         addLog(message, "action");
         setTranscripts([{
           id: "welcome-init",

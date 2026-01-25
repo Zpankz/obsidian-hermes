@@ -302,7 +302,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             // Only update the message if the tool didn't already do it
             if (!toolUpdatedMessage) {
               // For create operations, show containing folder instead of JSON status
-              let displayContent = response?.text || (typeof response === 'string' ? response : JSON.stringify(response, null, 2));
+              let displayContent = '';
               if (fc.name === 'create_file' || fc.name === 'create_directory') {
                 const path = fc.args?.filename || fc.args?.path;
                 if (path && typeof path === 'string') {
@@ -311,18 +311,32 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
                   const containingFolder = lastSlashIndex === -1 ? '/' : path.substring(0, lastSlashIndex + 1);
                   displayContent = `Created in: ${containingFolder}`;
                 }
+              } else if (fc.name === 'move_file' || fc.name === 'rename_file') {
+                displayContent = `Moved from: ${fc.args?.sourcePath || fc.args?.oldPath} to: ${fc.args?.targetPath || fc.args?.newPath}`;
+              } else if (fc.name === 'update_file' || fc.name === 'edit_file') {
+                displayContent = `Updated: ${fc.args?.filename}`;
+              } else if (fc.name === 'delete_file') {
+                displayContent = `Deleted: ${fc.args?.filename}`;
+              } else if (response?.text) {
+                displayContent = response.text;
+              } else if (typeof response === 'string') {
+                displayContent = response;
               }
+              // Don't show JSON for other tool types - let the tool's own onSystem call handle display
               
-              this.callbacks.onSystemMessage(`${actionName} Complete`, {
-                id: toolCallId,
-                name: fc.name,
-                filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
-                status: 'success',
-                newContent: displayContent,
-                groundingChunks: response?.groundingChunks || [],
-                files: response?.files || response?.directories?.map((d: any) => d.path) || response?.folders,
-                directoryInfo: response?.directoryInfo
-              });
+              // Only send completion message if we have display content
+              if (displayContent) {
+                this.callbacks.onSystemMessage(`${actionName} Complete`, {
+                  id: toolCallId,
+                  name: fc.name,
+                  filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
+                  status: 'success',
+                  newContent: displayContent,
+                  groundingChunks: response?.groundingChunks || [],
+                  files: response?.files || response?.directories?.map((d: any) => d.path) || response?.folders,
+                  directoryInfo: response?.directoryInfo
+                });
+              }
             }
             
             s.sendToolResponse({ 

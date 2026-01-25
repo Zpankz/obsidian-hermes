@@ -1,10 +1,23 @@
 import { TranscriptionEntry, ToolData } from '../types';
 
-export const archiveConversation = async (summary: string, history: TranscriptionEntry[]) => {
+export const archiveConversation = async (
+  summary: string | any, 
+  history: TranscriptionEntry[], 
+  chatHistoryFolder?: string,
+  textInterface?: { generateSummary: (text: string) => Promise<string> }
+) => {
+  // Handle case where summary might be passed as JSON object
+  let summaryText = summary;
+  if (typeof summary === 'object' && summary !== null) {
+    summaryText = summary.summary || summary.title || JSON.stringify(summary);
+  }
+  // Ensure summaryText is a string
+  summaryText = String(summaryText || 'Conversation');
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
-  const safeTopic = summary.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 40);
-  const filename = `chat-history/chat-history-${timestamp}-${safeTopic}.md`;
+  const safeTopic = summaryText.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 40);
+  const historyFolder = chatHistoryFolder || 'chat-history';
+  const filename = `${historyFolder}/chat-history-${timestamp}-${safeTopic}.md`;
 
   const filteredHistory = history.filter(t => {
     if (t.id === 'welcome-init') return false;
@@ -64,11 +77,23 @@ export const archiveConversation = async (summary: string, history: Transcriptio
       // Merge text from all entries in the group
       const mergedText = group.map(e => e.text).join(' ').trim();
       
+      // Convert file references to Obsidian wiki links
+      const convertFileLinks = (text: string) => {
+        // Match common file patterns and convert to wiki links
+        return text
+          // Match patterns like "file: filename.md" or just "filename.md" in context
+          .replace(/(?:file:\s*|)([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))/g, '[[$1]]')
+          // Match patterns with quotes: "filename.md"
+          .replace(/"([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))"/g, '[[$1]]')
+          // Match patterns in backticks: `filename.md`
+          .replace(/`([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))`/g, '[[$1]]');
+      };
+      
       if (firstEntry.role === 'user') {
-        // No "User:" prefix, just the text
-        block = mergedText;
+        // No "User:" prefix, just the text with file links converted
+        block = convertFileLinks(mergedText);
       } else if (firstEntry.role === 'model') {
-        block = `> ${mergedText.split('\n').join('\n> ')}`;
+        block = `> ${convertFileLinks(mergedText).split('\n').join('\n> ')}`;
       } else if (firstEntry.role === 'system') {
         // Handle all system messages in the group
         const systemBlocks = group.map(entry => {
@@ -108,12 +133,30 @@ export const archiveConversation = async (summary: string, history: Transcriptio
     .filter(block => block.trim() !== '')
     .join('\n\n');
 
+  // Generate AI summary if text interface is available
+  let aiSummary = '';
+  if (textInterface && filteredHistory.length > 0) {
+    try {
+      const conversationText = filteredHistory
+        .filter(entry => entry.role === 'user' || entry.role === 'model')
+        .map(entry => `${entry.role}: ${entry.text}`)
+        .join('\n');
+      
+      if (conversationText.trim()) {
+        aiSummary = await textInterface.generateSummary(conversationText);
+      }
+    } catch (error: any) {
+      console.warn('Failed to generate AI summary:', error.message);
+      // Continue without AI summary if it fails
+    }
+  }
+
   try {
     const { createFile, createDirectory } = await import('../services/mockFiles');
     
-    // Ensure the chat-history directory exists
+    // Ensure the chat history directory exists
     try {
-      await createDirectory('chat-history');
+      await createDirectory(historyFolder);
     } catch (err: any) {
       // Directory might already exist, that's fine
       if (!err.message.includes('already exists')) {
@@ -122,12 +165,13 @@ export const archiveConversation = async (summary: string, history: Transcriptio
     }
     
     const frontmatter = `---
-title: ${summary}
+title: ${summaryText}
 date: ${startDate}
 end_date: ${endDate}
 duration: ${duration}
 tags: [${tagString}]
 format: hermes-chat-archive
+${aiSummary ? `summary: ${aiSummary.replace(/"/g, '\\"')}` : ''}
 ---
 
 `;

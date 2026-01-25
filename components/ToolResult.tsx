@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ToolData, FileDiff, GroundingChunk } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
+import { COMMAND_DECLARATIONS } from '../services/commands';
 
 interface ToolResultProps {
   toolData: ToolData;
@@ -99,6 +100,42 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [manuallyToggled, setManuallyToggled] = useState(false);
 
+  // Get tool declaration info
+  const toolInfo = useMemo(() => {
+    const declaration = COMMAND_DECLARATIONS.find(d => d.name === toolData.name);
+    return declaration;
+  }, [toolData.name]);
+
+  // Extract relevant info from tool data
+  const getToolDetails = () => {
+    const details: string[] = [];
+    
+    // Add parameter info if available
+    if (toolInfo?.parameters?.properties) {
+      const params = Object.keys(toolInfo.parameters.properties);
+      if (params.length > 0) {
+        details.push(params.join(', '));
+      }
+    }
+    
+    // Add search keyword if it's a search tool
+    if (toolData.name === 'search_keyword' && toolData.filename !== 'Global Search') {
+      details.push(`"${toolData.filename}"`);
+    }
+    
+    // Add file count for directory tools
+    if (toolData.files && Array.isArray(toolData.files)) {
+      details.push(`${toolData.files.length} items`);
+    }
+    
+    // Add directory info for dirlist
+    if (toolData.directoryInfo && Array.isArray(toolData.directoryInfo)) {
+      details.push(`${toolData.directoryInfo.length} dirs`);
+    }
+    
+    return details;
+  };
+
   useEffect(() => {
     if (isLast && !manuallyToggled && toolData.status !== 'pending') {
       setIsExpanded(true);
@@ -136,14 +173,14 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
   const isPending = toolData.status === 'pending';
 
   return (
-    <div className={`w-full my-2 hermes-border rounded-xl overflow-hidden transition-all shadow-md ${
+    <div className={`w-full my-1 hermes-border rounded-xl overflow-hidden transition-all shadow-md ${
       isPending ? 'hermes-border/20 hermes-interactive-bg/5' : 'hermes-border/10 hermes-bg-secondary/40 hermes-hover:border/20'
     }`}>
       <div 
         onClick={toggle}
-        className={`flex items-center justify-between px-4 py-3 ${isPending ? 'cursor-default' : 'cursor-pointer hermes-hover:bg-secondary/5'} transition-colors group`}
+        className={`flex items-center justify-between px-3 py-2 ${isPending ? 'cursor-default' : 'cursor-pointer hermes-hover:bg-secondary/5'} transition-colors group`}
       >
-        <div className="flex items-center space-x-3 overflow-hidden">
+        <div className="flex items-center space-x-2 overflow-hidden">
           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 ${
             isPending ? 'hermes-interactive-bg/20 hermes-text-accent' :
             toolData.name.includes('create') ? 'hermes-success-bg/20 hermes-success' : 
@@ -157,14 +194,27 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
             {getActionLabel(toolData.name)}
           </span>
           
-          <span className="text-[11px] font-mono hermes-text-normal truncate max-w-[300px]">
+          <span className="text-[11px] font-mono hermes-text-normal truncate">
              {toolData.name === 'internet_search' ? `Searching: ${toolData.filename}` : `${toolData.filename}`}
           </span>
-        </div>
-        
-        <div className="flex items-center space-x-4 shrink-0">
-          {isPending ? (
-            <div className="flex items-center space-x-1 px-2">
+          
+          {getToolDetails().length > 0 && (
+            <span className="text-[9px] hermes-text-muted font-mono truncate">
+              · {getToolDetails().join(' · ')}
+            </span>
+          )}
+          
+          {!isPending && (
+            <svg 
+              className={`w-4 h-4 hermes-text-muted transition-transform duration-300 shrink-0 ml-auto ${isExpanded ? 'rotate-180' : ''}`} 
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+          
+          {isPending && (
+            <div className="flex items-center space-x-1 px-2 shrink-0 ml-auto">
               {toolData.name === 'internet_search' ? (
                 <div className="loading-dots-container">
                   <div className="loading-dot"></div>
@@ -179,13 +229,6 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
                 </div>
               )}
             </div>
-          ) : (
-            <svg 
-              className={`w-4 h-4 hermes-text-muted transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
-              fill="none" viewBox="0 0 24 24" stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
           )}
         </div>
       </div>
@@ -217,9 +260,9 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
                   </span>
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {toolData.files.map((file: string, index: number) => (
-                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors">
+                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors">
                     <span className="hermes-text-muted select-none">{'📄'}</span>
                     <span className="truncate">{file}</span>
                   </div>
@@ -248,9 +291,9 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
                   </span>
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {toolData.directoryInfo.map((dir: any, index: number) => (
-                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors">
+                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors">
                     <span className="hermes-text-muted select-none">
                       {dir.hasChildren ? '📁' : '📂'}
                     </span>
@@ -286,9 +329,9 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
                   </span>
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {toolData.files.map((folder: string, index: number) => (
-                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-1 rounded transition-colors">
+                  <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors">
                     <span className="hermes-text-muted select-none">{'📁'}</span>
                     <span className="truncate">{folder}</span>
                   </div>

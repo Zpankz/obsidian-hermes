@@ -23,7 +23,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     filename: args.path,
     newContent: `Directory created: ${args.path}`
   });
-  const directoryPath = args.path.startsWith('/') ? args.path : `/${args.path}/`;
-  callbacks.onFileState(directoryPath, args.path);
+  // Don't automatically open the newly created directory
+  // callbacks.onFileState(directoryPath, args.path);
   return { status: 'created', path: args.path };
 };
