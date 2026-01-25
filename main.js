@@ -38462,21 +38462,28 @@ var KernelLog = ({ isVisible, logs, usage, onFlush, fileCount }) => {
         }
       )
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { ref: logContainerRef, className: "flex-grow overflow-y-auto p-4 space-y-1 font-mono text-[10px] leading-relaxed relative pb-12", children: logs.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "text-slate-800 italic py-2 px-4", children: "Waiting for system signals..." }) : logs.map((log) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex space-x-3 group px-4 hover:bg-white/[0.02]", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-slate-700 shrink-0 select-none", children: [
-        "[",
-        log.timestamp.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        "]"
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex flex-col", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: `${log.type === "action" ? "text-indigo-400" : log.type === "error" ? "text-red-400" : "text-slate-500"}`, children: log.message }),
-        log.duration !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-[8px] text-slate-700 uppercase font-bold tracking-tight mt-0.5", children: [
-          "Process completed in ",
-          log.duration,
-          "ms"
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { ref: logContainerRef, className: "flex-grow overflow-y-auto p-4 space-y-1 font-mono text-[10px] leading-relaxed relative pb-12", children: logs.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "text-slate-800 italic py-2 px-4", children: "Waiting for system signals..." }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+      logs.slice(-100).map((log) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex space-x-3 group px-4 hover:bg-white/[0.02]", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-slate-700 shrink-0 select-none", children: [
+          "[",
+          log.timestamp.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          "]"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex flex-col", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: `${log.type === "action" ? "text-indigo-400" : log.type === "error" ? "text-red-400" : "text-slate-500"}`, children: log.message }),
+          log.duration !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "text-[8px] text-slate-700 uppercase font-bold tracking-tight mt-0.5", children: [
+            "Process completed in ",
+            log.duration,
+            "ms"
+          ] })
         ] })
+      ] }, log.id)),
+      logs.length > 100 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "text-slate-600 italic text-[9px] pt-2 px-4 border-t border-white/5 text-center", children: [
+        "... showing last 100 of ",
+        logs.length,
+        " log entries"
       ] })
-    ] }, log.id)) }),
+    ] }) }),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "absolute bottom-10 left-8 z-20 pointer-events-none", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "bg-slate-900/90 border border-white/10 px-3 py-2 rounded-lg backdrop-blur-md shadow-2xl flex flex-col space-y-1 min-w-[120px]", children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex justify-between items-center", children: [
         /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "text-[7px] font-black text-indigo-400 uppercase tracking-widest", children: "Context Window" }),
@@ -39828,12 +39835,19 @@ var DiffView = ({ diff }) => {
     return null;
   return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "bg-[#0d1117] p-2 overflow-x-auto font-mono text-[9px] leading-4 border-b border-white/5 last:border-0", children: [
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "text-indigo-400 font-bold mb-1 px-1", children: diff.filename }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "grid grid-cols-[20px_1fr_20px_1fr] gap-x-1", children: diffLines.map((line, i) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_react2.default.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "text-slate-700 text-right pr-1 select-none opacity-40", children: line.old !== void 0 ? line.index : "" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: `whitespace-pre-wrap ${line.old !== line.new && line.old !== void 0 ? "bg-red-900/10 text-red-300" : "text-slate-600"}`, children: line.old !== void 0 ? line.old || " " : "" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "text-slate-700 text-right pr-1 select-none opacity-40", children: line.new !== void 0 ? line.index : "" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: `whitespace-pre-wrap ${line.old !== line.new && line.new !== void 0 ? "bg-emerald-900/10 text-emerald-300" : "text-slate-400"}`, children: line.new !== void 0 ? line.new || " " : "" })
-    ] }, i)) })
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "grid grid-cols-[20px_1fr_20px_1fr] gap-x-1", children: [
+      diffLines.slice(0, 100).map((line, i) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_react2.default.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "text-slate-700 text-right pr-1 select-none opacity-40", children: line.old !== void 0 ? line.index : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: `whitespace-pre-wrap ${line.old !== line.new && line.old !== void 0 ? "bg-red-900/10 text-red-300" : "text-slate-600"}`, children: line.old !== void 0 ? line.old || " " : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "text-slate-700 text-right pr-1 select-none opacity-40", children: line.new !== void 0 ? line.index : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: `whitespace-pre-wrap ${line.old !== line.new && line.new !== void 0 ? "bg-emerald-900/10 text-emerald-300" : "text-slate-400"}`, children: line.new !== void 0 ? line.new || " " : "" })
+      ] }, i)),
+      diffLines.length > 100 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "col-span-4 text-slate-600 italic text-[9px] pt-2 px-2 border-t border-white/5 text-center", children: [
+        "... and ",
+        diffLines.length - 100,
+        " more lines (truncated)"
+      ] })
+    ] })
   ] });
 };
 var WebSearchView = ({ content, chunks }) => {
@@ -39841,28 +39855,35 @@ var WebSearchView = ({ content, chunks }) => {
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "pb-4 border-b border-white/5 mb-4", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MarkdownPreview, { content }) }),
     chunks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "space-y-3", children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "text-[8px] font-black uppercase tracking-[0.2em] text-indigo-400/70 ml-1", children: "Source Grounding" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "grid grid-cols-1 gap-2", children: chunks.map((chunk, i) => {
-        const item = chunk.web || chunk.maps;
-        if (!item)
-          return null;
-        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-          "a",
-          {
-            href: item.uri,
-            target: "_blank",
-            rel: "noopener noreferrer",
-            className: "flex items-center space-x-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all group shadow-sm",
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 border border-indigo-500/20", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("svg", { className: "w-4 h-4 text-indigo-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "flex flex-col truncate", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "text-[11px] font-bold text-slate-200 group-hover:text-indigo-400 transition-colors truncate", children: item.title }),
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "text-[9px] text-slate-500 truncate font-mono", children: new URL(item.uri).hostname })
-              ] })
-            ]
-          },
-          i
-        );
-      }) })
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "grid grid-cols-1 gap-2", children: [
+        chunks.slice(0, 10).map((chunk, i) => {
+          const item = chunk.web || chunk.maps;
+          if (!item)
+            return null;
+          return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "a",
+            {
+              href: item.uri,
+              target: "_blank",
+              rel: "noopener noreferrer",
+              className: "flex items-center space-x-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all group shadow-sm",
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 border border-indigo-500/20", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("svg", { className: "w-4 h-4 text-indigo-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" }) }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "flex flex-col truncate", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "text-[11px] font-bold text-slate-200 group-hover:text-indigo-400 transition-colors truncate", children: item.title }),
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "text-[9px] text-slate-500 truncate font-mono", children: new URL(item.uri).hostname })
+                ] })
+              ]
+            },
+            i
+          );
+        }),
+        chunks.length > 10 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "text-slate-600 italic text-[9px] pt-2 px-3 border-t border-white/5", children: [
+          "... and ",
+          chunks.length - 10,
+          " more sources (truncated)"
+        ] })
+      ] })
     ] })
   ] });
 };
@@ -39942,13 +39963,20 @@ var ToolResult = ({ toolData, isLast }) => {
     isExpanded && !isPending && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "border-t border-white/5 bg-[#0d1117] max-h-[600px] overflow-y-auto custom-scrollbar", children: [
       toolData.name === "internet_search" && toolData.newContent && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(WebSearchView, { content: toolData.newContent, chunks: toolData.groundingChunks || [] }),
       ["read_file", "create_file"].includes(toolData.name) && toolData.newContent !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "p-8 bg-slate-900/60 shadow-inner", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MarkdownPreview, { content: toolData.newContent }) }),
-      toolData.name === "list_directory" && toolData.files && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "p-4 font-mono text-[10px] space-y-1", children: toolData.files.map((file, idx) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "flex items-center space-x-3 text-slate-400 py-1 hover:text-indigo-300 transition-colors", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "text-slate-700 w-4", children: [
-          idx + 1,
-          "."
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: file })
-      ] }, file)) }),
+      toolData.name === "list_directory" && toolData.files && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "p-4 font-mono text-[10px] space-y-1", children: [
+        toolData.files.slice(0, 50).map((file, idx) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "flex items-center space-x-3 text-slate-400 py-1 hover:text-indigo-300 transition-colors", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "text-slate-700 w-4", children: [
+            idx + 1,
+            "."
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: file })
+        ] }, file)),
+        toolData.files.length > 50 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "text-slate-600 italic text-[9px] pt-2 px-4 border-t border-white/5", children: [
+          "... and ",
+          toolData.files.length - 50,
+          " more items (truncated)"
+        ] })
+      ] }),
       !["read_file", "create_file", "internet_search", "list_directory"].includes(toolData.name) && toolData.newContent !== void 0 && toolData.oldContent !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(DiffView, { diff: { filename: toolData.filename, oldContent: toolData.oldContent, newContent: toolData.newContent } }),
       toolData.error && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "p-4 border-t border-red-500/10 bg-red-500/5 text-red-400 text-[10px] font-mono italic", children: [
         "Runtime Exception: ",

@@ -51,25 +51,32 @@ const KernelLog: React.FC<KernelLogProps> = ({ isVisible, logs, usage, onFlush, 
         {logs.length === 0 ? (
           <div className="text-slate-800 italic py-2 px-4">Waiting for system signals...</div>
         ) : (
-          logs.map((log) => (
-            <div key={log.id} className="flex space-x-3 group px-4 hover:bg-white/[0.02]">
-              <span className="text-slate-700 shrink-0 select-none">[{log.timestamp.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
-              <div className="flex flex-col">
-                <span className={`${
-                  log.type === 'action' ? 'text-indigo-400' : 
-                  log.type === 'error' ? 'text-red-400' : 
-                  'text-slate-500'
-                }`}>
-                  {log.message}
-                </span>
-                {log.duration !== undefined && (
-                  <span className="text-[8px] text-slate-700 uppercase font-bold tracking-tight mt-0.5">
-                    Process completed in {log.duration}ms
+          <>
+            {logs.slice(-100).map((log) => (
+              <div key={log.id} className="flex space-x-3 group px-4 hover:bg-white/[0.02]">
+                <span className="text-slate-700 shrink-0 select-none">[{log.timestamp.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
+                <div className="flex flex-col">
+                  <span className={`${
+                    log.type === 'action' ? 'text-indigo-400' : 
+                    log.type === 'error' ? 'text-red-400' : 
+                    'text-slate-500'
+                  }`}>
+                    {log.message}
                   </span>
-                )}
+                  {log.duration !== undefined && (
+                    <span className="text-[8px] text-slate-700 uppercase font-bold tracking-tight mt-0.5">
+                      Process completed in {log.duration}ms
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+            {logs.length > 100 && (
+              <div className="text-slate-600 italic text-[9px] pt-2 px-4 border-t border-white/5 text-center">
+                ... showing last 100 of {logs.length} log entries
+              </div>
+            )}
+          </>
         )}
       </div>
 

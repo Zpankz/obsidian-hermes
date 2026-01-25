@@ -46,7 +46,7 @@ const DiffView: React.FC<{ diff: FileDiff }> = ({ diff }) => {
     <div className="bg-[#0d1117] p-2 overflow-x-auto font-mono text-[9px] leading-4 border-b border-white/5 last:border-0">
       <div className="text-indigo-400 font-bold mb-1 px-1">{diff.filename}</div>
       <div className="grid grid-cols-[20px_1fr_20px_1fr] gap-x-1">
-        {diffLines.map((line, i) => (
+        {diffLines.slice(0, 100).map((line, i) => (
           <React.Fragment key={i}>
             <div className="text-slate-700 text-right pr-1 select-none opacity-40">{line.old !== undefined ? line.index : ''}</div>
             <div className={`whitespace-pre-wrap ${line.old !== line.new && line.old !== undefined ? 'bg-red-900/10 text-red-300' : 'text-slate-600'}`}>
@@ -58,6 +58,11 @@ const DiffView: React.FC<{ diff: FileDiff }> = ({ diff }) => {
             </div>
           </React.Fragment>
         ))}
+        {diffLines.length > 100 && (
+          <div className="col-span-4 text-slate-600 italic text-[9px] pt-2 px-2 border-t border-white/5 text-center">
+            ... and {diffLines.length - 100} more lines (truncated)
+          </div>
+        )}
       </div>
     </div>
   );
@@ -73,7 +78,7 @@ const WebSearchView: React.FC<{ content: string, chunks: GroundingChunk[] }> = (
         <div className="space-y-3">
           <div className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-400/70 ml-1">Source Grounding</div>
           <div className="grid grid-cols-1 gap-2">
-            {chunks.map((chunk, i) => {
+            {chunks.slice(0, 10).map((chunk, i) => {
               const item = chunk.web || chunk.maps;
               if (!item) return null;
               return (
@@ -96,6 +101,11 @@ const WebSearchView: React.FC<{ content: string, chunks: GroundingChunk[] }> = (
                 </a>
               );
             })}
+            {chunks.length > 10 && (
+              <div className="text-slate-600 italic text-[9px] pt-2 px-3 border-t border-white/5">
+                ... and {chunks.length - 10} more sources (truncated)
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -199,12 +209,17 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast }) => {
 
           {toolData.name === 'list_directory' && toolData.files && (
             <div className="p-4 font-mono text-[10px] space-y-1">
-              {toolData.files.map((file, idx) => (
+              {toolData.files.slice(0, 50).map((file, idx) => (
                 <div key={file} className="flex items-center space-x-3 text-slate-400 py-1 hover:text-indigo-300 transition-colors">
                   <span className="text-slate-700 w-4">{idx + 1}.</span>
                   <span>{file}</span>
                 </div>
               ))}
+              {toolData.files.length > 50 && (
+                <div className="text-slate-600 italic text-[9px] pt-2 px-4 border-t border-white/5">
+                  ... and {toolData.files.length - 50} more items (truncated)
+                </div>
+              )}
             </div>
           )}
 
