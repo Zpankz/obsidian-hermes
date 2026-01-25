@@ -29,24 +29,24 @@ const InputBar: React.FC<InputBarProps> = ({
   const normalizedVolume = useMemo(() => Math.min(1, Math.max(0, volume * 10)), [volume]);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-[80px] px-8 bg-slate-900/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-center z-[50]">
+    <footer className="fixed bottom-0 left-0 right-0 h-[80px] px-8 hermes-bg-secondary/95 backdrop-blur-2xl hermes-border-t flex items-center justify-center z-[50]">
       <div className="flex items-center space-x-6 w-full max-w-5xl">
 
         {/* Text Input Form */}
         <form 
           onSubmit={onSendText} 
-          className="flex-grow flex items-center h-[52px] bg-slate-800/40 border border-white/10 rounded-2xl px-6 focus-within:border-indigo-500/50 focus-within:bg-slate-800/60 transition-all shadow-inner overflow-hidden mb-0"
+          className="flex-grow flex items-center h-[52px] hermes-bg-secondary/40 hermes-border/10 rounded-2xl px-6 hermes-focus:border/50 hermes-focus:bg-secondary/60 transition-all shadow-inner overflow-hidden mb-0"
         >
           <input 
             type="text" 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Message Hermes..." 
-            className="flex-grow bg-transparent border-none outline-none text-sm text-slate-200 placeholder:text-slate-600 h-full"
+            className="flex-grow bg-transparent border-none outline-none text-sm hermes-text-normal placeholder:hermes-text-faint h-full"
           />
           <button 
             type="submit" 
-            className="flex items-center justify-center p-1 ml-2 text-slate-500 hover:text-indigo-400 transition-colors"
+            className="flex items-center justify-center p-1 ml-2 hermes-text-muted hermes-hover:accent transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -59,11 +59,11 @@ const InputBar: React.FC<InputBarProps> = ({
           {isListening ? (
             <button 
               onClick={onStopSession} 
-              className="w-[200px] h-[52px] flex items-center justify-between px-6 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/20 transition-all active:scale-[0.98] relative overflow-hidden group"
+              className="w-[200px] h-[52px] flex items-center justify-between px-6 hermes-error-bg/10 hermes-border/40 hermes-error rounded-lg hermes-hover:error-bg/20 transition-all active:scale-[0.98] relative overflow-hidden group"
               title="Stop Listening"
             >
               {/* Left: User Icon */}
-              <div className={`flex flex-col items-center transition-all duration-300 ${activeSpeaker === 'user' ? 'text-red-300 scale-110' : 'opacity-30'}`}>
+              <div className={`flex flex-col items-center transition-all duration-300 ${activeSpeaker === 'user' ? 'hermes-error scale-110' : 'opacity-30'}`}>
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
@@ -84,9 +84,9 @@ const InputBar: React.FC<InputBarProps> = ({
                       key={i} 
                       style={{ height: `${h}px` }}
                       className={`w-1 rounded-full transition-all duration-75 ${
-                        activeSpeaker === 'user' ? 'bg-red-400' : 
-                        activeSpeaker === 'model' ? 'bg-emerald-400' : 
-                        'bg-red-900/40'
+                        activeSpeaker === 'user' ? 'hermes-error-bg' : 
+                        activeSpeaker === 'model' ? 'hermes-success-bg' : 
+                        'hermes-error-bg/40'
                       }`}
                     />
                   );
@@ -94,7 +94,7 @@ const InputBar: React.FC<InputBarProps> = ({
               </div>
 
               {/* Right: Robot Icon */}
-              <div className={`flex flex-col items-center transition-all duration-300 ${activeSpeaker === 'model' ? 'text-emerald-300 scale-110' : 'opacity-30'}`}>
+              <div className={`flex flex-col items-center transition-all duration-300 ${activeSpeaker === 'model' ? 'hermes-success scale-110' : 'opacity-30'}`}>
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="10" rx="2" />
                   <circle cx="12" cy="5" r="2" />
@@ -105,13 +105,13 @@ const InputBar: React.FC<InputBarProps> = ({
                 <span className="text-xs font-medium mt-0.5">AI</span>
               </div>
 
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 hermes-error rounded-full" />
             </button>
           ) : (
             <button 
               onClick={onStartSession}
               disabled={status === ConnectionStatus.CONNECTING}
-              className="w-[52px] h-[52px] flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all disabled:opacity-50 border border-blue-400/20 active:scale-95 group"
+              className="w-[52px] h-[52px] flex items-center justify-center hermes-interactive-bg hermes-text-normal rounded-lg transition-all disabled:opacity-50 hermes-border/20 active:scale-95 group"
               title="Start Voice Session"
             >
               <svg className="w-6 h-6 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

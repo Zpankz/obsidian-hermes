@@ -1,0 +1,372 @@
+/* Obsidian Theme Color Variables for Hermes */
+/* This file replaces all Tailwind colors with Obsidian theme variables */
+
+/* Base text and background colors from Obsidian */
+.hermes-root {
+  /* Primary colors */
+  --hermes-bg-primary: var(--background-primary);
+  --hermes-bg-secondary: var(--background-secondary);
+  --hermes-bg-secondary-alt: var(--background-secondary-alt);
+  --hermes-bg-tertiary: var(--background-tertiary);
+  
+  /* Text colors */
+  --hermes-text-normal: var(--text-normal);
+  --hermes-text-muted: var(--text-muted);
+  --hermes-text-faint: var(--text-faint);
+  --hermes-text-accent: var(--text-accent);
+  --hermes-text-accent-hover: var(--text-accent-hover);
+  
+  /* Border and modifier colors */
+  --hermes-border: var(--background-modifier-border);
+  --hermes-border-hover: var(--background-modifier-border-hover);
+  --hermes-border-focus: var(--background-modifier-border-focus);
+  --hermes-hover: var(--background-modifier-hover);
+  --hermes-active: var(--background-modifier-active);
+  --hermes-selected: var(--background-modifier-selected);
+  --hermes-selected-hover: var(--background-modifier-selected-hover);
+  
+  /* Interactive colors */
+  --hermes-interactive: var(--interactive-normal);
+  --hermes-interactive-hover: var(--interactive-hover);
+  --hermes-interactive-accent: var(--interactive-accent);
+  --hermes-interactive-accent-hover: var(--interactive-accent-hover);
+  
+  /* Accent colors */
+  --hermes-accent: var(--accent-color);
+  --hermes-accent-hover: var(--accent-color-hover);
+  
+  /* Status colors (using Obsidian variables or fallbacks) */
+  --hermes-success: var(--color-green, #10b981);
+  --hermes-success-hover: var(--color-green-hover, #059669);
+  --hermes-warning: var(--color-orange, #f59e0b);
+  --hermes-warning-hover: var(--color-orange-hover, #d97706);
+  --hermes-error: var(--color-red, #ef4444);
+  --hermes-error-hover: var(--color-red-hover, #dc2626);
+  --hermes-info: var(--color-blue, #3b82f6);
+  --hermes-info-hover: var(--color-blue-hover, #2563eb);
+  
+  /* Special colors for UI elements */
+  --hermes-highlight-bg: var(--text-highlight-bg);
+  --hermes-highlight-text: var(--text-highlight-text);
+  
+  /* Scrollbar colors */
+  --hermes-scrollbar-bg: var(--scrollbar-bg);
+  --hermes-scrollbar-thumb-bg: var(--scrollbar-thumb-bg);
+  --hermes-scrollbar-thumb-hover: var(--scrollbar-thumb-hover);
+  
+  /* RGB values for opacity calculations - will be set by theme detection */
+  --hermes-success-rgb: 16, 185, 129;
+  --hermes-error-rgb: 239, 68, 68;
+  --hermes-info-rgb: 59, 130, 246;
+  --hermes-warning-rgb: 245, 158, 11;
+  --hermes-border-rgb: 100, 116, 139;
+  --hermes-bg-secondary-rgb: 45, 45, 45;
+}
+
+/* Light theme detection and RGB value adjustment */
+@media (prefers-color-scheme: light) {
+  .hermes-root:not(.standalone) {
+    /* Light theme RGB values */
+    --hermes-success-rgb: 34, 197, 94;
+    --hermes-error-rgb: 239, 68, 68;
+    --hermes-info-rgb: 59, 130, 246;
+    --hermes-warning-rgb: 245, 158, 11;
+    --hermes-border-rgb: 203, 213, 225;
+    --hermes-bg-secondary-rgb: 248, 249, 250;
+  }
+}
+
+/* Dark theme detection and RGB value adjustment */
+@media (prefers-color-scheme: dark) {
+  .hermes-root:not(.standalone) {
+    /* Dark theme RGB values */
+    --hermes-success-rgb: 16, 185, 129;
+    --hermes-error-rgb: 239, 68, 68;
+    --hermes-info-rgb: 59, 130, 246;
+    --hermes-warning-rgb: 245, 158, 11;
+    --hermes-border-rgb: 100, 116, 139;
+    --hermes-bg-secondary-rgb: 45, 45, 45;
+  }
+}
+
+/* Standalone mode fallback colors - Dark theme */
+.hermes-root.standalone {
+  --hermes-bg-primary: #1e1e1e;
+  --hermes-bg-secondary: #2d2d2d;
+  --hermes-bg-secondary-alt: #252525;
+  --hermes-bg-tertiary: #333333;
+  
+  --hermes-text-normal: #e0e0e0;
+  --hermes-text-muted: #a0a0a0;
+  --hermes-text-faint: #707070;
+  --hermes-text-accent: #58a6ff;
+  --hermes-text-accent-hover: #79c0ff;
+  
+  --hermes-border: #404040;
+  --hermes-border-hover: #505050;
+  --hermes-border-focus: #606060;
+  --hermes-hover: #333333;
+  --hermes-active: #404040;
+  --hermes-selected: #454545;
+  --hermes-selected-hover: #505050;
+  
+  --hermes-interactive: #58a6ff;
+  --hermes-interactive-hover: #79c0ff;
+  --hermes-interactive-accent: #1f6feb;
+  --hermes-interactive-accent-hover: #388bfd;
+  
+  --hermes-accent: #58a6ff;
+  --hermes-accent-hover: #79c0ff;
+  
+  --hermes-success: #10b981;
+  --hermes-success-hover: #059669;
+  --hermes-warning: #f59e0b;
+  --hermes-warning-hover: #d97706;
+  --hermes-error: #ef4444;
+  --hermes-error-hover: #dc2626;
+  --hermes-info: #3b82f6;
+  --hermes-info-hover: #2563eb;
+  
+  --hermes-highlight-bg: rgba(88, 166, 255, 0.2);
+  --hermes-highlight-text: #79c0ff;
+  
+  --hermes-scrollbar-bg: transparent;
+  --hermes-scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
+  --hermes-scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+  
+  /* Dark theme RGB values for standalone */
+  --hermes-success-rgb: 16, 185, 129;
+  --hermes-error-rgb: 239, 68, 68;
+  --hermes-info-rgb: 59, 130, 246;
+  --hermes-warning-rgb: 245, 158, 11;
+  --hermes-border-rgb: 100, 116, 139;
+}
+
+/* Standalone mode fallback colors - Light theme */
+@media (prefers-color-scheme: light) {
+  .hermes-root.standalone {
+    --hermes-bg-primary: #ffffff;
+    --hermes-bg-secondary: #f8f9fa;
+    --hermes-bg-secondary-alt: #f1f3f4;
+    --hermes-bg-tertiary: #e8eaed;
+    
+    --hermes-text-normal: #202124;
+    --hermes-text-muted: #5f6368;
+    --hermes-text-faint: #9aa0a6;
+    --hermes-text-accent: #1a73e8;
+    --hermes-text-accent-hover: #1557b0;
+    
+    --hermes-border: #dadce0;
+    --hermes-border-hover: #c0c4cc;
+    --hermes-border-focus: #1a73e8;
+    --hermes-hover: #f1f3f4;
+    --hermes-active: #e8eaed;
+    --hermes-selected: #e8f0fe;
+    --hermes-selected-hover: #d2e3fc;
+    
+    --hermes-interactive: #1a73e8;
+    --hermes-interactive-hover: #1557b0;
+    --hermes-interactive-accent: #1a73e8;
+    --hermes-interactive-accent-hover: #1557b0;
+    
+    --hermes-accent: #1a73e8;
+    --hermes-accent-hover: #1557b0;
+    
+    --hermes-success: #34a853;
+    --hermes-success-hover: #2d8f47;
+    --hermes-warning: #fbbc04;
+    --hermes-warning-hover: #f9ab00;
+    --hermes-error: #ea4335;
+    --hermes-error-hover: #d33b2c;
+    --hermes-info: #1a73e8;
+    --hermes-info-hover: #1557b0;
+    
+    --hermes-highlight-bg: rgba(26, 115, 232, 0.1);
+    --hermes-highlight-text: #1557b0;
+    
+    --hermes-scrollbar-bg: transparent;
+    --hermes-scrollbar-thumb-bg: rgba(0, 0, 0, 0.3);
+    --hermes-scrollbar-thumb-hover: rgba(0, 0, 0, 0.5);
+    
+    /* Light theme RGB values for standalone */
+    --hermes-success-rgb: 52, 168, 83;
+    --hermes-error-rgb: 234, 67, 53;
+    --hermes-info-rgb: 26, 115, 232;
+    --hermes-warning-rgb: 251, 188, 4;
+    --hermes-border-rgb: 218, 220, 224;
+  }
+}
+
+/* Utility classes that map to Obsidian colors */
+.hermes-root .hermes-bg-primary { background-color: var(--hermes-bg-primary); }
+.hermes-root .hermes-bg-secondary { background-color: var(--hermes-bg-secondary); }
+.hermes-root .hermes-bg-secondary-alt { background-color: var(--hermes-bg-secondary-alt); }
+.hermes-root .hermes-bg-tertiary { background-color: var(--hermes-bg-tertiary); }
+
+.hermes-root .hermes-text-normal { color: var(--hermes-text-normal); }
+.hermes-root .hermes-text-muted { color: var(--hermes-text-muted); }
+.hermes-root .hermes-text-faint { color: var(--hermes-text-faint); }
+.hermes-root .hermes-text-accent { color: var(--hermes-text-accent); }
+.hermes-root .hermes-text-accent-hover { color: var(--hermes-text-accent-hover); }
+
+.hermes-root .hermes-border { border-color: var(--hermes-border); }
+.hermes-root .hermes-border-hover { border-color: var(--hermes-border-hover); }
+.hermes-root .hermes-border-focus { border-color: var(--hermes-border-focus); }
+
+.hermes-root .hermes-success { color: var(--hermes-success); }
+.hermes-root .hermes-success-bg { background-color: var(--hermes-success); }
+.hermes-root .hermes-warning { color: var(--hermes-warning); }
+.hermes-root .hermes-warning-bg { background-color: var(--hermes-warning); }
+.hermes-root .hermes-error { color: var(--hermes-error); }
+.hermes-root .hermes-error-bg { background-color: var(--hermes-error); }
+.hermes-root .hermes-info { color: var(--hermes-info); }
+.hermes-root .hermes-info-bg { background-color: var(--hermes-info); }
+
+.hermes-root .hermes-interactive { color: var(--hermes-interactive); }
+.hermes-root .hermes-interactive-bg { background-color: var(--hermes-interactive); }
+.hermes-root .hermes-interactive-hover { color: var(--hermes-interactive-hover); }
+.hermes-root .hermes-interactive-hover-bg { background-color: var(--hermes-interactive-hover); }
+
+/* Opacity variants */
+.hermes-root .hermes-success-bg\/10 { background-color: rgba(var(--hermes-success-rgb, 16, 185, 129), 0.1); }
+.hermes-root .hermes-success-bg\/20 { background-color: rgba(var(--hermes-success-rgb, 16, 185, 129), 0.2); }
+.hermes-root .hermes-error-bg\/10 { background-color: rgba(var(--hermes-error-rgb, 239, 68, 68), 0.1); }
+.hermes-root .hermes-error-bg\/20 { background-color: rgba(var(--hermes-error-rgb, 239, 68, 68), 0.2); }
+.hermes-root .hermes-info-bg\/10 { background-color: rgba(var(--hermes-info-rgb, 59, 130, 246), 0.1); }
+.hermes-root .hermes-info-bg\/20 { background-color: rgba(var(--hermes-info-rgb, 59, 130, 246), 0.2); }
+.hermes-root .hermes-info-bg\/30 { background-color: rgba(var(--hermes-info-rgb, 59, 130, 246), 0.3); }
+
+.hermes-root .hermes-border\/10 { border-color: rgba(var(--hermes-border-rgb, 100, 116, 139), 0.1); }
+.hermes-root .hermes-border\/20 { border-color: rgba(var(--hermes-border-rgb, 100, 116, 139), 0.2); }
+.hermes-root .hermes-border\/40 { border-color: rgba(var(--hermes-border-rgb, 100, 116, 139), 0.4); }
+
+/* Hover states */
+.hermes-root .hermes-hover\:success:hover { color: var(--hermes-success-hover); }
+.hermes-root .hermes-hover\:success-bg:hover { background-color: var(--hermes-success-hover); }
+.hermes-root .hermes-hover\:error:hover { color: var(--hermes-error-hover); }
+.hermes-root .hermes-hover\:error-bg:hover { background-color: var(--hermes-error-hover); }
+.hermes-root .hermes-hover\:info:hover { color: var(--hermes-info-hover); }
+.hermes-root .hermes-hover\:info-bg:hover { background-color: var(--hermes-info-hover); }
+.hermes-root .hermes-hover\:interactive:hover { color: var(--hermes-interactive-hover); }
+.hermes-root .hermes-hover\:interactive-bg:hover { background-color: var(--hermes-interactive-hover); }
+
+/* Glass panel effect using Obsidian variables */
+.hermes-root .hermes-glass {
+  background: var(--hermes-bg-secondary-alt);
+  border: 1px solid var(--hermes-border);
+  backdrop-filter: blur(8px);
+}
+
+.hermes-root.standalone .hermes-glass {
+  background: rgba(37, 37, 37, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Light theme glass panel adjustment */
+@media (prefers-color-scheme: light) {
+  .hermes-root.standalone .hermes-glass {
+    background: rgba(241, 243, 244, 0.8);
+    border: 1px solid rgba(218, 220, 224, 0.5);
+  }
+}
+
+/* Scrollbar styling */
+.hermes-root .hermes-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hermes-root .hermes-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--hermes-scrollbar-thumb-bg, rgba(255, 255, 255, 0.2));
+  border-radius: 10px;
+}
+
+.hermes-root .hermes-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--hermes-scrollbar-thumb-hover, rgba(255, 255, 255, 0.3));
+}
+
+/* Light theme scrollbar adjustment */
+@media (prefers-color-scheme: light) {
+  .hermes-root .hermes-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--hermes-scrollbar-thumb-bg, rgba(0, 0, 0, 0.2));
+  }
+  
+  .hermes-root .hermes-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--hermes-scrollbar-thumb-hover, rgba(0, 0, 0, 0.3));
+  }
+}
+
+/* Selection color */
+.hermes-root .hermes-selection::selection {
+  background-color: var(--hermes-highlight-bg, rgba(88, 166, 255, 0.3));
+  color: var(--hermes-highlight-text, var(--hermes-text-normal));
+}
+
+.hermes-root .hermes-selection::-moz-selection {
+  background-color: var(--hermes-highlight-bg, rgba(88, 166, 255, 0.3));
+  color: var(--hermes-highlight-text, var(--hermes-text-normal));
+}
+
+/* Additional utility classes for better theme support */
+.hermes-root .hermes-text-muted-bg {
+  background-color: var(--hermes-text-muted);
+  opacity: 0.1;
+}
+
+.hermes-root .hermes-bg-secondary\/5 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.05);
+}
+
+.hermes-root .hermes-bg-secondary\/10 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.1);
+}
+
+.hermes-root .hermes-bg-secondary\/20 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.2);
+}
+
+.hermes-root .hermes-bg-secondary\/40 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.4);
+}
+
+.hermes-root .hermes-bg-secondary\/60 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.6);
+}
+
+.hermes-root .hermes-bg-secondary\/90 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.9);
+}
+
+.hermes-root .hermes-bg-secondary\/95 {
+  background-color: rgba(var(--hermes-bg-secondary-rgb, 45, 45, 45), 0.95);
+}
+
+/* Light theme background opacity adjustments */
+@media (prefers-color-scheme: light) {
+  .hermes-root .hermes-bg-secondary\/5 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.05);
+  }
+  
+  .hermes-root .hermes-bg-secondary\/10 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.1);
+  }
+  
+  .hermes-root .hermes-bg-secondary\/20 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.2);
+  }
+  
+  .hermes-root .hermes-bg-secondary\/40 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.4);
+  }
+  
+  .hermes-root .hermes-bg-secondary\/60 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.6);
+  }
+  
+  .hermes-root .hermes-bg-secondary\/90 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.9);
+  }
+  
+  .hermes-root .hermes-bg-secondary\/95 {
+    background-color: rgba(var(--hermes-bg-secondary-rgb, 248, 249, 250), 0.95);
+  }
+}

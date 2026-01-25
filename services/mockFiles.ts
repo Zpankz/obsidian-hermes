@@ -2,9 +2,10 @@
 import { loadFiles, saveFiles } from './persistence';
 import { SearchResult, SearchMatch } from '../types';
 
+import { isObsidian, getObsidianApp } from '../utils/environment';
+
 // Check if we are running inside Obsidian
-// @ts-ignore
-const isObsidian = typeof app !== 'undefined' && app.vault !== undefined;
+const inObsidian = isObsidian();
 
 const DEFAULT_FILES: Record<string, string> = {
   'first.md': `Green leaves in the wind,
@@ -33,7 +34,7 @@ let initialized = false;
 
 export const initFileSystem = async () => {
   if (initialized) return;
-  if (isObsidian) {
+  if (inObsidian) {
     initialized = true;
     return;
   }
@@ -47,9 +48,9 @@ export const initFileSystem = async () => {
 };
 
 export const listDirectory = (): string[] => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    return app.vault.getMarkdownFiles().map(f => f.path);
+    return getObsidianApp().vault.getMarkdownFiles().map(f => f.path);
   }
   return Object.keys(MOCK_FILES);
 };
@@ -76,9 +77,9 @@ export const getVaultFiles = async (options: {
 
   let allFiles: VaultFileMeta[] = [];
 
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    allFiles = app.vault.getMarkdownFiles().map(f => ({
+    allFiles = getObsidianApp().vault.getMarkdownFiles().map(f => ({
       path: f.path,
       name: f.name,
       mtime: f.stat.mtime,
@@ -127,11 +128,11 @@ export const getVaultFiles = async (options: {
  * Retrieves the folder structure of the vault.
  */
 export const getFolderTree = (): string[] => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    const allFiles = app.vault.getAllLoadedFiles();
+    const allFiles = getObsidianApp().vault.getAllLoadedFiles();
     // @ts-ignore
-    return allFiles.filter(f => f.children).map(f => f.path).sort();
+    return allFiles.filter((f: any) => f.children !== undefined).map((f: any) => f.path).sort();
   } else {
     const paths = Object.keys(MOCK_FILES);
     const folders = new Set<string>(['/']);
@@ -153,27 +154,11 @@ export const getFolderTree = (): string[] => {
  * Returns a hierarchical tree structure of directories.
  */
 export const getDirectoryList = (): { path: string; children: any[] }[] => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    const allFiles = app.vault.getAllLoadedFiles();
+    const allFiles = getObsidianApp().vault.getAllLoadedFiles();
     // @ts-ignore
-    const folders = allFiles.filter(f => f.children);
-    
-    const buildTree = (folder: any): any => {
-      const children = folder.children
-        .filter((child: any) => child.children) // Only subdirectories
-        .map((child: any) => buildTree(child));
-      
-      return {
-        path: folder.path,
-        children: children.sort((a: any, b: any) => a.path.localeCompare(b.path))
-      };
-    };
-    
-    // Get root folders
-    // @ts-ignore
-    const rootFolders = folders.filter((f: any) => !f.parent);
-    return rootFolders.map((folder: any) => buildTree(folder));
+    return allFiles.filter((f: any) => f.children !== undefined).map((f: any) => ({ path: f.path, children: [] }));
   } else {
     // Mock implementation for non-Obsidian environment
     const paths = Object.keys(MOCK_FILES);
@@ -211,12 +196,12 @@ export const getDirectoryList = (): { path: string; children: any[] }[] => {
 };
 
 export const readFile = async (filename: string): Promise<string> => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    const file = app.vault.getAbstractFileByPath(filename);
+    const file = getObsidianApp().vault.getAbstractFileByPath(filename);
     if (!file) throw new Error(`File not found in vault: ${filename}`);
     // @ts-ignore
-    return await app.vault.read(file);
+    return await getObsidianApp().vault.read(file);
   }
 
   const content = MOCK_FILES[filename.toLowerCase()];
@@ -227,9 +212,9 @@ export const readFile = async (filename: string): Promise<string> => {
 };
 
 export const createFile = async (filename: string, content: string): Promise<string> => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    await app.vault.create(filename, content);
+    await getObsidianApp().vault.create(filename, content);
     return `Created ${filename} in vault`;
   }
 
@@ -243,12 +228,12 @@ export const createFile = async (filename: string, content: string): Promise<str
 };
 
 export const updateFile = async (filename: string, content: string): Promise<string> => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    const file = app.vault.getAbstractFileByPath(filename);
+    const file = getObsidianApp().vault.getAbstractFileByPath(filename);
     if (!file) throw new Error(`File not found: ${filename}`);
     // @ts-ignore
-    await app.vault.modify(file, content);
+    await getObsidianApp().vault.modify(file, content);
     return `Updated ${filename} in vault`;
   }
 
@@ -262,12 +247,12 @@ export const updateFile = async (filename: string, content: string): Promise<str
 };
 
 export const renameFile = async (oldFilename: string, newFilename: string): Promise<string> => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    const file = app.vault.getAbstractFileByPath(oldFilename);
+    const file = getObsidianApp().vault.getAbstractFileByPath(oldFilename);
     if (!file) throw new Error(`File not found: ${oldFilename}`);
     // @ts-ignore
-    await app.fileManager.renameFile(file, newFilename);
+    await getObsidianApp().fileManager.renameFile(file, newFilename);
     return `Renamed ${oldFilename} to ${newFilename} in vault`;
   }
 
@@ -289,17 +274,17 @@ export const renameFile = async (oldFilename: string, newFilename: string): Prom
 };
 
 export const moveFile = async (sourcePath: string, targetPath: string): Promise<string> => {
-  if (isObsidian) {
+  if (inObsidian) {
     // @ts-ignore
-    const file = app.vault.getAbstractFileByPath(sourcePath);
+    const file = getObsidianApp().vault.getAbstractFileByPath(sourcePath);
     if (!file) throw new Error(`Source file not found: ${sourcePath}`);
     
     // @ts-ignore
-    const targetFile = app.vault.getAbstractFileByPath(targetPath);
+    const targetFile = getObsidianApp().vault.getAbstractFileByPath(targetPath);
     if (targetFile) throw new Error(`Target file already exists: ${targetPath}`);
     
     // @ts-ignore
-    await app.fileManager.renameFile(file, targetPath);
+    await getObsidianApp().fileManager.renameFile(file, targetPath);
     return `Moved ${sourcePath} to ${targetPath} in vault`;
   }
 

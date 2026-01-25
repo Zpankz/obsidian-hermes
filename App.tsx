@@ -5,6 +5,7 @@ import { initFileSystem, listDirectory, createFile } from './services/mockFiles'
 import { saveAppSettings, loadAppSettings, isObsidianMode } from './services/persistence';
 import { GeminiVoiceAssistant } from './services/voiceInterface';
 import { DEFAULT_SYSTEM_INSTRUCTION } from './utils/defaultPrompt';
+import { isObsidian } from './utils/environment';
 
 // Components
 import Header from './components/Header';
@@ -47,8 +48,8 @@ const App: React.FC = () => {
 
   const assistantRef = useRef<GeminiVoiceAssistant | null>(null);
 
-  const isObsidian = useMemo(() => {
-    return isObsidianMode();
+  const isObsidianEnvironment = useMemo(() => {
+    return isObsidian();
   }, []);
 
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info', duration?: number, errorDetails?: LogEntry['errorDetails']) => {
@@ -217,7 +218,7 @@ const App: React.FC = () => {
       const notes = Array.isArray(note) ? note : (note ? [note] : []);
       if (notes.length > 0) {
         setCurrentNote(notes[notes.length - 1]);
-        if (isObsidian) {
+        if (isObsidianEnvironment) {
           notes.forEach(async (path) => {
             // @ts-ignore
             const file = app.vault.getAbstractFileByPath(path);
@@ -236,7 +237,7 @@ const App: React.FC = () => {
       if (tokens !== undefined) setTotalTokens(tokens); 
     },
     onVolume: (volume: number) => setMicVolume(volume)
-  }), [addLog, isObsidian]);
+  }), [addLog, isObsidianEnvironment]);
 
   const startSession = async () => {
     try {
@@ -279,7 +280,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`hermes-root h-screen flex flex-col selection:bg-blue-500/30 overflow-hidden font-sans ${isObsidian ? '' : 'standalone'}`}>
+    <div className={`hermes-root h-screen flex flex-col selection:bg-blue-500/30 overflow-hidden font-sans ${isObsidianEnvironment ? '' : 'standalone'}`}>
       <Settings 
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)} 

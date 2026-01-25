@@ -47,15 +47,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
         <div className="h-full flex flex-col items-center justify-center text-center animate-in fade-in duration-1000">
           <div className="max-w-md space-y-8">
             <div className="space-y-4">
-              <div className="w-12 h-px bg-indigo-500/30 mx-auto"></div>
-              <pre className="text-sm font-mono text-slate-500 leading-relaxed">{randomHaiku.text}</pre>
-              <div className="w-12 h-px bg-blue-500/30 mx-auto"></div>
-              <p className="text-xs text-slate-600">
+              <div className="w-12 h-px hermes-interactive-bg/30 mx-auto"></div>
+              <pre className="text-sm font-mono hermes-text-muted leading-relaxed">{randomHaiku.text}</pre>
+              <div className="w-12 h-px hermes-interactive-bg/30 mx-auto"></div>
+              <p className="text-xs hermes-text-faint">
                 — {randomHaiku.theme}
               </p>
             </div>
             
-            <p className="text-sm text-slate-500 pt-12">
+            <p className="text-sm hermes-text-muted pt-12">
               Waiting for connection...
             </p>
             
@@ -63,7 +63,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
               <div className="pt-8">
                 <button
                   onClick={onRestoreConversation}
-                  className="text-sm text-indigo-500 hover:text-indigo-400 underline transition-colors"
+                  className="text-sm hermes-text-accent hermes-hover:accent underline transition-colors"
                 >
                   Restore previous conversation
                 </button>
@@ -79,15 +79,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
         if (entry.role === 'system' && entry.toolData?.name === 'topic_switch') {
           return (
             <div key={entry.id} className="w-full py-10 flex flex-col items-center animate-in fade-in zoom-in duration-700">
-              <div className="text-sm text-slate-500 font-mono text-center max-w-lg px-6 mb-5">
+              <div className="text-sm hermes-text-muted font-mono text-center max-w-lg px-6 mb-5">
                 "{entry.toolData.newContent}"
               </div>
               <div className="w-full flex items-center px-4 space-x-6 opacity-30">
-                <div className="flex-grow h-px bg-gradient-to-r from-transparent via-indigo-500 to-indigo-500/20"></div>
+                <div className="flex-grow h-px bg-gradient-to-r from-transparent via-interactive to-interactive/20"></div>
                 <div className="flex flex-col items-center">
-                  <h3 className="text-sm font-medium text-slate-300 mb-4">System Status</h3>
+                  <h3 className="text-sm font-medium hermes-text-normal mb-4">System Status</h3>
                 </div>
-                <div className="flex-grow h-px bg-gradient-to-l from-transparent via-indigo-500 to-indigo-500/20"></div>
+                <div className="flex-grow h-px bg-gradient-to-l from-transparent via-interactive to-interactive/20"></div>
               </div>
             </div>
           );
@@ -101,7 +101,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
                   <ToolResult toolData={entry.toolData} isLast={isLast} />
                 ) : (
                   <div className="flex justify-center w-full py-2">
-                    <div className="px-4 py-1.5 bg-indigo-500/5 border border-indigo-500/10 text-indigo-400/60 rounded-xl text-[9px] font-mono tracking-tight">
+                    <div className="px-4 py-1.5 hermes-interactive-bg/5 hermes-border/10 hermes-text-accent/60 rounded-xl text-[9px] font-mono tracking-tight">
                       {entry.text}
                     </div>
                   </div>
@@ -113,7 +113,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
                   {entry.role === 'user' ? 'User' : 'Hermes'}
                 </span>
                 <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-[12px] leading-relaxed border transition-all ${
-                  entry.role === 'user' ? 'bg-indigo-600 text-white border-white/10 rounded-tr-none shadow-lg' : 'bg-slate-800/60 backdrop-blur border-white/5 text-slate-200 rounded-tl-none'
+                  entry.role === 'user' ? 'hermes-interactive-bg hermes-text-normal hermes-border/10 rounded-tr-none shadow-lg' : 'hermes-glass rounded-tl-none'
                 }`}>
                   {entry.text || <span className="italic opacity-30">...</span>}
                 </div>

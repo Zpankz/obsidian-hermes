@@ -1,6 +1,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './obsidian-colors.css';
+
 .hermes-voice-assistant, [data-type="hermes-voice-assistant"] .view-content{
   margin: 0; padding: 0;
 }

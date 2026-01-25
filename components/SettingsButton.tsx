@@ -1,5 +1,5 @@
 import React from 'react';
-import { isObsidianMode } from '../services/persistence';
+import { isObsidian } from '../utils/environment';
 
 interface SettingsButtonProps {
   onOpenSettings: () => void;
@@ -8,7 +8,7 @@ interface SettingsButtonProps {
 
 const SettingsButton: React.FC<SettingsButtonProps> = ({ onOpenSettings, className = '' }) => {
   const handleClick = () => {
-    if (isObsidianMode()) {
+    if (isObsidian()) {
       // In Obsidian mode, open Obsidian's built-in settings for this plugin
       try {
         // @ts-ignore - Obsidian API
@@ -32,7 +32,7 @@ const SettingsButton: React.FC<SettingsButtonProps> = ({ onOpenSettings, classNa
   return (
     <button 
       onClick={handleClick} 
-      className={`p-2 text-slate-500 hover:text-white transition-all ${className}`}
+      className={`p-2 hermes-text-muted hermes-hover:text-normal transition-all ${className}`}
       title="System Settings"
     >
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

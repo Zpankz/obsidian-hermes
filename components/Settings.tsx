@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { isObsidianMode } from '../services/persistence';
+import { isObsidian } from '../utils/environment';
 
 const AVAILABLE_VOICES = ['Default', 'Professional', 'Friendly', 'Creative', 'Technical'];
 
@@ -33,7 +33,7 @@ const Settings: React.FC<SettingsProps> = ({
 }) => {
   // Handle opening settings in Obsidian vs popup
   const handleOpenSettings = () => {
-    if (isObsidianMode()) {
+    if (isObsidian()) {
       // In Obsidian mode, open the plugin settings
       try {
         // @ts-ignore - Obsidian API
@@ -59,7 +59,7 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   // If in Obsidian mode, try to open Obsidian settings instead of showing popup
-  if (isOpen && isObsidianMode()) {
+  if (isOpen && isObsidian()) {
     const openedObsidianSettings = handleOpenSettings();
     if (openedObsidianSettings) {
       onClose(); // Close the popup trigger
@@ -70,15 +70,15 @@ const Settings: React.FC<SettingsProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300">
-      <div className="max-w-3xl w-full space-y-8 bg-slate-900/50 p-12 rounded-3xl border border-white/5 shadow-2xl overflow-y-auto max-h-[90vh]">
-        <div className="flex justify-between items-start border-b border-white/5 pb-8">
+    <div className="fixed inset-0 z-[100] hermes-bg-tertiary/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300">
+      <div className="max-w-3xl w-full space-y-8 hermes-glass p-12 rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex justify-between items-start hermes-border-b pb-8">
           <div>
-            <h2 className="text-2xl font-semibold mb-2">Settings</h2>
-            <p className="text-slate-500 text-sm">Hermes Voice Assistant</p>
+            <h2 className="text-2xl font-semibold mb-2 hermes-text-normal">Settings</h2>
+            <p className="hermes-text-muted text-sm">Hermes Voice Assistant</p>
           </div>
-          <button onClick={onClose} className="p-4 hover:bg-white/5 rounded-full transition-colors group">
-            <svg className="w-8 h-8 text-slate-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button onClick={onClose} className="p-4 hermes-hover:bg-secondary/5 rounded-full transition-colors group">
+            <svg className="w-8 h-8 hermes-text-muted group-hover:hermes-text-normal transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -86,13 +86,13 @@ const Settings: React.FC<SettingsProps> = ({
 
         <div className="grid gap-8">
           <div className="space-y-4">
-            <label className="text-sm font-medium text-slate-300 block">Voice Persona</label>
+            <label className="text-sm font-medium hermes-text-normal block">Voice Persona</label>
             <div className="grid grid-cols-5 gap-2">
               {AVAILABLE_VOICES.map(v => (
                 <button 
                   key={v}
                   onClick={() => setVoiceName(v)}
-                  className={`px-4 py-2 rounded-lg border text-sm transition-all ${voiceName === v ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20'}`}
+                  className={`px-4 py-2 rounded-lg border text-sm transition-all ${voiceName === v ? 'hermes-interactive-bg border-interactive hermes-text-normal' : 'hermes-bg-secondary/5 hermes-border/10 hermes-text-muted hermes-hover:border/20'}`}
                 >
                   {v}
                 </button>
@@ -102,49 +102,49 @@ const Settings: React.FC<SettingsProps> = ({
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-300 block">System Instructions</label>
+              <label className="text-sm font-medium hermes-text-normal block">System Instructions</label>
             </div>
             <textarea 
               value={systemInstruction}
               onChange={(e) => setSystemInstruction(e.target.value)}
               placeholder="Core logic instructions..."
-              className="w-full h-32 bg-slate-800 border border-white/10 rounded-lg p-4 text-sm text-slate-200 outline-none focus:border-blue-500/50 transition-all font-mono placeholder:text-slate-600"
+              className="w-full h-32 hermes-bg-tertiary hermes-border/10 rounded-lg p-4 text-sm hermes-text-normal outline-none hermes-focus:border/50 transition-all font-mono placeholder:hermes-text-faint"
             />
           </div>
 
           <div className="space-y-4">
-            <label className="text-sm font-medium text-slate-300 block">Custom Context</label>
+            <label className="text-sm font-medium hermes-text-normal block">Custom Context</label>
             <textarea 
               value={customContext}
               onChange={(e) => setCustomContext(e.target.value)}
               placeholder="Define specific behaviors or rules for Hermes..."
-              className="w-full h-20 bg-slate-800 border border-white/10 rounded-lg p-4 text-sm text-slate-200 outline-none focus:border-blue-500/50 transition-all font-mono placeholder:text-slate-600"
+              className="w-full h-20 hermes-bg-tertiary hermes-border/10 rounded-lg p-4 text-sm hermes-text-normal outline-none hermes-focus:border/50 transition-all font-mono placeholder:hermes-text-faint"
             />
           </div>
 
-          <div className="space-y-4 pt-8 border-t border-white/5">
-            <label className="text-sm font-medium text-slate-300 block">API Authentication</label>
+          <div className="space-y-4 pt-8 hermes-border-t">
+            <label className="text-sm font-medium hermes-text-normal block">API Authentication</label>
             
             <div className="space-y-4">
               <div className="flex flex-col space-y-2">
-                <span className="text-sm font-medium text-slate-400">Manual API Key</span>
+                <span className="text-sm font-medium hermes-text-muted">Manual API Key</span>
                 <input 
                   type="password"
                   value={manualApiKey}
                   onChange={(e) => setManualApiKey(e.target.value)}
                   placeholder="Enter your Gemini API Key..."
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-sm text-slate-200 font-mono outline-none focus:border-blue-500/50 transition-all"
+                  className="w-full hermes-bg-tertiary hermes-border/10 rounded-lg px-4 py-3 text-sm hermes-text-normal font-mono outline-none hermes-focus:border/50 transition-all"
                 />
               </div>
 
               <div className="relative py-2">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-                <div className="relative flex justify-center text-sm font-medium text-slate-600"><span className="bg-slate-900 px-2">Or</span></div>
+                <div className="absolute inset-0 flex items-center"><div className="w-full hermes-border-t"></div></div>
+                <div className="relative flex justify-center text-sm font-medium hermes-text-faint"><span className="hermes-bg-secondary px-2">Or</span></div>
               </div>
 
               <button 
                 onClick={onUpdateApiKey}
-                className="w-full flex items-center justify-center space-x-4 px-8 py-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-500 transition-all"
+                className="w-full flex items-center justify-center space-x-4 px-8 py-4 hermes-interactive-bg hermes-text-normal rounded-lg font-medium hermes-hover:interactive-bg transition-all"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -153,9 +153,9 @@ const Settings: React.FC<SettingsProps> = ({
               </button>
             </div>
 
-            <p className="text-sm text-slate-500 mt-4">
+            <p className="text-sm hermes-text-muted mt-4">
               API keys are handled via AI Studio provider or manual entry.
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline ml-1">Documentation</a>
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="hermes-text-accent hover:underline ml-1">Documentation</a>
             </p>
           </div>
         </div>
