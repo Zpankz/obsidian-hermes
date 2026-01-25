@@ -79,6 +79,49 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
     setManuallyToggled(true);
   };
 
+  const extractSearchInfo = (chunks: any[]) => {
+    if (!chunks || chunks.length === 0) return '';
+    
+    // Extract keywords from titles and domains
+    const keywords = new Set<string>();
+    const domains = new Set<string>();
+    
+    chunks.forEach(chunk => {
+      const item = chunk.web || chunk.maps;
+      if (item) {
+        // Extract keywords from title
+        if (item.title) {
+          const words = item.title.toLowerCase()
+            .split(/\s+/)
+            .filter(word => word.length > 3)
+            .filter(word => !['the', 'and', 'for', 'are', 'with', 'this', 'that', 'from', 'they', 'have', 'been', 'has', 'had', 'was', 'were', 'will', 'would', 'could', 'should'].includes(word));
+          words.forEach(word => keywords.add(word));
+        }
+        
+        // Extract domain
+        try {
+          const domain = new URL(item.uri).hostname;
+          domains.add(domain);
+        } catch (e) {
+          // Invalid URL, skip
+        }
+      }
+    });
+    
+    const keywordList = Array.from(keywords).slice(0, 3).join(', ');
+    const domainList = Array.from(domains).slice(0, 2).join(', ');
+    
+    if (keywordList && domainList) {
+      return ` (${keywordList} | ${domainList})`;
+    } else if (keywordList) {
+      return ` (${keywordList})`;
+    } else if (domainList) {
+      return ` (${domainList})`;
+    }
+    
+    return '';
+  };
+
   const getActionLabel = (name: string) => {
     switch(name) {
       case 'read_file': return 'READ';
@@ -147,6 +190,20 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
         }}
       >
         <div className="flex items-center space-x-2 overflow-hidden">
+          {isPending && (
+            <div className="flex items-center space-x-1 shrink-0">
+              {toolData?.name === 'internet_search' ? (
+                <div className="loading-dots-container">
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                </div>
+              ) : (
+                <span style={{ color: styles.accentColor }}>...</span>
+              )}
+            </div>
+          )}
+          
           {toolData && (
             <span 
               className="text-[9px] font-black px-1 py-0.5 rounded shrink-0"
@@ -156,6 +213,9 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
               }}
             >
               {getActionLabel(toolData.name)}
+              {toolData?.name === 'internet_search' && toolData?.groundingChunks && 
+                extractSearchInfo(toolData.groundingChunks)
+              }
             </span>
           )}
           
@@ -181,19 +241,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
         </div>
         
         <div className="flex items-center space-x-4 shrink-0">
-          {isPending ? (
-            <div className="flex items-center space-x-1 px-2">
-              {toolData?.name === 'internet_search' ? (
-                <div className="loading-dots-container">
-                  <div className="loading-dot"></div>
-                  <div className="loading-dot"></div>
-                  <div className="loading-dot"></div>
-                </div>
-              ) : (
-                <span style={{ color: styles.accentColor }}>...</span>
-              )}
-            </div>
-          ) : hasExpandableContent ? (
+          {!isPending && hasExpandableContent ? (
             <svg 
               className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
               style={{ color: styles.accentColor }}

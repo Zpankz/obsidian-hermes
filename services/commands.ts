@@ -138,12 +138,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       const truncationNotice = `\n\n=== RESULT TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalFiles} items (Page ${currentPage} of ${totalPages}).\n\nTo see more results, consider:\n- Using list_vault_files with pagination (limit/offset parameters)\n- Using search_keyword or search_regexp for targeted searches\n- Using get_folder_tree for folder structure only\n- Adding a filter parameter to narrow results\n\nCurrent results show first ${MAX_ITEMS} items only.`;
       
       // Log truncation info
-      console.log(`=== TOOL RESULT TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original items: ${totalFiles}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END TOOL RESULT TRUNCATION ===`);
+      console.log(`Tool result truncated: ${toolName}, ${MAX_ITEMS}/${totalFiles} items, page ${currentPage}/${totalPages}`);
       
       // Update system message with truncation info
       callbacks.onSystem(`Registry Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFiles} items)`, {
@@ -181,12 +176,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       const truncationNotice = `\n\n=== RESULT TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalFolders} folders (Page ${currentPage} of ${totalPages}).\n\nFor large folder structures, consider:\n- Using search_keyword to find specific folders\n- Using list_vault_files with filter parameter\n- Asking for a specific subfolder path\n\nCurrent results show first ${MAX_ITEMS} folders only.`;
       
-      console.log(`=== TOOL RESULT TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original folders: ${totalFolders}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END TOOL RESULT TRUNCATION ===`);
+      console.log(`Folder structure truncated: ${toolName}, ${MAX_ITEMS}/${totalFolders} folders, page ${currentPage}/${totalPages}`);
       
       callbacks.onSystem(`Folder Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFolders} folders)`, {
         name: toolName,
@@ -241,12 +231,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       const truncationNotice = `\n\n=== DIRECTORY LIST TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalDirectories} directories (Page ${currentPage} of ${totalPages}).\n\nFor large directory structures, consider:\n- Using search_keyword to find specific directories\n- Using list_vault_files with filter parameter\n- Asking for a specific directory path\n- Using get_folder_tree for a simple folder list\n\nCurrent results show first ${MAX_ITEMS} directories only.`;
       
-      console.log(`=== DIRECTORY LIST TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original directories: ${totalDirectories}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END DIRECTORY LIST TRUNCATION ===`);
+      console.log(`Directory list truncated: ${toolName}, ${MAX_ITEMS}/${totalDirectories} directories, page ${currentPage}/${totalPages}`);
       
       callbacks.onSystem(`Directory Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalDirectories} directories)`, {
         name: toolName,
@@ -284,12 +269,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       const truncationNotice = `\n\n=== SEARCH RESULTS TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalResults} results (Page ${currentPage} of ${totalPages}).\n\nFor more results, consider:\n- Refining your search terms\n- Using pagination parameters if available\n- Adding filters to narrow the search\n\nCurrent results show first ${MAX_ITEMS} matches only.`;
       
-      console.log(`=== SEARCH RESULT TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original results: ${totalResults}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END SEARCH RESULT TRUNCATION ===`);
+      console.log(`Search results truncated: ${toolName}, ${MAX_ITEMS}/${totalResults} results, page ${currentPage}/${totalPages}`);
       
       return {
         ...result,
@@ -309,11 +289,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
     const truncatedContent = result.substring(0, 50000);
     const truncationNotice = `\n\n=== CONTENT TRUNCATED ===\nShowing first 50,000 characters of ${result.length} total characters.\n\nFor large files, consider:\n- Reading specific sections with line numbers\n- Searching for specific content within the file\n- Using more targeted read operations\n\nCurrent content shows first 50,000 characters only.`;
     
-    console.log(`=== CONTENT TRUNCATION ===`);
-    console.log(`Tool: ${toolName}`);
-    console.log(`Original length: ${result.length}`);
-    console.log(`Truncated to: 50000`);
-    console.log(`=== END CONTENT TRUNCATION ===`);
+    console.log(`Content truncated: ${toolName}, 50000/${result.length} chars`);
     
     return truncatedContent + truncationNotice;
   }

@@ -699,9 +699,6 @@
 .hermes-root .z-50 {
   z-index: 50;
 }
-.hermes-root .z-\[100\] {
-  z-index: 100;
-}
 .hermes-root .z-\[200\] {
   z-index: 200;
 }
@@ -784,6 +781,9 @@
 .hermes-root .h-10 {
   height: 2.5rem;
 }
+.hermes-root .h-12 {
+  height: 3rem;
+}
 .hermes-root .h-20 {
   height: 5rem;
 }
@@ -813,9 +813,6 @@
 }
 .hermes-root .h-px {
   height: 1px;
-}
-.hermes-root .h-12 {
-  height: 3rem;
 }
 .hermes-root .max-h-16 {
   max-height: 4rem;
@@ -1114,6 +1111,10 @@
 .hermes-root .border-t {
   border-top-width: 1px;
 }
+.hermes-root .border-gray-300 {
+  --tw-border-opacity:1;
+  border-color: rgb(209 213 219/var(--tw-border-opacity,1));
+}
 .hermes-root .border-gray-600\/20 {
   border-color: rgba(75, 85, 99, .2);
 }
@@ -1128,10 +1129,6 @@
   --tw-border-opacity:1;
   border-color: rgb(31 41 55/var(--tw-border-opacity,1));
 }
-.hermes-root .border-gray-300 {
-  --tw-border-opacity:1;
-  border-color: rgb(209 213 219/var(--tw-border-opacity,1));
-}
 .hermes-root .bg-blue-500 {
   --tw-bg-opacity:1;
   background-color: rgb(59 130 246/var(--tw-bg-opacity,1));
@@ -1142,6 +1139,10 @@
 .hermes-root .bg-gray-200 {
   --tw-bg-opacity:1;
   background-color: rgb(229 231 235/var(--tw-bg-opacity,1));
+}
+.hermes-root .bg-gray-300 {
+  --tw-bg-opacity:1;
+  background-color: rgb(209 213 219/var(--tw-bg-opacity,1));
 }
 .hermes-root .bg-gray-50 {
   --tw-bg-opacity:1;
@@ -1156,10 +1157,6 @@
 .hermes-root .bg-red-600 {
   --tw-bg-opacity:1;
   background-color: rgb(220 38 38/var(--tw-bg-opacity,1));
-}
-.hermes-root .bg-gray-300 {
-  --tw-bg-opacity:1;
-  background-color: rgb(209 213 219/var(--tw-bg-opacity,1));
 }
 .hermes-root .bg-gradient-to-l {
   background-image: linear-gradient(to left, var(--tw-gradient-stops));
@@ -1319,6 +1316,10 @@
   font-size: 1.5rem;
   line-height: 2rem;
 }
+.hermes-root .text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
 .hermes-root .text-\[10px\] {
   font-size: 10px;
 }
@@ -1345,10 +1346,6 @@
 .hermes-root .text-xs {
   font-size: .75rem;
   line-height: 1rem;
-}
-.hermes-root .text-3xl {
-  font-size: 1.875rem;
-  line-height: 2.25rem;
 }
 .hermes-root .font-black {
   font-weight: 900;
@@ -1838,6 +1835,10 @@
     --tw-border-opacity:1;
     border-color: rgb(75 85 99/var(--tw-border-opacity,1));
   }
+  .hermes-root .dark\:bg-gray-600 {
+    --tw-bg-opacity:1;
+    background-color: rgb(75 85 99/var(--tw-bg-opacity,1));
+  }
   .hermes-root .dark\:bg-gray-700 {
     --tw-bg-opacity:1;
     background-color: rgb(55 65 81/var(--tw-bg-opacity,1));
@@ -1845,10 +1846,6 @@
   .hermes-root .dark\:bg-gray-800 {
     --tw-bg-opacity:1;
     background-color: rgb(31 41 55/var(--tw-bg-opacity,1));
-  }
-  .hermes-root .dark\:bg-gray-600 {
-    --tw-bg-opacity:1;
-    background-color: rgb(75 85 99/var(--tw-bg-opacity,1));
   }
   .hermes-root .dark\:text-gray-100 {
     --tw-text-opacity:1;

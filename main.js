@@ -38383,6 +38383,11 @@ var execute18 = async (args, callbacks) => {
   if (!apiKey) {
     throw new Error("API key not found. Please set your Gemini API key in the plugin settings.");
   }
+  callbacks.onSystem(`Internet Search: ${args.query}`, {
+    name: "internet_search",
+    filename: args.query,
+    status: "pending"
+  });
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -38395,7 +38400,7 @@ var execute18 = async (args, callbacks) => {
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
   callbacks.onSystem(`Internet Search: ${args.query}`, {
     name: "internet_search",
-    filename: "Web",
+    filename: args.query,
     status: "success",
     newContent: text,
     groundingChunks
@@ -38617,12 +38622,7 @@ To see more results, consider:
 - Adding a filter parameter to narrow results
 
 Current results show first ${MAX_ITEMS} items only.`;
-      console.log(`=== TOOL RESULT TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original items: ${totalFiles}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END TOOL RESULT TRUNCATION ===`);
+      console.log(`Tool result truncated: ${toolName}, ${MAX_ITEMS}/${totalFiles} items, page ${currentPage}/${totalPages}`);
       callbacks.onSystem(`Registry Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFiles} items)`, {
         name: toolName,
         filename: "Vault Root",
@@ -38662,12 +38662,7 @@ For large folder structures, consider:
 - Asking for a specific subfolder path
 
 Current results show first ${MAX_ITEMS} folders only.`;
-      console.log(`=== TOOL RESULT TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original folders: ${totalFolders}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END TOOL RESULT TRUNCATION ===`);
+      console.log(`Folder structure truncated: ${toolName}, ${MAX_ITEMS}/${totalFolders} folders, page ${currentPage}/${totalPages}`);
       callbacks.onSystem(`Folder Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFolders} folders)`, {
         name: toolName,
         filename: "Folder Tree",
@@ -38722,12 +38717,7 @@ For large directory structures, consider:
 - Using get_folder_tree for a simple folder list
 
 Current results show first ${MAX_ITEMS} directories only.`;
-      console.log(`=== DIRECTORY LIST TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original directories: ${totalDirectories}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END DIRECTORY LIST TRUNCATION ===`);
+      console.log(`Directory list truncated: ${toolName}, ${MAX_ITEMS}/${totalDirectories} directories, page ${currentPage}/${totalPages}`);
       callbacks.onSystem(`Directory Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalDirectories} directories)`, {
         name: toolName,
         filename: "Directory List",
@@ -38768,12 +38758,7 @@ For more results, consider:
 - Adding filters to narrow the search
 
 Current results show first ${MAX_ITEMS} matches only.`;
-      console.log(`=== SEARCH RESULT TRUNCATION ===`);
-      console.log(`Tool: ${toolName}`);
-      console.log(`Original results: ${totalResults}`);
-      console.log(`Truncated to: ${MAX_ITEMS}`);
-      console.log(`Total pages: ${totalPages}`);
-      console.log(`=== END SEARCH RESULT TRUNCATION ===`);
+      console.log(`Search results truncated: ${toolName}, ${MAX_ITEMS}/${totalResults} results, page ${currentPage}/${totalPages}`);
       return {
         ...result,
         results: truncatedResults,
@@ -38799,11 +38784,7 @@ For large files, consider:
 - Using more targeted read operations
 
 Current content shows first 50,000 characters only.`;
-    console.log(`=== CONTENT TRUNCATION ===`);
-    console.log(`Tool: ${toolName}`);
-    console.log(`Original length: ${result.length}`);
-    console.log(`Truncated to: 50000`);
-    console.log(`=== END CONTENT TRUNCATION ===`);
+    console.log(`Content truncated: ${toolName}, 50000/${result.length} chars`);
     return truncatedContent + truncationNotice;
   }
   return result;
@@ -38910,26 +38891,9 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
 ${contextString}
 
 ${settings.customContext}`.trim();
-      console.log("=== SYSTEM INSTRUCTION DEBUG ===");
-      console.log("Base System Instruction Length:", settings.systemInstruction.length);
-      console.log("Context String Length:", contextString.length);
-      console.log("Custom Context Length:", settings.customContext.length);
-      console.log("Final System Instruction Length:", systemInstruction.length);
-      console.log("Current Folder:", this.currentFolder);
-      console.log("Current Note:", this.currentNote);
-      console.log("Settings Voice Name:", settings.voiceName);
-      console.log("Full System Instruction (first 500 chars):", systemInstruction.substring(0, 500));
-      console.log("Full System Instruction (last 500 chars):", systemInstruction.substring(Math.max(0, systemInstruction.length - 500)));
-      console.log("=== END SYSTEM INSTRUCTION DEBUG ===");
+      console.log(`System instruction: ${systemInstruction.length} chars, folder: ${this.currentFolder}, note: ${this.currentNote}`);
       this.callbacks.onLog(`System instruction size: ${systemInstruction.length} chars`, "info");
-      console.log("=== SESSION CONFIG DEBUG ===");
-      console.log("Model:", "gemini-2.5-flash-native-audio-preview-12-2025");
-      console.log("Response Modalities:", [Modality.AUDIO]);
-      console.log("System Instruction Length:", systemInstruction.length);
-      console.log("Voice Name:", settings.voiceName);
-      console.log("Tool Declarations Count:", COMMAND_DECLARATIONS.length);
-      console.log("Tool Declaration Names:", COMMAND_DECLARATIONS.map((t) => t.name));
-      console.log("=== END SESSION CONFIG DEBUG ===");
+      console.log(`Session config: model=gemini-2.5-flash-native-audio-preview-12-2025, tools=${COMMAND_DECLARATIONS.length}, voice=${settings.voiceName}`);
       this.callbacks.onLog("Initializing Gemini live connection...", "info");
       this.sessionPromise = ai.live.connect({
         model: "gemini-2.5-flash-native-audio-preview-12-2025",
@@ -38959,68 +38923,16 @@ ${settings.customContext}`.trim();
             }
           },
           onerror: (err) => {
-            console.error("=== GEMINI LIVE CONNECTION ERROR ===");
-            console.error("Error Type:", err.constructor.name);
-            console.error("Error Message:", err.message);
-            console.error("Error Code:", err.code);
-            console.error("Error Status:", err.status);
-            console.error("Error Details:", err.details);
-            console.error("Request Size:", err.requestSize);
-            console.error("Response Size:", err.responseSize);
-            console.error("Timestamp:", new Date().toISOString());
-            console.error("Stack:", err.stack);
-            console.error("=== END GEMINI LIVE CONNECTION ERROR ===");
-            console.error("Gemini Voice Error:", err);
-            const errorMsg = err.message || "Quantum Link Error";
-            const errorDetails = {
-              toolName: "GeminiVoiceAssistant",
-              apiCall: "live.connect",
-              stack: err.stack,
-              content: JSON.stringify(err, null, 2),
-              requestSize: err.requestSize,
-              responseSize: err.responseSize,
-              errorCode: err.code,
-              errorStatus: err.status,
-              errorDetails: err.details,
-              timestamp: new Date().toISOString()
-            };
-            this.callbacks.onLog(`NETWORK ERROR: ${errorMsg}`, "error", void 0, errorDetails);
-            this.callbacks.onSystemMessage(`ERROR: ${errorMsg}`, {
-              id: "error-" + Date.now(),
-              name: "error",
-              filename: "",
-              status: "error",
-              error: errorMsg
-            });
-            if (this.retryCounter.canRetry) {
-              this.callbacks.onLog(`Connection error, attempting recovery...`, "info");
-              this.callbacks.onSystemMessage(`Connection error, attempting recovery...`);
-              setTimeout(async () => {
-                try {
-                  this.stop();
-                  await this.performStart(this.storedApiKey, this.storedSettings, this.storedInitialState);
-                } catch (retryErr) {
-                  this.callbacks.onLog(`Recovery failed: ${retryErr.message}`, "error");
-                  this.callbacks.onSystemMessage(`Recovery failed: ${retryErr.message}`);
-                }
-              }, 1e3);
-            } else {
-              this.callbacks.onLog(`could not recover!`, "error");
-              this.callbacks.onSystemMessage(`could not recover!`);
-            }
-            this.stop();
+            console.error(`Gemini connection error: ${err.message} (${err.constructor.name})`);
+            this.callbacks.onLog(`Connection error: ${err.message}`, "error");
             this.callbacks.onStatusChange("ERROR" /* ERROR */);
+            this.callbacks.onSystemMessage(`Connection Error: ${err.message}`);
           },
           onclose: (e) => {
             const reason = e.reason || e.code || "Connection dropped";
             const isError = e.code !== 1e3 && e.code !== 1001;
             if (isError) {
-              console.error(e);
-              console.error("=== VOICE CONNECTION CLOSED ===");
-              console.error("Close Code:", e.code);
-              console.error("Close Reason:", e.reason);
-              console.error("Timestamp:", new Date().toISOString());
-              console.error("=== END VOICE CONNECTION CLOSED ===");
+              console.error(`Voice connection closed: code=${e.code}, reason=${reason}`);
               const errorDetails = {
                 toolName: "GeminiVoiceAssistant",
                 apiCall: "live.connect",
@@ -39045,13 +38957,7 @@ ${settings.customContext}`.trim();
       this.session = await this.sessionPromise;
     } catch (err) {
       this.callbacks.onStatusChange("ERROR" /* ERROR */);
-      console.error(err);
-      console.error("=== VOICE INTERFACE ERROR ===");
-      console.error("API Call:", "start");
-      console.error("Timestamp:", new Date().toISOString());
-      console.error("Audio Context State:", this.inputAudioContext?.state);
-      console.error("Output Audio Context State:", this.outputAudioContext?.state);
-      console.error("=== END VOICE INTERFACE ERROR ===");
+      console.error(`Voice interface error: ${err.message}`);
       const errorDetails = {
         toolName: "GeminiVoiceAssistant",
         apiCall: "start",
@@ -39092,22 +38998,13 @@ ${settings.customContext}`.trim();
       sessionPromise.then((session) => {
         const audioDataSize = base64.length;
         if (audioDataSize > 5e4) {
-          console.log("=== AUDIO STREAMING DEBUG ===");
-          console.log("Audio Data Size (bytes):", audioDataSize);
-          console.log("Audio MIME Type:", "audio/pcm;rate=16000");
-          console.log("Timestamp:", new Date().toISOString());
-          console.log("Session State:", session ? "active" : "null");
-          console.log("=== END AUDIO STREAMING DEBUG ===");
+          console.log(`Audio streaming: ${audioDataSize} bytes, session active`);
         }
         session.sendRealtimeInput({
           media: { data: base64, mimeType: "audio/pcm;rate=16000" }
         });
       }).catch((err) => {
-        console.error("=== AUDIO STREAMING ERROR ===");
-        console.error("Audio Send Error:", err);
-        console.error("Audio Data Size:", base64.length);
-        console.error("Timestamp:", new Date().toISOString());
-        console.error("=== END AUDIO STREAMING ERROR ===");
+        console.error(`Audio streaming error: ${err.message}, data size: ${base64.length}`);
       });
     };
     source.connect(scriptProcessor);
@@ -39167,20 +39064,23 @@ ${settings.customContext}`.trim();
           }, toolCallId);
           sessionPromise.then((s) => {
             const responseData = JSON.stringify({ result: response });
-            console.log("=== TOOL RESPONSE DEBUG ===");
-            console.log("Tool Name:", fc.name);
-            console.log("Tool Call ID:", fc.id);
-            console.log("Response Size:", responseData.length);
-            console.log("Response Type:", typeof response);
-            console.log("Timestamp:", new Date().toISOString());
-            console.log("=== END TOOL RESPONSE DEBUG ===");
+            console.log(`Tool response: ${fc.name}, size: ${responseData.length} chars`);
             if (!toolUpdatedMessage) {
+              let displayContent = response?.text || (typeof response === "string" ? response : JSON.stringify(response, null, 2));
+              if (fc.name === "create_file" || fc.name === "create_directory") {
+                const path2 = fc.args?.filename || fc.args?.path;
+                if (path2 && typeof path2 === "string") {
+                  const lastSlashIndex = path2.lastIndexOf("/");
+                  const containingFolder = lastSlashIndex === -1 ? "/" : path2.substring(0, lastSlashIndex + 1);
+                  displayContent = `Created in: ${containingFolder}`;
+                }
+              }
               this.callbacks.onSystemMessage(`${actionName} Complete`, {
                 id: toolCallId,
                 name: fc.name,
                 filename: fc.args?.filename || (fc.name === "internet_search" ? "Web" : "Registry"),
                 status: "success",
-                newContent: response?.text || (typeof response === "string" ? response : JSON.stringify(response, null, 2)),
+                newContent: displayContent,
                 groundingChunks: response?.groundingChunks || [],
                 files: response?.files || response?.directories?.map((d2) => d2.path) || response?.folders,
                 directoryInfo: response?.directoryInfo
@@ -39192,14 +39092,7 @@ ${settings.customContext}`.trim();
           });
         } catch (err) {
           console.error(err);
-          console.error("=== VOICE INTERFACE TOOL ERROR ===");
-          console.error("Tool Name:", fc.name);
-          console.error("Tool Arguments:", fc.args);
-          console.error("Error Type:", err.constructor.name);
-          console.error("Error Message:", err.message);
-          console.error("Error Stack:", err.stack);
-          console.error("Timestamp:", new Date().toISOString());
-          console.error("=== END VOICE INTERFACE TOOL ERROR ===");
+          console.error(`Voice interface tool error: ${fc.name} - ${err.message}`);
           const errorDetails = {
             toolName: fc.name,
             content: JSON.stringify(fc.args, null, 2),
@@ -39219,12 +39112,7 @@ ${settings.customContext}`.trim();
             error: err.message
           });
           sessionPromise.then((s) => {
-            console.log("=== TOOL ERROR RESPONSE DEBUG ===");
-            console.log("Tool Name:", fc.name);
-            console.log("Tool Call ID:", fc.id);
-            console.log("Error Message:", err.message);
-            console.log("Timestamp:", new Date().toISOString());
-            console.log("=== END TOOL ERROR RESPONSE DEBUG ===");
+            console.log(`Tool error response: ${fc.name} - ${err.message}`);
             s.sendToolResponse({
               functionResponses: { id: fc.id, name: fc.name, response: { error: err.message } }
             });
@@ -39288,32 +39176,18 @@ ${settings.customContext}`.trim();
   sendText(text) {
     if (this.sessionPromise) {
       const encoded = encode(new TextEncoder().encode(text));
-      console.log("=== TEXT INPUT DEBUG ===");
-      console.log("Text Length:", text.length);
-      console.log("Encoded Size:", encoded.length);
-      console.log("Text Preview (first 100 chars):", text.substring(0, 100));
-      console.log("Timestamp:", new Date().toISOString());
-      console.log("=== END TEXT INPUT DEBUG ===");
+      console.log(`Text input: ${text.length} chars, encoded: ${encoded.length} bytes`);
       this.callbacks.onLog(`Sending text input: ${text.length} chars`, "info");
       this.sessionPromise.then((session) => {
         try {
           session.sendRealtimeInput({ media: { data: encoded, mimeType: "text/plain" } });
           console.log("Text input sent successfully");
         } catch (err) {
-          console.error("=== TEXT INPUT ERROR ===");
-          console.error("Text Send Error:", err);
-          console.error("Text Length:", text.length);
-          console.error("Encoded Size:", encoded.length);
-          console.error("Error Type:", err.constructor.name);
-          console.error("Timestamp:", new Date().toISOString());
-          console.error("=== END TEXT INPUT ERROR ===");
+          console.error(`Text input error: ${err.message}, text length: ${text.length}`);
           this.callbacks.onLog(`Text input failed: ${err.message}`, "error");
         }
       }).catch((err) => {
-        console.error("=== SESSION PROMISE ERROR (TEXT) ===");
-        console.error("Session Promise Error:", err);
-        console.error("Timestamp:", new Date().toISOString());
-        console.error("=== END SESSION PROMISE ERROR (TEXT) ===");
+        console.error(`Session promise error (text): ${err.message}`);
       });
     }
   }
@@ -39426,17 +39300,7 @@ ${settings.customContext}`.trim();
             }
           });
         } catch (err) {
-          console.error("=== TEXT INTERFACE TOOL ERROR ===");
-          console.error("Tool Name:", fc.name);
-          console.error("Tool Arguments:", fc.args);
-          console.error("Error Type:", err.constructor.name);
-          console.error("Error Message:", err.message);
-          console.error("Error Stack:", err.stack);
-          console.error("Timestamp:", new Date().toISOString());
-          console.error("Model:", this.model);
-          console.error("Current Folder:", this.currentFolder);
-          console.error("Current Note:", this.currentNote);
-          console.error("=== END TEXT INTERFACE TOOL ERROR ===");
+          console.error(`Text interface tool error: ${fc.name} - ${err.message}`);
           const errorDetails = {
             toolName: fc.name,
             content: JSON.stringify(fc.args, null, 2),
@@ -41482,6 +41346,36 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
     setIsExpanded(!isExpanded);
     setManuallyToggled(true);
   };
+  const extractSearchInfo = (chunks) => {
+    if (!chunks || chunks.length === 0)
+      return "";
+    const keywords = /* @__PURE__ */ new Set();
+    const domains = /* @__PURE__ */ new Set();
+    chunks.forEach((chunk) => {
+      const item = chunk.web || chunk.maps;
+      if (item) {
+        if (item.title) {
+          const words = item.title.toLowerCase().split(/\s+/).filter((word) => word.length > 3).filter((word) => !["the", "and", "for", "are", "with", "this", "that", "from", "they", "have", "been", "has", "had", "was", "were", "will", "would", "could", "should"].includes(word));
+          words.forEach((word) => keywords.add(word));
+        }
+        try {
+          const domain = new URL(item.uri).hostname;
+          domains.add(domain);
+        } catch (e) {
+        }
+      }
+    });
+    const keywordList = Array.from(keywords).slice(0, 3).join(", ");
+    const domainList = Array.from(domains).slice(0, 2).join(", ");
+    if (keywordList && domainList) {
+      return ` (${keywordList} | ${domainList})`;
+    } else if (keywordList) {
+      return ` (${keywordList})`;
+    } else if (domainList) {
+      return ` (${domainList})`;
+    }
+    return "";
+  };
   const getActionLabel = (name) => {
     switch (name) {
       case "read_file":
@@ -41564,7 +41458,12 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
             },
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "flex items-center space-x-2 overflow-hidden", children: [
-                toolData && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+                isPending && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-1 shrink-0", children: toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "loading-dots-container", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" })
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { color: styles.accentColor }, children: "..." }) }),
+                toolData && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
                   "span",
                   {
                     className: "text-[9px] font-black px-1 py-0.5 rounded shrink-0",
@@ -41572,7 +41471,10 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
                       backgroundColor: "transparent",
                       color: styles.accentColor
                     },
-                    children: getActionLabel(toolData.name)
+                    children: [
+                      getActionLabel(toolData.name),
+                      toolData?.name === "internet_search" && toolData?.groundingChunks && extractSearchInfo(toolData.groundingChunks)
+                    ]
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
@@ -41588,11 +41490,7 @@ var SystemMessage = ({ children, toolData, isLast, className = "" }) => {
                   color: "#ef4444"
                 }, children: "ERROR" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: isPending ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-1 px-2", children: toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "loading-dots-container", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "loading-dot" })
-              ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { color: styles.accentColor }, children: "..." }) }) : hasExpandableContent ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "flex items-center space-x-4 shrink-0", children: !isPending && hasExpandableContent ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
                 "svg",
                 {
                   className: `w-4 h-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`,
@@ -42294,6 +42192,14 @@ History length: ${toArchive.length} entries`,
       delete window.hermesSettingsUpdate;
     };
   }, [showApiKeySetup, addLog]);
+  (0, import_react8.useEffect)(() => {
+    return () => {
+      if (assistantRef.current) {
+        assistantRef.current.stop();
+        assistantRef.current = null;
+      }
+    };
+  }, []);
   const handleSystemMessage = (0, import_react8.useCallback)((text, toolData) => {
     setTranscripts((prev) => {
       if (toolData?.id) {

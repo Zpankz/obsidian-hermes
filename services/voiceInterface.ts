@@ -81,30 +81,13 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
 `;
       const systemInstruction = `${settings.systemInstruction}\n${contextString}\n\n${settings.customContext}`.trim();
 
-      // VERBOSE LOGGING: Log system instruction and context sizes
-      console.log('=== SYSTEM INSTRUCTION DEBUG ===');
-      console.log('Base System Instruction Length:', settings.systemInstruction.length);
-      console.log('Context String Length:', contextString.length);
-      console.log('Custom Context Length:', settings.customContext.length);
-      console.log('Final System Instruction Length:', systemInstruction.length);
-      console.log('Current Folder:', this.currentFolder);
-      console.log('Current Note:', this.currentNote);
-      console.log('Settings Voice Name:', settings.voiceName);
-      console.log('Full System Instruction (first 500 chars):', systemInstruction.substring(0, 500));
-      console.log('Full System Instruction (last 500 chars):', systemInstruction.substring(Math.max(0, systemInstruction.length - 500)));
-      console.log('=== END SYSTEM INSTRUCTION DEBUG ===');
+      // System instruction debug summary
+      console.log(`System instruction: ${systemInstruction.length} chars, folder: ${this.currentFolder}, note: ${this.currentNote}`);
       
       this.callbacks.onLog(`System instruction size: ${systemInstruction.length} chars`, 'info');
 
-      // VERBOSE LOGGING: Log session configuration before connecting
-      console.log('=== SESSION CONFIG DEBUG ===');
-      console.log('Model:', 'gemini-2.5-flash-native-audio-preview-12-2025');
-      console.log('Response Modalities:', [Modality.AUDIO]);
-      console.log('System Instruction Length:', systemInstruction.length);
-      console.log('Voice Name:', settings.voiceName);
-      console.log('Tool Declarations Count:', COMMAND_DECLARATIONS.length);
-      console.log('Tool Declaration Names:', COMMAND_DECLARATIONS.map(t => t.name));
-      console.log('=== END SESSION CONFIG DEBUG ===');
+      // Session configuration debug summary
+      console.log(`Session config: model=gemini-2.5-flash-native-audio-preview-12-2025, tools=${COMMAND_DECLARATIONS.length}, voice=${settings.voiceName}`);
       
       this.callbacks.onLog('Initializing Gemini live connection...', 'info');
       
@@ -137,76 +120,17 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             }
           },
           onerror: (err: any) => {
-            console.error('=== GEMINI LIVE CONNECTION ERROR ===');
-            console.error('Error Type:', err.constructor.name);
-            console.error('Error Message:', err.message);
-            console.error('Error Code:', err.code);
-            console.error('Error Status:', err.status);
-            console.error('Error Details:', err.details);
-            console.error('Request Size:', err.requestSize);
-            console.error('Response Size:', err.responseSize);
-            console.error('Timestamp:', new Date().toISOString());
-            console.error('Stack:', err.stack);
-            console.error('=== END GEMINI LIVE CONNECTION ERROR ===');
-            
-            console.error('Gemini Voice Error:', err);
-            const errorMsg = err.message || 'Quantum Link Error';
-            const errorDetails = {
-              toolName: 'GeminiVoiceAssistant',
-              apiCall: 'live.connect',
-              stack: err.stack,
-              content: JSON.stringify(err, null, 2),
-              requestSize: err.requestSize,
-              responseSize: err.responseSize,
-              errorCode: err.code,
-              errorStatus: err.status,
-              errorDetails: err.details,
-              timestamp: new Date().toISOString()
-            };
-            this.callbacks.onLog(`NETWORK ERROR: ${errorMsg}`, 'error', undefined, errorDetails);
-            
-            // Show error as system message in chat
-            this.callbacks.onSystemMessage(`ERROR: ${errorMsg}`, {
-              id: 'error-' + Date.now(),
-              name: 'error',
-              filename: '',
-              status: 'error',
-              error: errorMsg
-            });
-            
-            // Attempt recovery with retry logic
-            if (this.retryCounter.canRetry) {
-              this.callbacks.onLog(`Connection error, attempting recovery...`, 'info');
-              this.callbacks.onSystemMessage(`Connection error, attempting recovery...`);
-              
-              setTimeout(async () => {
-                try {
-                  this.stop();
-                  await this.performStart(this.storedApiKey, this.storedSettings!, this.storedInitialState);
-                } catch (retryErr) {
-                  this.callbacks.onLog(`Recovery failed: ${retryErr.message}`, 'error');
-                  this.callbacks.onSystemMessage(`Recovery failed: ${retryErr.message}`);
-                }
-              }, 1000);
-            } else {
-              this.callbacks.onLog(`could not recover!`, 'error');
-              this.callbacks.onSystemMessage(`could not recover!`);
-            }
-            
-            this.stop();
+            console.error(`Gemini connection error: ${err.message} (${err.constructor.name})`);
+            this.callbacks.onLog(`Connection error: ${err.message}`, 'error');
             this.callbacks.onStatusChange(ConnectionStatus.ERROR);
+            this.callbacks.onSystemMessage(`Connection Error: ${err.message}`);
           },
           onclose: (e: any) => {
             const reason = e.reason || e.code || 'Connection dropped';
             const isError = e.code !== 1000 && e.code !== 1001; // 1000=normal, 1001=going away
             
             if (isError) {
-              console.error(e)
-              console.error('=== VOICE CONNECTION CLOSED ===');
-              console.error('Close Code:', e.code);
-              console.error('Close Reason:', e.reason);
-              console.error('Timestamp:', new Date().toISOString());
-              console.error('=== END VOICE CONNECTION CLOSED ===');
+              console.error(`Voice connection closed: code=${e.code}, reason=${reason}`);
               
               const errorDetails = {
                 toolName: 'GeminiVoiceAssistant',
@@ -237,14 +161,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
 
     } catch (err: any) {
       this.callbacks.onStatusChange(ConnectionStatus.ERROR);
-      console.error(err)
-      // Verbose console logging
-      console.error('=== VOICE INTERFACE ERROR ===')
-      console.error('API Call:', 'start');
-      console.error('Timestamp:', new Date().toISOString());
-      console.error('Audio Context State:', this.inputAudioContext?.state);
-      console.error('Output Audio Context State:', this.outputAudioContext?.state);
-      console.error('=== END VOICE INTERFACE ERROR ===');
+      console.error(`Voice interface error: ${err.message}`);
       
       const errorDetails = {
         toolName: 'GeminiVoiceAssistant',
@@ -296,25 +213,16 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
       sessionPromise.then(session => {
         const audioDataSize = base64.length;
         
-        // VERBOSE LOGGING: Log audio streaming details
-        if (audioDataSize > 50000) { // Only log large chunks to avoid spam
-          console.log('=== AUDIO STREAMING DEBUG ===');
-          console.log('Audio Data Size (bytes):', audioDataSize);
-          console.log('Audio MIME Type:', 'audio/pcm;rate=16000');
-          console.log('Timestamp:', new Date().toISOString());
-          console.log('Session State:', session ? 'active' : 'null');
-          console.log('=== END AUDIO STREAMING DEBUG ===');
+        // Audio streaming debug summary (large chunks only)
+        if (audioDataSize > 50000) {
+          console.log(`Audio streaming: ${audioDataSize} bytes, session active`);
         }
         
         session.sendRealtimeInput({ 
           media: { data: base64, mimeType: 'audio/pcm;rate=16000' } 
         });
       }).catch((err) => {
-        console.error('=== AUDIO STREAMING ERROR ===');
-        console.error('Audio Send Error:', err);
-        console.error('Audio Data Size:', base64.length);
-        console.error('Timestamp:', new Date().toISOString());
-        console.error('=== END AUDIO STREAMING ERROR ===');
+        console.error(`Audio streaming error: ${err.message}, data size: ${base64.length}`);
       });
     };
     
@@ -386,24 +294,30 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           }, toolCallId);  // Pass the toolCallId to executeCommand
           
           sessionPromise.then(s => {
-            // VERBOSE LOGGING: Log tool response details
+            // Tool response debug summary
             const responseData = JSON.stringify({ result: response });
-            console.log('=== TOOL RESPONSE DEBUG ===');
-            console.log('Tool Name:', fc.name);
-            console.log('Tool Call ID:', fc.id);
-            console.log('Response Size:', responseData.length);
-            console.log('Response Type:', typeof response);
-            console.log('Timestamp:', new Date().toISOString());
-            console.log('=== END TOOL RESPONSE DEBUG ===');
+            console.log(`Tool response: ${fc.name}, size: ${responseData.length} chars`);
             
             // Only update the message if the tool didn't already do it
             if (!toolUpdatedMessage) {
+              // For create operations, show containing folder instead of JSON status
+              let displayContent = response?.text || (typeof response === 'string' ? response : JSON.stringify(response, null, 2));
+              if (fc.name === 'create_file' || fc.name === 'create_directory') {
+                const path = fc.args?.filename || fc.args?.path;
+                if (path && typeof path === 'string') {
+                  // Extract directory from path
+                  const lastSlashIndex = path.lastIndexOf('/');
+                  const containingFolder = lastSlashIndex === -1 ? '/' : path.substring(0, lastSlashIndex + 1);
+                  displayContent = `Created in: ${containingFolder}`;
+                }
+              }
+              
               this.callbacks.onSystemMessage(`${actionName} Complete`, {
                 id: toolCallId,
                 name: fc.name,
                 filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
                 status: 'success',
-                newContent: response?.text || (typeof response === 'string' ? response : JSON.stringify(response, null, 2)),
+                newContent: displayContent,
                 groundingChunks: response?.groundingChunks || [],
                 files: response?.files || response?.directories?.map((d: any) => d.path) || response?.folders,
                 directoryInfo: response?.directoryInfo
@@ -415,16 +329,8 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             });
           });
         } catch (err: any) {
-          // Verbose console logging
-          console.error(err)
-          console.error('=== VOICE INTERFACE TOOL ERROR ===')
-          console.error('Tool Name:', fc.name);
-          console.error('Tool Arguments:', fc.args);
-          console.error('Error Type:', err.constructor.name);
-          console.error('Error Message:', err.message);
-          console.error('Error Stack:', err.stack);
-          console.error('Timestamp:', new Date().toISOString());
-          console.error('=== END VOICE INTERFACE TOOL ERROR ===');
+          console.error(err);
+          console.error(`Voice interface tool error: ${fc.name} - ${err.message}`);
 
           const errorDetails = {
             toolName: fc.name,
@@ -448,13 +354,8 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           });
           
           sessionPromise.then(s => {
-            // VERBOSE LOGGING: Log tool error response
-            console.log('=== TOOL ERROR RESPONSE DEBUG ===');
-            console.log('Tool Name:', fc.name);
-            console.log('Tool Call ID:', fc.id);
-            console.log('Error Message:', err.message);
-            console.log('Timestamp:', new Date().toISOString());
-            console.log('=== END TOOL ERROR RESPONSE DEBUG ===');
+            // Tool error response summary
+            console.log(`Tool error response: ${fc.name} - ${err.message}`);
             
             s.sendToolResponse({ 
               functionResponses: { id: fc.id, name: fc.name, response: { error: err.message } } 
@@ -517,13 +418,8 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
     if (this.sessionPromise) {
       const encoded = encode(new TextEncoder().encode(text));
       
-      // VERBOSE LOGGING: Log text input details
-      console.log('=== TEXT INPUT DEBUG ===');
-      console.log('Text Length:', text.length);
-      console.log('Encoded Size:', encoded.length);
-      console.log('Text Preview (first 100 chars):', text.substring(0, 100));
-      console.log('Timestamp:', new Date().toISOString());
-      console.log('=== END TEXT INPUT DEBUG ===');
+      // Text input debug summary
+      console.log(`Text input: ${text.length} chars, encoded: ${encoded.length} bytes`);
       
       this.callbacks.onLog(`Sending text input: ${text.length} chars`, 'info');
       
@@ -532,21 +428,11 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           session.sendRealtimeInput({ media: { data: encoded, mimeType: 'text/plain' } });
           console.log('Text input sent successfully');
         } catch (err: any) {
-          console.error('=== TEXT INPUT ERROR ===');
-          console.error('Text Send Error:', err);
-          console.error('Text Length:', text.length);
-          console.error('Encoded Size:', encoded.length);
-          console.error('Error Type:', err.constructor.name);
-          console.error('Timestamp:', new Date().toISOString());
-          console.error('=== END TEXT INPUT ERROR ===');
-          
+          console.error(`Text input error: ${err.message}, text length: ${text.length}`);
           this.callbacks.onLog(`Text input failed: ${err.message}`, 'error');
         }
       }).catch((err) => {
-        console.error('=== SESSION PROMISE ERROR (TEXT) ===');
-        console.error('Session Promise Error:', err);
-        console.error('Timestamp:', new Date().toISOString());
-        console.error('=== END SESSION PROMISE ERROR (TEXT) ===');
+        console.error(`Session promise error (text): ${err.message}`);
       });
     }
   }

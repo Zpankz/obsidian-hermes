@@ -213,6 +213,16 @@ const App: React.FC = () => {
     };
   }, [showApiKeySetup, addLog]);
 
+  // Cleanup voice session on component unmount
+  useEffect(() => {
+    return () => {
+      if (assistantRef.current) {
+        assistantRef.current.stop();
+        assistantRef.current = null;
+      }
+    };
+  }, []);
+
   const handleSystemMessage = useCallback((text: string, toolData?: ToolData) => {
     setTranscripts(prev => {
       if (toolData?.id) {

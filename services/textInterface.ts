@@ -143,18 +143,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             }
           });
         } catch (err: any) {
-          // Verbose console logging
-          console.error('=== TEXT INTERFACE TOOL ERROR ===');
-          console.error('Tool Name:', fc.name);
-          console.error('Tool Arguments:', fc.args);
-          console.error('Error Type:', err.constructor.name);
-          console.error('Error Message:', err.message);
-          console.error('Error Stack:', err.stack);
-          console.error('Timestamp:', new Date().toISOString());
-          console.error('Model:', this.model);
-          console.error('Current Folder:', this.currentFolder);
-          console.error('Current Note:', this.currentNote);
-          console.error('=== END TEXT INTERFACE TOOL ERROR ===');
+          console.error(`Text interface tool error: ${fc.name} - ${err.message}`);
           
           const errorDetails = {
             toolName: fc.name,

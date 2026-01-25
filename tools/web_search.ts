@@ -25,6 +25,13 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     throw new Error('API key not found. Please set your Gemini API key in the plugin settings.');
   }
   
+  // Send initial pending message
+  callbacks.onSystem(`Internet Search: ${args.query}`, {
+    name: 'internet_search',
+    filename: args.query,
+    status: 'pending'
+  });
+  
   const ai = new GoogleGenAI({ apiKey });
   
   const response = await ai.models.generateContent({
@@ -38,10 +45,10 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   const text = response.text || "No results found.";
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
 
-  // Create system message with search results
+  // Update system message with results and grounding chunks
   callbacks.onSystem(`Internet Search: ${args.query}`, {
     name: 'internet_search',
-    filename: 'Web',
+    filename: args.query,
     status: 'success',
     newContent: text,
     groundingChunks: groundingChunks
