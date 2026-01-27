@@ -1,7 +1,7 @@
 
 import { Type } from '@google/genai';
 import { readFile } from '../services/mockFiles';
-import { getDirectoryFromPath, openFile } from '../utils/environment';
+import { getDirectoryFromPath, openFileInObsidian } from '../utils/environment';
 
 export const declaration = {
   name: 'read_file',
@@ -23,7 +23,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   const readContent = await readFile(filename);
   
   // Handle file opening in Obsidian using smart tab management
-  await openFile(filename);
+  await openFileInObsidian(filename);
   
   callbacks.onSystem(`Opened ${filename}`, {
     name: 'read_file',

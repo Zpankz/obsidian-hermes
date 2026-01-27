@@ -20,9 +20,10 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   const results = await searchFiles(args.keyword, false);
   callbacks.onSystem(`Search complete for "${args.keyword}"`, {
     name: 'search_keyword',
-    filename: 'Global Search',
+    filename: `Global Search: "${args.keyword}"`,
     searchKeyword: args.keyword,
-    searchResults: results
+    searchResults: results,
+    displayFormat: `Searching for "<strong>${args.keyword}</strong>" (${results.length} results)`
   });
   return { results };
 };

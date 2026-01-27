@@ -21806,43 +21806,6 @@ async function openFileInObsidian(filename, options = {}) {
     return false;
   }
 }
-async function openFile(filename) {
-  if (!isObsidian()) {
-    return false;
-  }
-  try {
-    const app2 = getObsidianApp();
-    const file = app2.vault.getAbstractFileByPath(filename);
-    if (!file) {
-      console.warn(`File not found: ${filename}`);
-      return false;
-    }
-    const workspace = app2.workspace;
-    const leaves = workspace.getLeavesOfType("markdown");
-    const existingLeaf = leaves.find((leaf2) => leaf2.view?.file?.path === filename);
-    if (existingLeaf) {
-      workspace.setActiveLeaf(existingLeaf, { focus: true });
-      return true;
-    }
-    if (leaves.length === 0) {
-      const leaf2 = workspace.getLeaf(true);
-      await leaf2.openFile(file);
-      return true;
-    }
-    const lastActiveLeaf = workspace.lastActiveLeaf || leaves[leaves.length - 1];
-    if (lastActiveLeaf) {
-      await lastActiveLeaf.openFile(file);
-      workspace.setActiveLeaf(lastActiveLeaf, { focus: true });
-      return true;
-    }
-    const leaf = workspace.getLeaf(true);
-    await leaf.openFile(file);
-    return true;
-  } catch (error) {
-    console.warn("Failed to open file in Obsidian:", error);
-    return false;
-  }
-}
 function getDirectoryFromPath(filePath) {
   if (!filePath || typeof filePath !== "string") {
     return "/";
@@ -38050,7 +38013,7 @@ var instruction5 = `- read_file: Use this to ingest the contents of a note. All 
 var execute5 = async (args, callbacks) => {
   const { filename } = args;
   const readContent = await readFile(filename);
-  await openFile(filename);
+  await openFileInObsidian(filename);
   callbacks.onSystem(`Opened ${filename}`, {
     name: "read_file",
     filename,
@@ -38127,7 +38090,7 @@ var instruction7 = `- update_file: Use this for total overwrites. For smaller ch
 var execute7 = async (args, callbacks) => {
   const oldContent = await readFile(args.filename).catch(() => "");
   await updateFile(args.filename, args.content);
-  await openFile(args.filename);
+  await openFileInObsidian(args.filename);
   const oldLines = oldContent.split("\n");
   const newLines = args.content.split("\n");
   const additions = newLines.filter((l) => !oldLines.includes(l)).length;
@@ -38176,7 +38139,7 @@ var execute8 = async (args, callbacks) => {
   const oldContent = await readFile(args.filename).catch(() => "");
   await editFile(args.filename, args.operation, args.text, args.lineNumber);
   const newContent = await readFile(args.filename);
-  await openFile(args.filename);
+  await openFileInObsidian(args.filename);
   callbacks.onSystem(`Edited ${args.filename}`, {
     name: "edit_file",
     filename: args.filename,
@@ -38290,9 +38253,10 @@ var execute11 = async (args, callbacks) => {
   const results = await searchFiles(args.keyword, false);
   callbacks.onSystem(`Search complete for "${args.keyword}"`, {
     name: "search_keyword",
-    filename: "Global Search",
+    filename: `Global Search: "${args.keyword}"`,
     searchKeyword: args.keyword,
-    searchResults: results
+    searchResults: results,
+    displayFormat: `Searching for "<strong>${args.keyword}</strong>" (${results.length} results)`
   });
   return { results };
 };
@@ -38322,8 +38286,9 @@ var execute12 = async (args, callbacks) => {
   const results = await searchFiles(args.pattern, true, args.flags || "i");
   callbacks.onSystem(`Regex search complete for /${args.pattern}/`, {
     name: "search_regexp",
-    filename: "Regex Search",
-    searchResults: results
+    filename: `Regex: /${args.pattern}/${args.flags || "i"}`,
+    searchResults: results,
+    displayFormat: `Regex search "<strong>/${args.pattern}/${args.flags || "i"}</strong>" (${results.length} results)`
   });
   return { results };
 };
@@ -38357,7 +38322,7 @@ var execute13 = async (args, callbacks) => {
   const re2 = new RegExp(args.pattern, args.flags || "g");
   const newContent = oldContent.replace(re2, args.replacement);
   await updateFile(args.filename, newContent);
-  await openFile(args.filename);
+  await openFileInObsidian(args.filename);
   callbacks.onSystem(`Replaced in ${args.filename}`, {
     name: "search_and_replace_regex_in_file",
     filename: args.filename,
@@ -42267,6 +42232,7 @@ var MarkdownRenderer = ({ content, className = "" }) => {
 var MarkdownRenderer_default = MarkdownRenderer;
 
 // components/messages/SystemMessage.tsx
+init_environment();
 var import_jsx_runtime6 = __toESM(require_jsx_runtime());
 var ImageSearchResultsView = ({ searchResults, query, totalFound, onImageDownload }) => {
   const [downloadingImages, setDownloadingImages] = (0, import_react2.useState)(/* @__PURE__ */ new Set());
@@ -42347,6 +42313,84 @@ var ImageSearchResultsView = ({ searchResults, query, totalFound, onImageDownloa
         i
       );
     }) })
+  ] });
+};
+var SearchResultsView = ({ searchResults, keyword, pattern }) => {
+  const getSearchTerm = () => keyword || pattern || "";
+  const handleFileClick = async (filename, lineNumber) => {
+    try {
+      await openFileInObsidian(filename);
+    } catch (error) {
+      console.error("Failed to open file:", error);
+    }
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "p-4 space-y-3", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "pb-3 border-b border-gray-800 mb-3", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "text-sm font-medium text-gray-200 mb-1", children: [
+        "Found ",
+        searchResults.length,
+        " file",
+        searchResults.length !== 1 ? "s" : "",
+        ' for "',
+        getSearchTerm(),
+        '"'
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "text-xs text-gray-500", children: "Click any result to open the file" })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto", children: searchResults.map((result, resultIndex) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "space-y-1", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+        "div",
+        {
+          className: "flex items-center space-x-3 p-3 rounded-xl bg-gray-800/30 border border-gray-700/30 hover:bg-gray-700/20 transition-all group cursor-pointer",
+          onClick: () => handleFileClick(result.filename),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "w-8 h-8 rounded-lg bg-gray-600/20 flex items-center justify-center shrink-0 border border-gray-600/20", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("svg", { className: "w-4 h-4 text-blue-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" }) }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex flex-col truncate flex-1", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-xs font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate", children: result.filename }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "text-[9px] text-gray-500 truncate font-mono", children: [
+                result.matches.length,
+                " match",
+                result.matches.length !== 1 ? "es" : ""
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "text-[9px] font-medium px-2 py-1 rounded bg-blue-500/10 text-blue-400", children: [
+              "#",
+              resultIndex + 1
+            ] })
+          ]
+        }
+      ),
+      result.matches.slice(0, 3).map((match, matchIndex) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+        "div",
+        {
+          className: "ml-8 flex items-start space-x-2 p-2 rounded-lg bg-gray-800/20 cursor-pointer hover:bg-gray-700/20 transition-all",
+          onClick: () => handleFileClick(result.filename),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "text-[8px] text-gray-500 font-mono mt-0.5 shrink-0", children: [
+              "L",
+              match.line,
+              ":"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "text-[9px] text-gray-500 font-mono truncate", children: [
+              match.content.substring(0, 120),
+              match.content.length > 120 ? "..." : ""
+            ] })
+          ]
+        },
+        matchIndex
+      )),
+      result.matches.length > 3 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "ml-8 text-[8px] text-gray-500 italic", children: [
+        "... and ",
+        result.matches.length - 3,
+        " more match",
+        result.matches.length - 3 !== 1 ? "es" : ""
+      ] })
+    ] }, resultIndex)) }),
+    searchResults.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "text-center py-8 text-gray-500 text-sm", children: [
+      'No results found for "',
+      getSearchTerm(),
+      '"'
+    ] })
   ] });
 };
 var toolLabels = COMMAND_DECLARATIONS.reduce((acc, tool) => {
@@ -42540,7 +42584,7 @@ var SystemMessage = ({ children, toolData, isLast, className = "", onImageDownlo
                   {
                     className: "text-[11px] font-mono truncate max-w-[400px]",
                     style: { color: styles.textColor },
-                    children: toolData?.name === "internet_search" && toolData?.filename ? `Searching: ${toolData.filename}` : toolData?.filename || children
+                    children: toolData?.name === "internet_search" && toolData?.filename ? `Searching: ${toolData.filename}` : toolData?.name === "search_keyword" && toolData?.searchKeyword ? `Searching for "${toolData.searchKeyword}"` : toolData?.name === "search_regexp" && toolData?.filename ? `Regex: ${toolData.filename}` : toolData?.filename || children
                   }
                 ),
                 isError && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-[8px] px-1 py-0.5 rounded font-bold", style: {
@@ -42621,7 +42665,14 @@ var SystemMessage = ({ children, toolData, isLast, className = "", onImageDownlo
                 totalFound: toolData.totalFound || 0,
                 onImageDownload
               }
-            ) : toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "p-2", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(WebSearchView, { content: toolData.newContent || "", chunks: toolData.groundingChunks || [] }) }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+            ) : toolData?.name === "internet_search" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "p-2", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(WebSearchView, { content: toolData.newContent || "", chunks: toolData.groundingChunks || [] }) }) : (toolData?.name === "search_keyword" || toolData?.name === "search_regexp") && toolData?.searchResults ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              SearchResultsView,
+              {
+                searchResults: toolData.searchResults,
+                keyword: toolData.searchKeyword,
+                pattern: toolData.filename
+              }
+            ) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
               toolData?.newContent && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "p-2 font-mono text-[10px] whitespace-pre-wrap", style: { color: styles.textColor }, children: toolData.newContent }),
               toolData?.files && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "p-2 font-mono text-[10px]", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "space-y-1", children: toolData.files.map((file, index) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center space-x-2 px-1 py-0.5 rounded", style: { color: styles.textColor }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u{1F4C4}" }),

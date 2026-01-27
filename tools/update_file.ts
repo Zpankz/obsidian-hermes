@@ -1,7 +1,7 @@
 
 import { Type } from '@google/genai';
 import { readFile, updateFile } from '../services/mockFiles';
-import { getDirectoryFromPath, openFile } from '../utils/environment';
+import { getDirectoryFromPath, openFileInObsidian } from '../utils/environment';
 
 export const declaration = {
   name: 'update_file',
@@ -23,7 +23,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   await updateFile(args.filename, args.content);
   
   // Open the updated file in Obsidian using smart tab management
-  await openFile(args.filename);
+  await openFileInObsidian(args.filename);
   
   const oldLines = oldContent.split('\n');
   const newLines = args.content.split('\n');

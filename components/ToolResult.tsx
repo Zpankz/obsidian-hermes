@@ -3,12 +3,93 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ToolData, FileDiff, GroundingChunk } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { COMMAND_DECLARATIONS } from '../services/commands';
+import { openFile } from '../utils/environment';
 
 interface ToolResultProps {
   toolData: ToolData;
   isLast: boolean;
   onImageDownload?: (image: any, index: number) => void;
 }
+
+// SearchResultsView component for displaying search results in a dropdown
+const SearchResultsView: React.FC<{ searchResults: any[], keyword?: string, pattern?: string }> = ({ searchResults, keyword, pattern }) => {
+  const getSearchTerm = () => keyword || pattern || '';
+  
+  const handleFileClick = async (filename: string, lineNumber?: number) => {
+    try {
+      await openFile(filename);
+    } catch (error) {
+      console.error('Failed to open file:', error);
+    }
+  };
+  
+  return (
+    <div className="p-4 space-y-3">
+      <div className="pb-3 hermes-border-b mb-3">
+        <div className="text-sm font-medium hermes-text-normal mb-1">
+          Found {searchResults.length} file{searchResults.length !== 1 ? 's' : ''} for "{getSearchTerm()}"
+        </div>
+        <div className="text-xs hermes-text-muted">
+          Click any result to open the file
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto">
+        {searchResults.map((result, resultIndex) => (
+          <div key={resultIndex} className="space-y-1">
+            <div 
+              className="flex items-center space-x-3 p-3 rounded-xl hermes-bg-secondary/5 hermes-border/5 hermes-hover:bg-secondary/10 hermes-hover:border/10 transition-all group cursor-pointer"
+              onClick={() => handleFileClick(result.filename)}
+            >
+              <div className="w-8 h-8 rounded-lg hermes-interactive-bg/10 flex items-center justify-center shrink-0 hermes-border/20">
+                <svg className="w-4 h-4 hermes-text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="flex flex-col truncate flex-1">
+                <span className="text-xs font-bold hermes-text-normal group-hover:hermes-text-accent transition-colors truncate">
+                  {result.filename}
+                </span>
+                <span className="text-[9px] hermes-text-muted truncate font-mono">
+                  {result.matches.length} match{result.matches.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+              <div className="text-[9px] font-medium px-2 py-1 rounded hermes-info-bg/10 hermes-info">
+                #{resultIndex + 1}
+              </div>
+            </div>
+            
+            {/* Show first few matches as previews */}
+            {result.matches.slice(0, 3).map((match: any, matchIndex: number) => (
+              <div 
+                key={matchIndex}
+                className="ml-8 flex items-start space-x-2 p-2 rounded-lg hermes-bg-secondary/5 cursor-pointer hermes-hover:bg-secondary/10 transition-all"
+                onClick={() => handleFileClick(result.filename)}
+              >
+                <span className="text-[8px] hermes-text-muted font-mono mt-0.5 shrink-0">
+                  L{match.line}:
+                </span>
+                <span className="text-[9px] hermes-text-muted font-mono truncate">
+                  {match.content.substring(0, 120)}{match.content.length > 120 ? '...' : ''}
+                </span>
+              </div>
+            ))}
+            
+            {result.matches.length > 3 && (
+              <div className="ml-8 text-[8px] hermes-text-muted italic">
+                ... and {result.matches.length - 3} more match{result.matches.length - 3 !== 1 ? 'es' : ''}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {searchResults.length === 0 && (
+        <div className="text-center py-8 hermes-text-muted text-sm">
+          No results found for "{getSearchTerm()}"
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DiffView: React.FC<{ diff: FileDiff }> = ({ diff }) => {
   const diffLines = useMemo(() => {
@@ -361,6 +442,8 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownlo
           <span className="text-[11px] font-mono hermes-text-normal truncate">
              {toolData.name === 'internet_search' ? `Searching: ${toolData.filename}` : 
               toolData.name === 'image_search' ? `Images: ${toolData.filename}` : 
+              toolData.name === 'search_keyword' && toolData.searchKeyword ? `Searching for "${toolData.searchKeyword}"` :
+              toolData.name === 'search_regexp' && toolData.filename ? `Regex: ${toolData.filename}` :
               `${toolData.filename}`}
           </span>
           
@@ -536,7 +619,15 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownlo
             </div>
           )}
 
-          {!['read_file', 'create_file', 'internet_search', 'image_search', 'list_directory', 'move_file'].includes(toolData.name) && toolData.newContent !== undefined && toolData.oldContent !== undefined && (
+          {(toolData.name === 'search_keyword' || toolData.name === 'search_regexp') && toolData.searchResults && (
+            <SearchResultsView 
+              searchResults={toolData.searchResults} 
+              keyword={toolData.searchKeyword}
+              pattern={toolData.filename}
+            />
+          )}
+
+          {!['read_file', 'create_file', 'internet_search', 'image_search', 'list_directory', 'move_file', 'search_keyword', 'search_regexp'].includes(toolData.name) && toolData.newContent !== undefined && toolData.oldContent !== undefined && (
             <DiffView diff={{ filename: toolData.filename, oldContent: toolData.oldContent, newContent: toolData.newContent }} />
           )}
 

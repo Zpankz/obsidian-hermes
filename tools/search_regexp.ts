@@ -21,8 +21,9 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   const results = await searchFiles(args.pattern, true, args.flags || 'i');
   callbacks.onSystem(`Regex search complete for /${args.pattern}/`, {
     name: 'search_regexp',
-    filename: 'Regex Search',
-    searchResults: results
+    filename: `Regex: /${args.pattern}/${args.flags || 'i'}`,
+    searchResults: results,
+    displayFormat: `Regex search "<strong>/${args.pattern}/${args.flags || 'i'}</strong>" (${results.length} results)`
   });
   return { results };
 };

@@ -3,6 +3,7 @@ import { ToolData } from '../../types';
 import ToolResult from '../ToolResult';
 import MarkdownRenderer from '../MarkdownRenderer';
 import { COMMAND_DECLARATIONS } from '../../services/commands';
+import { openFileInObsidian } from '../../utils/environment';
 
 // ImageSearchResultsView component for interactive image preview
 const ImageSearchResultsView: React.FC<{ 
@@ -132,6 +133,86 @@ const ImageSearchResultsView: React.FC<{
           );
         })}
       </div>
+    </div>
+  );
+};
+
+// SearchResultsView component for displaying search results in a dropdown
+const SearchResultsView: React.FC<{ searchResults: any[], keyword?: string, pattern?: string }> = ({ searchResults, keyword, pattern }) => {
+  const getSearchTerm = () => keyword || pattern || '';
+  
+  const handleFileClick = async (filename: string, lineNumber?: number) => {
+    try {
+      await openFileInObsidian(filename);
+    } catch (error) {
+      console.error('Failed to open file:', error);
+    }
+  };
+  
+  return (
+    <div className="p-4 space-y-3">
+      <div className="pb-3 border-b border-gray-800 mb-3">
+        <div className="text-sm font-medium text-gray-200 mb-1">
+          Found {searchResults.length} file{searchResults.length !== 1 ? 's' : ''} for "{getSearchTerm()}"
+        </div>
+        <div className="text-xs text-gray-500">
+          Click any result to open the file
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto">
+        {searchResults.map((result, resultIndex) => (
+          <div key={resultIndex} className="space-y-1">
+            <div 
+              className="flex items-center space-x-3 p-3 rounded-xl bg-gray-800/30 border border-gray-700/30 hover:bg-gray-700/20 transition-all group cursor-pointer"
+              onClick={() => handleFileClick(result.filename)}
+            >
+              <div className="w-8 h-8 rounded-lg bg-gray-600/20 flex items-center justify-center shrink-0 border border-gray-600/20">
+                <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="flex flex-col truncate flex-1">
+                <span className="text-xs font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate">
+                  {result.filename}
+                </span>
+                <span className="text-[9px] text-gray-500 truncate font-mono">
+                  {result.matches.length} match{result.matches.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+              <div className="text-[9px] font-medium px-2 py-1 rounded bg-blue-500/10 text-blue-400">
+                #{resultIndex + 1}
+              </div>
+            </div>
+            
+            {/* Show first few matches as previews */}
+            {result.matches.slice(0, 3).map((match: any, matchIndex: number) => (
+              <div 
+                key={matchIndex}
+                className="ml-8 flex items-start space-x-2 p-2 rounded-lg bg-gray-800/20 cursor-pointer hover:bg-gray-700/20 transition-all"
+                onClick={() => handleFileClick(result.filename)}
+              >
+                <span className="text-[8px] text-gray-500 font-mono mt-0.5 shrink-0">
+                  L{match.line}:
+                </span>
+                <span className="text-[9px] text-gray-500 font-mono truncate">
+                  {match.content.substring(0, 120)}{match.content.length > 120 ? '...' : ''}
+                </span>
+              </div>
+            ))}
+            
+            {result.matches.length > 3 && (
+              <div className="ml-8 text-[8px] text-gray-500 italic">
+                ... and {result.matches.length - 3} more match{result.matches.length - 3 !== 1 ? 'es' : ''}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {searchResults.length === 0 && (
+        <div className="text-center py-8 text-gray-500 text-sm">
+          No results found for "{getSearchTerm()}"
+        </div>
+      )}
     </div>
   );
 };
@@ -379,6 +460,10 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
             >
               {toolData?.name === 'internet_search' && toolData?.filename ? 
                 `Searching: ${toolData.filename}` : 
+                toolData?.name === 'search_keyword' && toolData?.searchKeyword ? 
+                `Searching for "${toolData.searchKeyword}"` :
+                toolData?.name === 'search_regexp' && toolData?.filename ? 
+                `Regex: ${toolData.filename}` :
                 (toolData?.filename || children)
               }
             </span>
@@ -522,6 +607,12 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
             <div className="p-2">
               <WebSearchView content={toolData.newContent || ''} chunks={toolData.groundingChunks || []} />
             </div>
+          ) : (toolData?.name === 'search_keyword' || toolData?.name === 'search_regexp') && toolData?.searchResults ? (
+            <SearchResultsView 
+              searchResults={toolData.searchResults} 
+              keyword={toolData.searchKeyword}
+              pattern={toolData.filename}
+            />
           ) : (
             <>
               {toolData?.newContent && (
