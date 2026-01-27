@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { ToolData } from '../../types';
-import ToolResult from '../ToolResult';
+import React, { useState, useEffect } from 'react';
+import { ToolData, SearchResult, SearchMatch, ImageSearchResult, DownloadedImage, GroundingChunk, DirectoryInfoItem } from '../../types';
 import MarkdownRenderer from '../MarkdownRenderer';
 import { COMMAND_DECLARATIONS } from '../../services/commands';
 import { openFileInObsidian } from '../../utils/environment';
 
 // ImageSearchResultsView component for interactive image preview
 const ImageSearchResultsView: React.FC<{ 
-  searchResults: any[], 
+  searchResults: ImageSearchResult[], 
   query: string, 
   totalFound: number, 
-  onImageDownload?: (image: any, index: number) => void 
+  onImageDownload?: (image: ImageSearchResult, index: number) => Promise<DownloadedImage | undefined> | void 
 }> = ({ searchResults, query, totalFound, onImageDownload }) => {
   const [downloadingImages, setDownloadingImages] = useState<Set<number>>(new Set());
   const [downloadedImages, setDownloadedImages] = useState<Set<number>>(new Set());
-  const [downloadedImageData, setDownloadedImageData] = useState<Map<number, any>>(new Map());
+  const [downloadedImageData, setDownloadedImageData] = useState<Map<number, DownloadedImage>>(new Map());
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  const handleImageClick = async (result: any, index: number) => {
+  const handleImageClick = async (result: ImageSearchResult, index: number) => {
     if (downloadingImages.has(index) || downloadedImages.has(index)) return;
 
     setDownloadingImages(prev => new Set(prev).add(index));
@@ -65,6 +66,7 @@ const ImageSearchResultsView: React.FC<{
         {searchResults.map((result, i) => {
           const isDownloading = downloadingImages.has(i);
           const isDownloaded = downloadedImages.has(i);
+          const hasImageError = imageErrors.has(i);
           
           return (
             <div 
@@ -80,14 +82,12 @@ const ImageSearchResultsView: React.FC<{
                   alt={result.title}
                   className={`w-full h-full object-cover transition-all ${
                     !isDownloaded ? 'group-hover:scale-110' : ''
-                  } ${isDownloading ? 'opacity-50' : ''}`}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    target.nextElementSibling?.classList.remove('hidden');
+                  } ${isDownloading ? 'opacity-50' : ''} ${hasImageError ? 'hermes-image-fallback-hidden' : ''}`}
+                  onError={() => {
+                    setImageErrors(prev => new Set(prev).add(i));
                   }}
                 />
-                <svg className={`w-6 h-6 text-blue-400 hidden`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`w-6 h-6 text-blue-400 ${hasImageError ? '' : 'hidden'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 
@@ -127,7 +127,7 @@ const ImageSearchResultsView: React.FC<{
                   ? 'bg-yellow-500/10 text-yellow-500'
                   : 'bg-blue-500/10 text-blue-400'
               }`}>
-                {isDownloaded ? 'SAVED' : isDownloading ? 'SAVING...' : `#${i + 1}`}
+                {isDownloaded ? 'Saved' : isDownloading ? 'Saving...' : `#${i + 1}`}
               </div>
             </div>
           );
@@ -138,7 +138,7 @@ const ImageSearchResultsView: React.FC<{
 };
 
 // SearchResultsView component for displaying search results in a dropdown
-const SearchResultsView: React.FC<{ searchResults: any[], keyword?: string, pattern?: string }> = ({ searchResults, keyword, pattern }) => {
+const SearchResultsView: React.FC<{ searchResults: SearchResult[], keyword?: string, pattern?: string }> = ({ searchResults, keyword, pattern }) => {
   const getSearchTerm = () => keyword || pattern || '';
   
   const handleFileClick = async (filename: string, lineNumber?: number) => {
@@ -185,7 +185,7 @@ const SearchResultsView: React.FC<{ searchResults: any[], keyword?: string, patt
             </div>
             
             {/* Show first few matches as previews */}
-            {result.matches.slice(0, 3).map((match: any, matchIndex: number) => (
+            {result.matches.slice(0, 3).map((match: SearchMatch, matchIndex: number) => (
               <div 
                 key={matchIndex}
                 className="ml-8 flex items-start space-x-2 p-2 rounded-lg bg-gray-800/20 cursor-pointer hover:bg-gray-700/20 transition-all"
@@ -254,7 +254,7 @@ const getActionLabel = (name: string) => {
 };
 
 // Import WebSearchView from ToolResult
-const WebSearchView: React.FC<{ content: string, chunks: any[] }> = ({ content, chunks }) => {
+const WebSearchView: React.FC<{ content: string; chunks: GroundingChunk[] }> = ({ content, chunks }) => {
   return (
     <div className="p-4 space-y-4">
       <div className="pb-4 border-b border-gray-800 mb-4">
@@ -304,7 +304,7 @@ interface SystemMessageProps {
   toolData?: ToolData;
   isLast?: boolean;
   className?: string;
-  onImageDownload?: (image: any, index: number) => void;
+  onImageDownload?: (image: ImageSearchResult, index: number) => Promise<DownloadedImage | undefined> | void;
 }
 
 const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLast, className = '', onImageDownload }) => {
@@ -313,7 +313,6 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
 
   const isPending = toolData?.status === 'pending';
   const isError = toolData?.status === 'error';
-  const isSuccess = toolData?.status === 'success';
   const hasExpandableContent = toolData && toolData.dropdown !== false && (toolData.newContent || toolData.oldContent || toolData.files || toolData.error || toolData.directoryInfo || toolData.searchResults);
 
   useEffect(() => {
@@ -330,7 +329,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
     setManuallyToggled(true);
   };
 
-  const extractSearchInfo = (chunks: any[]) => {
+  const extractSearchInfo = (chunks: GroundingChunk[]) => {
     if (!chunks || chunks.length === 0) return '';
     
     // Extract keywords from titles and domains
@@ -353,7 +352,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
         try {
           const domain = new URL(item.uri).hostname;
           domains.add(domain);
-        } catch (e) {
+        } catch {
           // Invalid URL, skip
         }
       }
@@ -547,7 +546,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
                 )}
               </div>
               <div className="space-y-0.5">
-                {toolData.directoryInfo.map((dir: any, index: number) => (
+                {toolData.directoryInfo.map((dir: DirectoryInfoItem, index: number) => (
                   <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors">
                     <span className="hermes-text-muted">
                       {dir.hasChildren ? '📁' : '📂'}

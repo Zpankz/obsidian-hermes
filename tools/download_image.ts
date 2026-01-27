@@ -1,5 +1,23 @@
 import { getObsidianApp } from '../utils/environment';
-import { ToolData } from '../types';
+import { requestUrl, type App } from 'obsidian';
+import type { ToolCallbacks, DownloadedImage } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const getNumberArg = (args: ToolArgs, key: string, fallback: number): number => {
+  const value = args[key];
+  return typeof value === 'number' ? value : fallback;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'download_image',
@@ -19,7 +37,7 @@ export const declaration = {
 
 export const instruction = `- download_image: Use this to download a specific image from a URL to the vault.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<DownloadedImage | { error: string }> => {
   const app = getObsidianApp();
   
   if (!app || !app.vault) {
@@ -31,7 +49,15 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     return { error: 'Obsidian vault not available' };
   }
 
-  const { imageUrl, title, query, index = 1, folder } = args;
+  const imageUrl = getStringArg(args, 'imageUrl');
+  const title = getStringArg(args, 'title');
+  const query = getStringArg(args, 'query');
+  const index = getNumberArg(args, 'index', 1);
+  const folder = getStringArg(args, 'folder');
+
+  if (!imageUrl || !title || !query) {
+    return { error: 'Missing required image download parameters' };
+  }
 
   try {
     // Determine target folder
@@ -66,7 +92,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       name: 'download_image',
       filename: downloadedImage.filename,
       status: 'success',
-      downloadedImage
+      downloadedImages: [downloadedImage]
     });
 
     return downloadedImage;
@@ -76,51 +102,52 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       name: 'download_image',
       filename: title,
       status: 'error',
-      error: error.message || String(error)
+      error: getErrorMessage(error)
     });
-    return { error: error.message || String(error) };
+    return { error: getErrorMessage(error) };
   }
 };
 
 // Helper function to download and save an image
 async function downloadAndSaveImage(
-  app: any, 
-  imageResult: { url: string, title: string }, 
-  targetFolder: string, 
+  app: App,
+  imageResult: { url: string; title: string },
+  targetFolder: string,
   query: string,
   index: number
-): Promise<any> {
+): Promise<DownloadedImage> {
   try {
-    // Generate filename
+    // Generate filename with timestamp to ensure uniqueness
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
     const sanitizedPrefix = query.toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .substring(0, 20);
     
     const extension = getImageExtension(imageResult.url) || 'jpg';
-    const filename = `${sanitizedPrefix}-${index}.${extension}`;
+    const filename = `${sanitizedPrefix}-${index}-${timestamp}-${randomSuffix}.${extension}`;
     const filePath = targetFolder ? `${targetFolder}/${filename}` : filename;
 
-    console.log('=== DEBUG: downloadAndSaveImage ===');
-    console.log('Image URL:', imageResult.url);
-    console.log('Target folder:', targetFolder);
-    console.log('Filename:', filename);
-    console.log('File path:', filePath);
+    console.debug('=== DEBUG: downloadAndSaveImage ===');
+    console.debug('Image URL:', imageResult.url);
+    console.debug('Target folder:', targetFolder);
+    console.debug('Filename:', filename);
+    console.debug('File path:', filePath);
 
     // Download image
-    const response = await fetch(imageResult.url);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    const response = await requestUrl({
+      url: imageResult.url,
+      method: 'GET'
+    });
 
-    const imageBuffer = await response.arrayBuffer();
-    console.log('Downloaded image size:', imageBuffer.byteLength, 'bytes');
+    const imageBuffer = response.arrayBuffer;
+    console.debug('Downloaded image size:', imageBuffer.byteLength, 'bytes');
 
     // Save to vault
-    console.log('Saving to vault at path:', filePath);
+    console.debug('Saving to vault at path:', filePath);
     await app.vault.adapter.writeBinary(filePath, imageBuffer);
-    console.log('Successfully saved to vault');
+    console.debug('Successfully saved to vault');
 
     const result = {
       filename,
@@ -132,8 +159,8 @@ async function downloadAndSaveImage(
       targetFolder
     };
     
-    console.log('Download result:', result);
-    console.log('=== END DEBUG: downloadAndSaveImage ===');
+    console.debug('Download result:', result);
+    console.debug('=== END DEBUG: downloadAndSaveImage ===');
     
     return result;
   } catch (error) {

@@ -1,31 +1,83 @@
 import { TranscriptionEntry, ToolData } from '../types';
+import { isObsidian } from './environment';
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const archiveConversation = async (
-  summary: string | any, 
-  history: TranscriptionEntry[], 
+  summary: unknown,
+  history: TranscriptionEntry[],
   chatHistoryFolder?: string,
   textInterface?: { generateSummary: (text: string) => Promise<string> }
-) => {
+): Promise<string> => {
   // Handle case where summary might be passed as JSON object
-  let summaryText = summary;
+  let summaryText = '';
   if (typeof summary === 'object' && summary !== null) {
-    summaryText = summary.summary || summary.title || JSON.stringify(summary);
+    const summaryRecord = summary as Record<string, unknown>;
+    const candidate = summaryRecord.summary ?? summaryRecord.title ?? summaryRecord;
+    summaryText = String(candidate);
+  } else {
+    summaryText = String(summary ?? '');
   }
   // Ensure summaryText is a string
-  summaryText = String(summaryText || 'Conversation');
+  summaryText = summaryText || 'Conversation';
   
-  // Generate a short title from the summary (first 5-8 words, max 50 chars)
-  const generateShortTitle = (text: string): string => {
-    const words = text.split(' ').slice(0, 6).join(' ');
-    return words.length > 50 ? words.substring(0, 47) + '...' : words;
+  // Extract keywords from the summary for filename
+  const generateKeywordsFromText = (text: string): string => {
+    // Common words to filter out
+    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our', 'their']);
+    
+    // Extract meaningful words (3+ characters, not stop words)
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 3 && !stopWords.has(word))
+      .slice(0, 5); // Take up to 5 keywords
+    
+    return words.join('-');
   };
   
-  const shortTitle = generateShortTitle(summaryText);
+  const keywords = generateKeywordsFromText(summaryText);
   const now = new Date();
-  const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
-  const safeTopic = shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 40);
+  const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+  const safeKeywords = keywords.toLowerCase().replace(/[^a-z0-9-]/g, '-').substring(0, 40);
   const historyFolder = chatHistoryFolder || 'chat-history';
-  const filename = `${historyFolder}/chat-history-${timestamp}-${safeTopic}.md`;
+  
+  // Get order within day (incremental counter)
+  const getOrderWithinDay = (): string => {
+    const today = new Date().toISOString().split('T')[0];
+    const orderKey = `hermes-chat-order-${today}`;
+    
+    try {
+      let currentOrder = 0;
+      
+      if (isObsidian()) {
+        // In Obsidian, use a simple in-memory counter for this session
+        // This will reset to 0 each time the plugin loads, which is acceptable
+        if (!(globalThis as any)._hermesChatOrder) {
+          (globalThis as any)._hermesChatOrder = {};
+        }
+        currentOrder = (globalThis as any)._hermesChatOrder[today] || 0;
+        (globalThis as any)._hermesChatOrder[today] = currentOrder + 1;
+      } else {
+        // In standalone mode, use localStorage
+        currentOrder = parseInt(localStorage.getItem(orderKey) || '0');
+        const newOrder = currentOrder + 1;
+        localStorage.setItem(orderKey, newOrder.toString());
+      }
+      
+      return (currentOrder + 1).toString().padStart(2, '0');
+    } catch (error) {
+      // Fallback to simple timestamp if storage fails
+      console.warn('Failed to get order within day:', error);
+      return '01';
+    }
+  };
+  
+  const order = getOrderWithinDay();
+  const filename = `${historyFolder}/${dateStr}-${order}-${safeKeywords || 'conversation'}.md`;
 
   const filteredHistory = history.filter(t => {
     if (t.id === 'welcome-init') return false;
@@ -54,7 +106,7 @@ export const archiveConversation = async (
   if (duration > 300) tags.add('long-conversation');
   if (duration < 60) tags.add('quick-chat');
   
-  const tagString = Array.from(tags).join(', ');
+  const tagList = Array.from(tags).map(tag => `- ${tag}`).join('\n  ');
 
   // Group consecutive entries by role to merge multi-line messages
   const groupedEntries: TranscriptionEntry[][] = [];
@@ -90,11 +142,11 @@ export const archiveConversation = async (
         // Match common file patterns and convert to wiki links
         return text
           // Match patterns like "file: filename.md" or just "filename.md" in context
-          .replace(/(?:file:\s*|)([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))/g, '[[$1]]')
+          .replace(/(?:file:\s*|)([a-zA-Z0-9_/-]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))/g, '[[$1]]')
           // Match patterns with quotes: "filename.md"
-          .replace(/"([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))"/g, '[[$1]]')
+          .replace(/"([a-zA-Z0-9_/-]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))"/g, '[[$1]]')
           // Match patterns in backticks: `filename.md`
-          .replace(/`([a-zA-Z0-9_\-\/]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))`/g, '[[$1]]');
+          .replace(/`([a-zA-Z0-9_/-]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))`/g, '[[$1]]');
       };
       
       if (firstEntry.role === 'user') {
@@ -153,31 +205,25 @@ export const archiveConversation = async (
       if (conversationText.trim()) {
         aiSummary = await textInterface.generateSummary(conversationText);
       }
-    } catch (error: any) {
-      console.warn('Failed to generate AI summary:', error.message);
+    } catch (error) {
+      console.warn('Failed to generate AI summary:', getErrorMessage(error));
       // Continue without AI summary if it fails
     }
   }
 
   try {
-    const { createFile, createDirectory } = await import('../services/mockFiles');
+    const { createFile, createDirectory } = await import('../services/vaultOperations');
     
     // Ensure the chat history directory exists
-    try {
-      await createDirectory(historyFolder);
-    } catch (err: any) {
-      // Directory might already exist, that's fine
-      if (!err.message.includes('already exists')) {
-        throw err;
-      }
-    }
+    await createDirectory(historyFolder);
     
     const frontmatter = `---
-title: ${shortTitle}
+title: ${summaryText.length > 50 ? summaryText.substring(0, 47) + '...' : summaryText}
 date: ${startDate}
 end_date: ${endDate}
 duration: ${duration}
-tags: [${tagString}]
+tags:
+  ${tagList}
 format: hermes-chat-archive
 summary: ${summaryText.replace(/"/g, '\\"')}
 ${aiSummary ? `ai_summary: ${aiSummary.replace(/"/g, '\\"')}` : ''}
@@ -187,7 +233,7 @@ ${aiSummary ? `ai_summary: ${aiSummary.replace(/"/g, '\\"')}` : ''}
     
     await createFile(filename, `${frontmatter}${markdown}`);
     return `Segment archived to ${filename}`;
-  } catch (err: any) {
-    throw new Error(`Persistence Failure: ${err.message}`);
+  } catch (err) {
+    throw new Error(`Persistence Failure: ${getErrorMessage(err)}`);
   }
 };

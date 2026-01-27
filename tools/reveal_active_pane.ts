@@ -1,5 +1,13 @@
 import { getObsidianApp } from '../utils/environment';
-import { ToolData } from '../types';
+import type { ToolCallbacks } from '../types';
+import { getObsidianApp } from '../utils/environment';
+
+type ToolArgs = Record<string, unknown>;
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'reveal_active_pane',
@@ -8,7 +16,7 @@ export const declaration = {
 
 export const instruction = `- reveal_active_pane: Use this to get information about the last active text editor in Obsidian, including what file was most recently edited, the view type, and editor details. Uses getActiveFile() for accurate results.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = (_args: ToolArgs, callbacks: ToolCallbacks): Promise<unknown> => {
   const app = getObsidianApp();
   
   if (!app || !app.workspace) {
@@ -17,7 +25,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       filename: 'Active Pane',
       error: 'Obsidian workspace not available'
     });
-    return { error: 'Obsidian workspace not available' };
+    return Promise.resolve({ error: 'Obsidian workspace not available' });
   }
 
   try {
@@ -44,7 +52,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
         status: 'error',
         error: 'No active text editor currently available'
       });
-      return { error: 'No active text editor currently available' };
+      return Promise.resolve({ error: 'No active text editor currently available' });
     }
 
     const view = activeLeaf?.view;
@@ -87,22 +95,22 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       hasActiveLeaf: !!activeLeaf
     };
 
-    callbacks.onSystem('Active Pane Information Retrieved', {
+    callbacks.onSystem('Active pane information retrieved', {
       name: 'reveal_active_pane',
       filename: paneInfo.fileName || 'Active Pane',
       status: 'success',
       paneInfo
     });
 
-    return { paneInfo };
+    return Promise.resolve({ paneInfo });
     
   } catch (error) {
     callbacks.onSystem('Error retrieving active pane information', {
       name: 'reveal_active_pane',
       filename: 'Active Pane',
       status: 'error',
-      error: error.message || String(error)
+      error: getErrorMessage(error)
     });
-    return { error: error.message || String(error) };
+    return Promise.resolve({ error: getErrorMessage(error) });
   }
 };

@@ -1,7 +1,15 @@
 
 import { Type } from '@google/genai';
-import { createFile } from '../services/mockFiles';
+import { createFile } from '../services/vaultOperations';
 import { getDirectoryFromPath, openFileInObsidian } from '../utils/environment';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const declaration = {
   name: 'create_file',
@@ -18,21 +26,27 @@ export const declaration = {
 
 export const instruction = `- create_file: Use this to initialize new notes in the vault. All paths are relative to vault root (e.g., "projects/notes.md" or "notes.md" for root level). Always provide meaningful initial content.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  await createFile(args.filename, args.content);
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ status: string }> => {
+  const filename = getStringArg(args, 'filename');
+  const content = getStringArg(args, 'content') ?? '';
+  if (!filename) {
+    throw new Error('Missing filename');
+  }
+
+  await createFile(filename, content);
   
   // Open the newly created file in Obsidian
-  await openFileInObsidian(args.filename);
+  await openFileInObsidian(filename);
   
-  callbacks.onSystem(`Created ${args.filename}`, {
+  callbacks.onSystem(`Created ${filename}`, {
     name: 'create_file',
-    filename: args.filename,
+    filename: filename,
     oldContent: '',
-    newContent: args.content,
-    additions: args.content.split('\n').length,
+    newContent: content,
+    additions: content.split('\n').length,
     removals: 0
   });
-  const fileDirectory = getDirectoryFromPath(args.filename);
-  callbacks.onFileState(fileDirectory, args.filename);
+  const fileDirectory = getDirectoryFromPath(filename);
+  callbacks.onFileState(fileDirectory, filename);
   return { status: 'created' };
 };

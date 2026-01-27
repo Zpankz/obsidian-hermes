@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting } from 'obsidian';
 import type HermesPlugin from '../main';
 import { DEFAULT_SYSTEM_INSTRUCTION } from '../utils/defaultPrompt';
 
@@ -35,7 +36,9 @@ export class HermesSettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.classList.add('hermes-settings');
 
-    containerEl.createEl('h2', { text: 'Hermes Voice Assistant' });
+    new Setting(containerEl)
+      .setName('Hermes voice assistant')
+      .setHeading();
 
     // Voice Selection
     new Setting(containerEl)
@@ -57,7 +60,7 @@ export class HermesSettingsTab extends PluginSettingTab {
 
     // Custom Context
     new Setting(containerEl)
-      .setName('Custom Context')
+      .setName('Custom context')
       .setDesc('Define specific behaviors or rules for the assistant (added to every session)')
       .addTextArea((text) => {
         text
@@ -80,27 +83,19 @@ export class HermesSettingsTab extends PluginSettingTab {
     const resetLink = systemInstructionFragment.createEl('a', {
       text: 'Reset to default'
     });
-    resetLink.style.color = 'rgb(239 68 68)';
-    resetLink.style.cursor = 'pointer';
-    resetLink.style.fontSize = '0.875rem';
-    resetLink.style.transition = 'color 0.2s';
-    resetLink.addEventListener('mouseenter', () => {
-      resetLink.style.color = 'rgb(220 38 38)';
-    });
-    resetLink.addEventListener('mouseleave', () => {
-      resetLink.style.color = 'rgb(239 68 68)';
-    });
-    resetLink.addEventListener('click', async () => {
+    resetLink.addClass('hermes-reset-link');
+    resetLink.addEventListener('click', () => {
       if (this.plugin.settings) {
         this.plugin.settings.systemInstruction = DEFAULT_SYSTEM_INSTRUCTION;
-        await this.plugin.saveSettings();
-        // Refresh the settings display to show the updated value
-        this.display();
+        void this.plugin.saveSettings().then(() => {
+          // Refresh the settings display to show the updated value
+          this.display();
+        });
       }
     });
 
     new Setting(containerEl)
-      .setName('System Instructions')
+      .setName('System instructions')
       .setDesc(systemInstructionFragment)
       .addTextArea((text) => {
         text
@@ -118,7 +113,7 @@ export class HermesSettingsTab extends PluginSettingTab {
 
     // Chat History Folder
     new Setting(containerEl)
-      .setName('Chat History Folder')
+      .setName('Chat history folder')
       .setDesc('Folder path where chat history will be saved')
       .addText((text) => {
         text
@@ -133,10 +128,12 @@ export class HermesSettingsTab extends PluginSettingTab {
       });
 
     // API Key Section
-    containerEl.createEl('h3', { text: 'API Authentication' });
+    new Setting(containerEl)
+      .setName('API authentication')
+      .setHeading();
 
     new Setting(containerEl)
-      .setName('Gemini API Key')
+      .setName('Gemini API key')
       .setDesc('Enter your Gemini API key for the voice assistant')
       .addText((text) => {
         text
@@ -151,7 +148,7 @@ export class HermesSettingsTab extends PluginSettingTab {
         text.inputEl.type = 'password';
       });
 
-    // Serper API Key for image search
+    // Serper API key for image search
     const serperFragment = document.createDocumentFragment();
     serperFragment.createSpan({ text: 'API key for image search. Get 2,500 free credits at ' });
     const serperLink = serperFragment.createEl('a', {
@@ -161,7 +158,7 @@ export class HermesSettingsTab extends PluginSettingTab {
     serperLink.setAttr('target', '_blank');
 
     new Setting(containerEl)
-      .setName('Serper API Key')
+      .setName('Serper API key')
       .setDesc(serperFragment)
       .addText((text) => {
         text

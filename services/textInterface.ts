@@ -1,10 +1,10 @@
 import { GoogleGenAI, Content, Part, FunctionCall } from '@google/genai';
-import { ConnectionStatus, VoiceAssistantCallbacks, AppSettings, UsageMetadata, ToolData } from '../types';
+import { ConnectionStatus, VoiceAssistantCallbacks, AppSettings, UsageMetadata, ToolData, LogEntry } from '../types';
 import { COMMAND_DECLARATIONS, executeCommand } from './commands';
 import { withRetry, RetryCounter } from '../utils/retryUtils';
 
 export interface TextInterfaceCallbacks {
-  onLog: (message: string, type: 'info' | 'action' | 'error', duration?: number, errorDetails?: any) => void;
+  onLog: (message: string, type: LogEntry['type'], duration?: number, errorDetails?: LogEntry['errorDetails']) => void;
   onTranscription: (role: 'user' | 'model', text: string, isComplete: boolean) => void;
   onSystemMessage: (text: string, toolData?: ToolData) => void;
   onFileStateChange: (folder: string, note: string | string[] | null) => void;
@@ -23,11 +23,11 @@ export class GeminiTextInterface {
 
   constructor(private callbacks: TextInterfaceCallbacks) {}
 
-  async initialize(
+  initialize(
     apiKey: string,
     settings: AppSettings,
     initialState?: { folder: string; note: string | null }
-  ): Promise<void> {
+  ): void {
     if (initialState) {
       this.currentFolder = initialState.folder;
       this.currentNote = initialState.note;
@@ -136,7 +136,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
               this.callbacks.onLog('Conversation ended via tool call', 'info');
             },
             onArchiveConversation: this.callbacks.onArchiveConversation
-          });
+          }, this.currentFolder);
 
           functionResponses.push({
             functionResponse: {
@@ -144,35 +144,37 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
               response: { result }
             }
           });
-        } catch (err: any) {
-          console.error(`Text interface tool error: ${fc.name} - ${err.message}`);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          const errorStack = err instanceof Error ? err.stack : undefined;
+          console.error(`Text interface tool error: ${fc.name} - ${errorMessage}`);
           
           const errorDetails = {
             toolName: fc.name,
             content: JSON.stringify(fc.args, null, 2),
             contentSize: JSON.stringify(fc.args).length,
-            stack: err.stack,
+            stack: errorStack,
             apiCall: 'executeCommand',
             timestamp: new Date().toISOString(),
             model: this.model,
             currentFolder: this.currentFolder,
             currentNote: this.currentNote
           };
-          this.callbacks.onLog(`Tool execution error in ${fc.name}: ${err.message}`, 'error', undefined, errorDetails);
+          this.callbacks.onLog(`Tool execution error in ${fc.name}: ${errorMessage}`, 'error', undefined, errorDetails);
           
           // Show error as system message in chat
-          this.callbacks.onSystemMessage(`ERROR in ${fc.name}: ${err.message}`, {
+          this.callbacks.onSystemMessage(`Error in ${fc.name}: ${errorMessage}`, {
             id: 'error-' + Date.now(),
             name: 'error',
             filename: '',
             status: 'error',
-            error: err.message
+            error: errorMessage
           });
 
           functionResponses.push({
             functionResponse: {
               name: fc.name,
-              response: { error: err.message }
+              response: { error: errorMessage }
             }
           });
         }
@@ -228,8 +230,9 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
       const candidate = response.candidates?.[0];
       const textParts = candidate?.content?.parts?.filter(part => part.text);
       return textParts?.map(part => part.text).join('') || '';
-    } catch (error: any) {
-      throw new Error(`Failed to generate summary: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate summary: ${message}`);
     }
   }
 }

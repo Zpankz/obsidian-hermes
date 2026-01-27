@@ -1,6 +1,14 @@
 
 import { Type } from '@google/genai';
-import { searchFiles } from '../services/mockFiles';
+import { searchFiles } from '../services/vaultOperations';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const declaration = {
   name: 'search_regexp',
@@ -17,13 +25,18 @@ export const declaration = {
 
 export const instruction = `- search_regexp: Advanced regex search. Use this to identify files for global replacements.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  const results = await searchFiles(args.pattern, true, args.flags || 'i');
-  callbacks.onSystem(`Regex search complete for /${args.pattern}/`, {
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ results: unknown }> => {
+  const pattern = getStringArg(args, 'pattern');
+  const flags = getStringArg(args, 'flags') || 'i';
+  if (!pattern) {
+    throw new Error('Missing pattern');
+  }
+  const results = await searchFiles(pattern, true, flags);
+  callbacks.onSystem(`Regex search complete for /${pattern}/`, {
     name: 'search_regexp',
-    filename: `Regex: /${args.pattern}/${args.flags || 'i'}`,
+    filename: `Regex: /${pattern}/${flags}`,
     searchResults: results,
-    displayFormat: `Regex search "<strong>/${args.pattern}/${args.flags || 'i'}</strong>" (${results.length} results)`
+    displayFormat: `Regex search "<strong>/${pattern}/${flags}</strong>" (${results.length} results)`
   });
   return { results };
 };

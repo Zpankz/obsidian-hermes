@@ -31,51 +31,50 @@ export default class HermesPlugin extends Plugin {
         }
         
         // Register settings tab
-        (this as any).addSettingTab(new HermesSettingsTab((this as any).app, this));
+        this.addSettingTab(new HermesSettingsTab(this.app, this));
         
         // Cast this to any to bypass errors where Obsidian Plugin methods are not recognized by the compiler
-        (this as any).registerView(
+        this.registerView(
             VIEW_TYPE_HERMES,
             (leaf: WorkspaceLeaf) => new HermesMainViewObsidian(leaf)
         );
 
         // Add a ribbon icon to open the assistant
-        (this as any).addRibbonIcon('mic-vocal', 'Hermes Voice Assistant', () => {
+        this.addRibbonIcon('mic-vocal', 'Hermes voice assistant', () => {
             this.activateView();
         });
 
         // Add a command to the command palette
-        (this as any).addCommand({
+        this.addCommand({
             id: 'open-hermes-voice',
-            name: 'Open Hermes Assistant',
+            name: 'Open Hermes assistant',
             callback: () => {
                 this.activateView();
             }
         });
 
         // Add command to start conversation
-        (this as any).addCommand({
+        this.addCommand({
             id: 'start-hermes-conversation',
-            name: 'Start Hermes Conversation',
+            name: 'Start Hermes conversation',
             callback: () => {
                 this.startConversation();
             }
         });
 
         // Add command to stop conversation
-        (this as any).addCommand({
+        this.addCommand({
             id: 'stop-hermes-conversation',
-            name: 'Stop Hermes Conversation',
+            name: 'Stop Hermes conversation',
             callback: () => {
                 this.stopConversation();
             }
         });
 
         // Add command to toggle conversation state
-        (this as any).addCommand({
+        this.addCommand({
             id: 'toggle-hermes-conversation',
-            name: 'Toggle Hermes Conversation',
-            hotkeys: [{ modifiers: ['Ctrl', 'Shift'], key: 'l' }],
+            name: 'Toggle Hermes conversation',
             callback: () => {
                 this.toggleConversation();
             }
@@ -84,7 +83,7 @@ export default class HermesPlugin extends Plugin {
 
     async activateView() {
         // Cast this to any to access the app property which is not being recognized on the Plugin instance
-        const { workspace } = (this as any).app;
+        const { workspace } = this.app;
 
         let leaf: WorkspaceLeaf | null = null;
         const leaves = workspace.getLeavesOfType(VIEW_TYPE_HERMES);
@@ -110,12 +109,12 @@ export default class HermesPlugin extends Plugin {
         await this.activateView();
         
         // Get the active leaf and trigger start session
-        const { workspace } = (this as any).app;
+        const { workspace } = this.app;
         const leaves = workspace.getLeavesOfType(VIEW_TYPE_HERMES);
         
         if (leaves.length > 0) {
             const leaf = leaves[0];
-            const view = leaf.view as any;
+            const view = leaf.view as HermesMainViewObsidian;
             
             // Access the React component's startSession function
             if (view.startSession) {
@@ -123,21 +122,21 @@ export default class HermesPlugin extends Plugin {
             } else {
                 // Try to trigger the start session through DOM events
                 const startButton = view.containerEl.querySelector('[data-action="start-session"]');
-                if (startButton) {
-                    (startButton as HTMLElement).click();
+                if (startButton instanceof HTMLElement) {
+                    startButton.click();
                 }
             }
         }
     }
 
-    async stopConversation() {
+    stopConversation() {
         // Get the active leaf and trigger stop session
-        const { workspace } = (this as any).app;
+        const { workspace } = this.app;
         const leaves = workspace.getLeavesOfType(VIEW_TYPE_HERMES);
         
         if (leaves.length > 0) {
             const leaf = leaves[0];
-            const view = leaf.view as any;
+            const view = leaf.view as HermesMainViewObsidian;
             
             // Access the React component's stopSession function
             if (view.stopSession) {
@@ -145,8 +144,8 @@ export default class HermesPlugin extends Plugin {
             } else {
                 // Try to trigger the stop session through DOM events
                 const stopButton = view.containerEl.querySelector('[data-action="stop-session"]');
-                if (stopButton) {
-                    (stopButton as HTMLElement).click();
+                if (stopButton instanceof HTMLElement) {
+                    stopButton.click();
                 }
             }
         }
@@ -154,12 +153,12 @@ export default class HermesPlugin extends Plugin {
 
     async toggleConversation() {
         // Get the active leaf to check current state
-        const { workspace } = (this as any).app;
+        const { workspace } = this.app;
         const leaves = workspace.getLeavesOfType(VIEW_TYPE_HERMES);
         
         if (leaves.length > 0) {
             const leaf = leaves[0];
-            const view = leaf.view as any;
+            const view = leaf.view as HermesMainViewObsidian;
             
             // Access the React component's toggleSession function
             if (view.toggleSession) {
@@ -168,9 +167,9 @@ export default class HermesPlugin extends Plugin {
                 // Fallback: check if currently listening by looking for the stop button
                 const stopButton = view.containerEl.querySelector('[data-action="stop-session"]');
                 
-                if (stopButton) {
+                if (stopButton instanceof HTMLElement) {
                     // If stop button exists, conversation is active, so stop it
-                    await this.stopConversation();
+                    this.stopConversation();
                 } else {
                     // If no stop button, conversation is not active, so start it
                     await this.startConversation();
@@ -184,18 +183,18 @@ export default class HermesPlugin extends Plugin {
     }
 
     async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_HERMES_SETTINGS, await (this as any).loadData());
+        this.settings = Object.assign({}, DEFAULT_HERMES_SETTINGS, await this.loadData());
     }
 
     async saveSettings() {
-        await (this as any).saveData(this.settings);
+        await this.saveData(this.settings);
         
         // Also save to persistence layer for consistency
         await saveAppSettings(this.settings);
         
         // Notify React app about settings change
-        if (typeof window !== 'undefined' && (window as any).hermesSettingsUpdate) {
-            (window as any).hermesSettingsUpdate(this.settings);
+        if (typeof window !== 'undefined' && window.hermesSettingsUpdate) {
+            window.hermesSettingsUpdate(this.settings);
         }
     }
 }

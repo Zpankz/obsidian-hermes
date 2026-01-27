@@ -1,5 +1,18 @@
 import { Type } from '@google/genai';
 import { getObsidianApp } from '../utils/environment';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'run_obsidian_command',
@@ -18,8 +31,11 @@ export const declaration = {
 
 export const instruction = `- run_obsidian_command: Use this to execute an Obsidian command by its command ID. Use get_obsidian_commands first to find available commands and their IDs.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  const { commandId } = args;
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<unknown> => {
+  const commandId = getStringArg(args, 'commandId');
+  if (!commandId) {
+    throw new Error('Missing commandId');
+  }
   
   try {
     const app = getObsidianApp();
@@ -51,14 +67,15 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       commandName,
       executedAt: new Date().toISOString()
     };
-  } catch (error: any) {
-    callbacks.onSystem(`Command execution failed: ${error.message}`, {
+  } catch (error) {
+    const errorMessage = getErrorMessage(error);
+    callbacks.onSystem(`Command execution failed: ${errorMessage}`, {
       name: 'run_obsidian_command',
       filename: 'Command Execution',
       status: 'error',
-      error: error.message
+      error: errorMessage
     });
     
-    throw new Error(`Failed to execute command ${commandId}: ${error.message}`);
+    throw new Error(`Failed to execute command ${commandId}: ${errorMessage}`);
   }
 };

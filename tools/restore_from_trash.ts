@@ -1,6 +1,19 @@
 import { Type } from '@google/genai';
 import { getObsidianApp, getDirectoryFromPath, openFileInObsidian } from '../utils/environment';
 import { loadAppSettings } from '../persistence/persistence';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'restore_from_trash',
@@ -17,7 +30,7 @@ export const declaration = {
 
 export const instruction = `- restore_from_trash: Use this to restore a file from trash. Provide the trash filename from list_trash. Optionally specify where to restore it.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<unknown> => {
   const app = getObsidianApp();
   
   if (!app || !app.vault) {
@@ -29,9 +42,10 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     return { error: 'Obsidian vault not available' };
   }
 
-  const { trash_filename, target_path } = args;
+  const trashFilename = getStringArg(args, 'trash_filename');
+  const targetPathArg = getStringArg(args, 'target_path');
 
-  if (!trash_filename) {
+  if (!trashFilename) {
     callbacks.onSystem('Error: trash_filename is required', {
       name: 'restore_from_trash',
       filename: 'Trash',
@@ -42,36 +56,36 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   }
 
   try {
-    callbacks.onSystem(`Restoring ${trash_filename}...`, {
+    callbacks.onSystem(`Restoring ${trashFilename}...`, {
       name: 'restore_from_trash',
-      filename: trash_filename,
+      filename: trashFilename,
       status: 'pending'
     });
 
     // Get current settings to access chatHistoryFolder
-    const currentSettings = loadAppSettings() as any;
+    const currentSettings = loadAppSettings();
     const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
     const trashFolderPath = `${chatHistoryFolder}/trash`;
 
     // Find the file in trash
-    const trashFilePath = trash_filename.includes('/') ? trash_filename : `${trashFolderPath}/${trash_filename}`;
+    const trashFilePath = trashFilename.includes('/') ? trashFilename : `${trashFolderPath}/${trashFilename}`;
     const trashFile = app.vault.getAbstractFileByPath(trashFilePath);
     
     if (!trashFile) {
-      callbacks.onSystem(`File not found in trash: ${trash_filename}`, {
+      callbacks.onSystem(`File not found in trash: ${trashFilename}`, {
         name: 'restore_from_trash',
-        filename: trash_filename,
+        filename: trashFilename,
         status: 'error',
         error: 'File not found in trash'
       });
-      return { error: `File not found in trash: ${trash_filename}` };
+      return { error: `File not found in trash: ${trashFilename}` };
     }
 
     // Extract original filename from trash filename
     const originalFilename = extractOriginalName(trashFile.name);
     
     // Determine target path
-    let restorePath = target_path;
+    let restorePath = targetPathArg;
     if (!restorePath) {
       // Try to determine original location from the filename
       restorePath = originalFilename;
@@ -92,7 +106,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     if (existingFile) {
       callbacks.onSystem(`Target file already exists: ${restorePath}`, {
         name: 'restore_from_trash',
-        filename: trash_filename,
+        filename: trashFilename,
         status: 'error',
         error: 'Target file already exists',
         targetPath: restorePath
@@ -132,11 +146,11 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   } catch (error) {
     callbacks.onSystem('Error restoring file from trash', {
       name: 'restore_from_trash',
-      filename: trash_filename,
+      filename: trashFilename,
       status: 'error',
-      error: error.message || String(error)
+      error: getErrorMessage(error)
     });
-    return { error: error.message || String(error) };
+    return { error: getErrorMessage(error) };
   }
 };
 

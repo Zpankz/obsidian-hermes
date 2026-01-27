@@ -1,7 +1,10 @@
 import type { Plugin } from 'obsidian';
 
+import type { Plugin } from 'obsidian';
+import type { AppSettings } from '../types';
+
 let obsidianPlugin: Plugin | null = null;
-let cachedSettings: any = null;
+let cachedSettings: AppSettings | null = null;
 
 export const setObsidianPlugin = (plugin: Plugin) => {
   obsidianPlugin = plugin;
@@ -9,50 +12,52 @@ export const setObsidianPlugin = (plugin: Plugin) => {
 
 export const getObsidianPlugin = (): Plugin | null => obsidianPlugin;
 
-export const saveFiles = async (files: Record<string, string>): Promise<void> => {
+export const saveFiles = (_files: Record<string, string>): Promise<void> => {
   // For Obsidian, we could use the vault API in the future
   // For now, this is a placeholder that does nothing since files are managed by Obsidian
   console.warn('saveFiles called in Obsidian mode - files are managed by Obsidian vault');
+  return Promise.resolve();
 };
 
-export const loadFiles = async (): Promise<Record<string, string> | null> => {
+export const loadFiles = (): Promise<Record<string, string> | null> => {
   // For Obsidian, files are managed by the vault
   // Return null to indicate no local file storage
-  return null;
+  return Promise.resolve(null);
 };
 
-export const saveAppSettings = async (settings: any): Promise<void> => {
+export const saveAppSettings = async (settings: AppSettings): Promise<void> => {
   try {
     const toSave = { ...settings };
     cachedSettings = toSave;
     
     if (obsidianPlugin) {
-      await (obsidianPlugin as any).saveData(toSave);
+      await obsidianPlugin.saveData(toSave);
     }
-  } catch (e) {
-    console.error('Failed to save settings', e);
+  } catch (error) {
+    console.error('Failed to save settings', error);
   }
 };
 
-export const loadAppSettings = (): any | null => {
+export const loadAppSettings = (): AppSettings | null => {
   if (cachedSettings) return cachedSettings;
   return null;
 };
 
-export const loadAppSettingsAsync = async (): Promise<any | null> => {
+export const loadAppSettingsAsync = async (): Promise<AppSettings | null> => {
   if (obsidianPlugin) {
     try {
-      const data = await (obsidianPlugin as any).loadData();
-      cachedSettings = data || {};
+      const data = await obsidianPlugin.loadData();
+      cachedSettings = (data || {}) as AppSettings;
       
       // If plugin has its own settings, merge them
-      if ((obsidianPlugin as any).settings) {
-        cachedSettings = { ...cachedSettings, ...(obsidianPlugin as any).settings };
+      const pluginSettings = (obsidianPlugin as { settings?: AppSettings }).settings;
+      if (pluginSettings) {
+        cachedSettings = { ...cachedSettings, ...pluginSettings };
       }
       
       return cachedSettings;
-    } catch (e) {
-      console.error('Failed to load settings from Obsidian', e);
+    } catch (error) {
+      console.error('Failed to load settings from Obsidian', error);
       return null;
     }
   }
@@ -60,7 +65,7 @@ export const loadAppSettingsAsync = async (): Promise<any | null> => {
   return null;
 };
 
-export const reloadAppSettings = async (): Promise<any | null> => {
+export const reloadAppSettings = async (): Promise<AppSettings | null> => {
   // Clear cache and reload from Obsidian
   cachedSettings = null;
   return await loadAppSettingsAsync();
@@ -69,12 +74,12 @@ export const reloadAppSettings = async (): Promise<any | null> => {
 export const saveChatHistory = async (history: string[]): Promise<void> => {
   try {
     if (obsidianPlugin) {
-      const currentData = await (obsidianPlugin as any).loadData() || {};
-      currentData.chatHistory = history;
-      await (obsidianPlugin as any).saveData(currentData);
+      const currentData = (await obsidianPlugin.loadData()) || {};
+      const nextData = { ...currentData, chatHistory: history };
+      await obsidianPlugin.saveData(nextData);
     }
-  } catch (e) {
-    console.error('Failed to save chat history', e);
+  } catch (error) {
+    console.error('Failed to save chat history', error);
   }
 };
 

@@ -1,6 +1,8 @@
 
-import { listDirectory } from '../services/mockFiles';
-import { ToolData } from '../types';
+import { listDirectory } from '../services/vaultOperations';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
 
 export const declaration = {
   name: 'list_directory',
@@ -9,12 +11,12 @@ export const declaration = {
 
 export const instruction = `- list_directory: Use this to get an overview of the user's vault. All file paths are relative to vault root. Always call this if you are unsure of the available files.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = (_args: ToolArgs, callbacks: ToolCallbacks): Promise<{ files: string[] }> => {
   const files = listDirectory();
-  callbacks.onSystem(`Registry Scanned`, {
+  callbacks.onSystem('Registry scanned', {
     name: 'list_directory',
     filename: 'Vault Root',
     files: files
   });
-  return { files };
+  return Promise.resolve({ files });
 };

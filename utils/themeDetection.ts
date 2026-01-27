@@ -86,7 +86,7 @@ export function onThemeChange(callback: (themeInfo: ThemeInfo) => void): () => v
  */
 export function applyThemeClass(): void {
   const theme = detectTheme();
-  const root = document.querySelector('.hermes-root') as HTMLElement;
+  const root = document.querySelector<HTMLElement>('.hermes-root');
   
   if (root) {
     root.classList.remove('theme-light', 'theme-dark');

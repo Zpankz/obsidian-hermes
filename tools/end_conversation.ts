@@ -1,5 +1,12 @@
 import { Type } from '@google/genai';
-import { archiveConversation } from '../utils/archiveConversation';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'end_conversation',
@@ -17,26 +24,26 @@ CONVERSATION CONTROL:
 2. This will immediately stop the voice interface and disconnect the session.
 3. Do NOT say "Done." after calling this. The session will simply end.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  callbacks.onSystem("Ending conversation...", {
-    name: 'end_conversation',
-    filename: 'Session',
-    status: 'success'
-  });
-  
-  // Archive the conversation before ending it
-  if (callbacks.onArchiveConversation) {
-    try {
-      await callbacks.onArchiveConversation();
-    } catch (err: any) {
-      callbacks.onLog(`Failed to archive conversation: ${err.message}`, 'error');
+export const execute = async (_args: ToolArgs, callbacks: ToolCallbacks): Promise<{ status: string }> => {
+  try {
+    callbacks.onSystem('Ending conversation...', {
+      name: 'end_conversation',
+      filename: 'Session',
+      status: 'success'
+    });
+    
+    // Don't archive here - let the stopSession callback handle it
+    // This avoids the race condition where conversation continues after archive
+    
+    // Call the stop callback if available
+    if (callbacks.onStopSession) {
+      callbacks.onStopSession();
     }
+    
+    return { status: 'conversation_ended' };
+  } catch (error) {
+    // Even if something fails, we still want to indicate the conversation should end
+    console.error(`Error in end_conversation: ${getErrorMessage(error)}`);
+    return { status: 'conversation_ended_with_errors' };
   }
-  
-  // Call the stop callback if available
-  if (callbacks.onStopSession) {
-    callbacks.onStopSession();
-  }
-  
-  return { status: "conversation_ended" };
 };

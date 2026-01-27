@@ -1,7 +1,15 @@
 
 import { Type } from '@google/genai';
-import { listDirectory, readFile, updateFile } from '../services/mockFiles';
+import { listDirectory, readFile, updateFile } from '../services/vaultOperations';
 import { openFileInObsidian } from '../utils/environment';
+import type { ToolCallbacks, FileDiff } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const declaration = {
   name: 'search_and_replace_regex_global',
@@ -24,17 +32,24 @@ GLOBAL SEARCH & REPLACE WORKFLOW:
 3. ASK for explicit confirmation before calling "search_and_replace_regex_global".
 4. After execution, report "updated all occurrences".`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ status: string; filesUpdated: number }> => {
   const allFiles = listDirectory();
-  const globalRe = new RegExp(args.pattern, args.flags || 'g');
-  const multiDiffs = [];
+  const pattern = getStringArg(args, 'pattern');
+  const replacement = getStringArg(args, 'replacement') ?? '';
+  const flags = getStringArg(args, 'flags') || 'g';
+  if (!pattern) {
+    throw new Error('Missing pattern');
+  }
+
+  const globalRe = new RegExp(pattern, flags);
+  const multiDiffs: FileDiff[] = [];
   let totalFilesUpdated = 0;
   const updatedFilePaths: string[] = [];
 
   for (const file of allFiles) {
     const content = await readFile(file);
     if (globalRe.test(content)) {
-      const updated = content.replace(globalRe, args.replacement);
+      const updated = content.replace(globalRe, replacement);
       await updateFile(file, updated);
       multiDiffs.push({
         filename: file,

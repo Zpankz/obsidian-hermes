@@ -1,23 +1,23 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ToolData, FileDiff, GroundingChunk } from '../types';
+import { ToolData, FileDiff, GroundingChunk, SearchResult, SearchMatch, ImageSearchResult, DownloadedImage, DirectoryInfoItem } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { COMMAND_DECLARATIONS } from '../services/commands';
-import { openFile } from '../utils/environment';
+import { openFileInObsidian } from '../utils/environment';
 
 interface ToolResultProps {
   toolData: ToolData;
   isLast: boolean;
-  onImageDownload?: (image: any, index: number) => void;
+  onImageDownload?: (image: ImageSearchResult, index: number) => Promise<DownloadedImage | undefined> | void;
 }
 
 // SearchResultsView component for displaying search results in a dropdown
-const SearchResultsView: React.FC<{ searchResults: any[], keyword?: string, pattern?: string }> = ({ searchResults, keyword, pattern }) => {
+const SearchResultsView: React.FC<{ searchResults: SearchResult[], keyword?: string, pattern?: string }> = ({ searchResults, keyword, pattern }) => {
   const getSearchTerm = () => keyword || pattern || '';
   
   const handleFileClick = async (filename: string, lineNumber?: number) => {
     try {
-      await openFile(filename);
+      await openFileInObsidian(filename);
     } catch (error) {
       console.error('Failed to open file:', error);
     }
@@ -59,7 +59,7 @@ const SearchResultsView: React.FC<{ searchResults: any[], keyword?: string, patt
             </div>
             
             {/* Show first few matches as previews */}
-            {result.matches.slice(0, 3).map((match: any, matchIndex: number) => (
+            {result.matches.slice(0, 3).map((match: SearchMatch, matchIndex: number) => (
               <div 
                 key={matchIndex}
                 className="ml-8 flex items-start space-x-2 p-2 rounded-lg hermes-bg-secondary/5 cursor-pointer hermes-hover:bg-secondary/10 transition-all"
@@ -133,7 +133,7 @@ const DiffView: React.FC<{ diff: FileDiff }> = ({ diff }) => {
   );
 };
 
-const ImageSearchView: React.FC<{ downloadedImages: any[], query: string, targetFolder: string }> = ({ downloadedImages, query, targetFolder }) => {
+const ImageSearchView: React.FC<{ downloadedImages: DownloadedImage[], query: string, targetFolder: string }> = ({ downloadedImages, query, targetFolder }) => {
   return (
     <div className="p-6 hermes-bg-tertiary space-y-4 animate-in fade-in duration-500">
       <div className="pb-4 hermes-border-b mb-4">
@@ -168,7 +168,7 @@ const ImageSearchView: React.FC<{ downloadedImages: any[], query: string, target
   );
 };
 
-const ImageSearchResultsView: React.FC<{ searchResults: any[], query: string, totalFound: number, onImageDownload?: (image: any, index: number) => void }> = ({ 
+const ImageSearchResultsView: React.FC<{ searchResults: ImageSearchResult[], query: string, totalFound: number, onImageDownload?: (image: ImageSearchResult, index: number) => Promise<DownloadedImage | undefined> | void }> = ({ 
   searchResults, 
   query, 
   totalFound, 
@@ -176,9 +176,10 @@ const ImageSearchResultsView: React.FC<{ searchResults: any[], query: string, to
 }) => {
   const [downloadingImages, setDownloadingImages] = useState<Set<number>>(new Set());
   const [downloadedImages, setDownloadedImages] = useState<Set<number>>(new Set());
-  const [downloadedImageData, setDownloadedImageData] = useState<Map<number, any>>(new Map());
+  const [downloadedImageData, setDownloadedImageData] = useState<Map<number, DownloadedImage>>(new Map());
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  const handleImageClick = async (result: any, index: number) => {
+  const handleImageClick = async (result: ImageSearchResult, index: number) => {
     if (downloadingImages.has(index) || downloadedImages.has(index)) return;
 
     setDownloadingImages(prev => new Set(prev).add(index));
@@ -221,6 +222,7 @@ const ImageSearchResultsView: React.FC<{ searchResults: any[], query: string, to
         {searchResults.map((result, i) => {
           const isDownloading = downloadingImages.has(i);
           const isDownloaded = downloadedImages.has(i);
+          const hasImageError = imageErrors.has(i);
           
           return (
             <div 
@@ -236,14 +238,12 @@ const ImageSearchResultsView: React.FC<{ searchResults: any[], query: string, to
                   alt={result.title}
                   className={`w-full h-full object-cover transition-all ${
                     !isDownloaded ? 'group-hover:scale-110' : ''
-                  } ${isDownloading ? 'opacity-50' : ''}`}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    target.nextElementSibling?.classList.remove('hidden');
+                  } ${isDownloading ? 'opacity-50' : ''} ${hasImageError ? 'hermes-image-fallback-hidden' : ''}`}
+                  onError={() => {
+                    setImageErrors(prev => new Set(prev).add(i));
                   }}
                 />
-                <svg className={`w-6 h-6 hermes-text-accent hidden`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`w-6 h-6 hermes-text-accent ${hasImageError ? '' : 'hidden'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 
@@ -283,7 +283,7 @@ const ImageSearchResultsView: React.FC<{ searchResults: any[], query: string, to
                   ? 'hermes-warning-bg/10 hermes-warning'
                   : 'hermes-info-bg/10 hermes-info hermes-hover:info'
               }`}>
-                {isDownloaded ? 'SAVED' : isDownloading ? 'SAVING...' : `#${i + 1}`}
+                {isDownloaded ? 'Saved' : isDownloading ? 'Saving...' : `#${i + 1}`}
               </div>
             </div>
           );
@@ -558,7 +558,7 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownlo
                 )}
               </div>
               <div className="space-y-0.5">
-                {toolData.directoryInfo.map((dir: any, index: number) => (
+                {toolData.directoryInfo.map((dir: DirectoryInfoItem, index: number) => (
                   <div key={index} className="flex items-center space-x-2 hermes-text-normal hover:hermes-bg-secondary/5 px-2 py-0.5 rounded transition-colors">
                     <span className="hermes-text-muted">
                       {dir.hasChildren ? '📁' : '📂'}
@@ -611,7 +611,7 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownlo
             </div>
           )}
 
-          {toolData.name === 'move_file' && toolData.oldContent && toolData.newContent && (
+          {(toolData.name === 'move_file' || toolData.name === 'rename_file') && toolData.oldContent && toolData.newContent && (
             <div className="px-4 py-3 font-mono text-[11px] flex items-center flex-wrap gap-2 w-full">
               <span className="text-yellow-400 font-semibold truncate flex-1 min-w-0" title={toolData.oldContent}>{toolData.oldContent}</span>
               <span className="hermes-text-muted flex-shrink-0">→</span>
@@ -627,7 +627,7 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownlo
             />
           )}
 
-          {!['read_file', 'create_file', 'internet_search', 'image_search', 'list_directory', 'move_file', 'search_keyword', 'search_regexp'].includes(toolData.name) && toolData.newContent !== undefined && toolData.oldContent !== undefined && (
+          {!['read_file', 'create_file', 'internet_search', 'image_search', 'list_directory', 'move_file', 'rename_file', 'search_keyword', 'search_regexp'].includes(toolData.name) && toolData.newContent !== undefined && toolData.oldContent !== undefined && (
             <DiffView diff={{ filename: toolData.filename, oldContent: toolData.oldContent, newContent: toolData.newContent }} />
           )}
 

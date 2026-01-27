@@ -1,17 +1,48 @@
 
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
-import { ConnectionStatus, VoiceAssistant, VoiceAssistantCallbacks, AppSettings, UsageMetadata } from '../types';
+import { Platform } from 'obsidian';
+import { ConnectionStatus, VoiceAssistant, VoiceAssistantCallbacks, AppSettings, UsageMetadata, ToolData } from '../types';
 import { decode, encode, decodeAudioData, float32ToInt16 } from '../utils/audioUtils';
 import { COMMAND_DECLARATIONS, executeCommand } from './commands';
 import { withRetry, RetryCounter } from '../utils/retryUtils';
 
+type LiveSession = {
+  sendRealtimeInput: (payload: { media: { data: string | Uint8Array; mimeType: string } }) => void;
+  sendToolResponse: (payload: { functionResponses: { id: string; name: string; response: { result?: unknown; error?: string } } }) => void;
+  close: () => void;
+};
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
+
+const getErrorStack = (error: unknown): string | undefined => {
+  if (error instanceof Error) return error.stack;
+  return undefined;
+};
+
 export class GeminiVoiceAssistant implements VoiceAssistant {
-  private session: any = null;
-  private sessionPromise: Promise<any> | null = null;
+  private session: LiveSession | null = null;
+  private sessionPromise: Promise<LiveSession> | null = null;
   private inputAudioContext: AudioContext | null = null;
   private outputAudioContext: AudioContext | null = null;
   private nextStartTime: number = 0;
   private sources: Set<AudioBufferSourceNode> = new Set();
+  private inputWorkletNode: AudioWorkletNode | null = null;
+  private inputWorkletGain: GainNode | null = null;
+  private inputStream: MediaStream | null = null;
   
   private currentInputText = '';
   private currentOutputText = '';
@@ -21,9 +52,20 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
   private retryCounter = new RetryCounter(2);
   private storedApiKey: string = '';
   private storedSettings: AppSettings | null = null;
-  private storedInitialState: { folder: string, note: string | null } | undefined;
+  private storedInitialState: { folder: string; note: string | null } | undefined;
+
+  private hasArchived = false;
 
   constructor(private callbacks: VoiceAssistantCallbacks) {}
+
+  private async getSession(): Promise<LiveSession> {
+    if (this.session) return this.session;
+    if (this.sessionPromise === null) {
+      throw new Error('Session not initialized');
+    }
+    this.session = await this.sessionPromise;
+    return this.session;
+  }
 
   async start(
     apiKey: string, 
@@ -68,11 +110,16 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
       
       const ai = new GoogleGenAI({ apiKey });
       
-      this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      this.outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) {
+        throw new Error('AudioContext is not supported in this environment');
+      }
+      this.inputAudioContext = new AudioContextClass({ sampleRate: 16000 });
+      this.outputAudioContext = new AudioContextClass({ sampleRate: 24000 });
       this.nextStartTime = 0;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.inputStream = stream;
       
       const contextString = `
 CURRENT_CONTEXT:
@@ -82,12 +129,12 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
       const systemInstruction = `${settings.systemInstruction}\n${contextString}\n\n${settings.customContext}`.trim();
 
       // System instruction debug summary
-      console.log(`System instruction: ${systemInstruction.length} chars, folder: ${this.currentFolder}, note: ${this.currentNote}`);
+      console.debug(`System instruction: ${systemInstruction.length} chars, folder: ${this.currentFolder}, note: ${this.currentNote}`);
       
       this.callbacks.onLog(`System instruction size: ${systemInstruction.length} chars`, 'info');
 
       // Session configuration debug summary
-      console.log(`Session config: model=gemini-2.5-flash-native-audio-preview-12-2025, tools=${COMMAND_DECLARATIONS.length}, voice=${settings.voiceName}`);
+      console.debug(`Session config: model=gemini-2.5-flash-native-audio-preview-12-2025, tools=${COMMAND_DECLARATIONS.length}, voice=${settings.voiceName}`);
       
       this.callbacks.onLog('Initializing Gemini live connection...', 'info');
       
@@ -110,32 +157,30 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           onopen: () => {
             this.callbacks.onStatusChange(ConnectionStatus.CONNECTED);
             this.callbacks.onLog('Uplink synchronized. Voice channel active.', 'info');
-            if (this.sessionPromise) {
-              this.startMicStreaming(stream, this.sessionPromise);
+            if (this.sessionPromise !== null) {
+              void this.startMicStreaming(stream);
             }
           },
-          onmessage: async (message: LiveServerMessage) => {
-            if (this.sessionPromise) {
-              await this.handleServerMessage(message, this.sessionPromise);
-            }
+          onmessage: (message: LiveServerMessage) => {
+            void this.handleServerMessage(message);
           },
-          onerror: (err: any) => {
-            console.error(`Gemini connection error: ${err.message} (${err.constructor.name})`);
-            this.callbacks.onLog(`Connection error: ${err.message}`, 'error');
+          onerror: (err: unknown) => {
+            console.error(`Gemini connection error: ${getErrorMessage(err)}`);
+            this.callbacks.onLog(`Connection error: ${getErrorMessage(err)}`, 'error');
             this.callbacks.onStatusChange(ConnectionStatus.ERROR);
-            this.callbacks.onSystemMessage(`Connection Error: ${err.message}`);
+            this.callbacks.onSystemMessage(`Connection error: ${getErrorMessage(err)}`);
           },
-          onclose: (e: any) => {
-            const reason = e.reason || e.code || 'Connection dropped';
-            const isError = e.code !== 1000 && e.code !== 1001; // 1000=normal, 1001=going away
+          onclose: (event: CloseEvent) => {
+            const reason = event.reason || String(event.code) || 'Connection dropped';
+            const isError = event.code !== 1000 && event.code !== 1001; // 1000=normal, 1001=going away
             
             if (isError) {
-              console.error(`Voice connection closed: code=${e.code}, reason=${reason}`);
+              console.error(`Voice connection closed: code=${event.code}, reason=${reason}`);
               
               const errorDetails = {
                 toolName: 'GeminiVoiceAssistant',
                 apiCall: 'live.connect',
-                content: `Code: ${e.code}, Reason: ${reason}`,
+                content: `Code: ${event.code}, Reason: ${reason}`,
                 timestamp: new Date().toISOString()
               };
               this.callbacks.onLog(`CONNECTION DROPPED: ${reason}`, 'error', undefined, errorDetails);
@@ -155,49 +200,83 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             this.stop();
           }
         },
-      });
+      }) as Promise<LiveSession>;
 
       this.session = await this.sessionPromise;
 
-    } catch (err: any) {
+    } catch (err) {
       this.callbacks.onStatusChange(ConnectionStatus.ERROR);
-      console.error(`Voice interface error: ${err.message}`);
+      console.error(`Voice interface error: ${getErrorMessage(err)}`);
       
       const errorDetails = {
         toolName: 'GeminiVoiceAssistant',
         apiCall: 'start',
-        stack: err.stack,
-        content: err.message,
-        requestSize: err.requestSize,
-        responseSize: err.responseSize,
-        userAgent: navigator.userAgent,
+        stack: getErrorStack(err),
+        content: getErrorMessage(err),
+        requestSize: (err as { requestSize?: number }).requestSize,
+        responseSize: (err as { responseSize?: number }).responseSize,
+        platform: {
+          isMobileApp: Platform.isMobileApp,
+          isDesktopApp: Platform.isDesktopApp,
+          isMacOS: Platform.isMacOS,
+          isWin: Platform.isWin,
+          isLinux: Platform.isLinux
+        },
         audioContextState: this.inputAudioContext?.state,
         timestamp: new Date().toISOString()
       };
-      this.callbacks.onLog(`Link Initialization Failed: ${err.message}`, 'error', undefined, errorDetails);
+      this.callbacks.onLog(`Link Initialization Failed: ${getErrorMessage(err)}`, 'error', undefined, errorDetails);
       
       // Show error as system message in chat
-      this.callbacks.onSystemMessage(`ERROR: ${err.message}`, {
+      this.callbacks.onSystemMessage(`Error: ${getErrorMessage(err)}`, {
         id: 'error-' + Date.now(),
         name: 'error',
         filename: '',
         status: 'error',
-        error: err.message
+        error: getErrorMessage(err)
       });
       
       throw err;
     }
   }
 
-  private startMicStreaming(stream: MediaStream, sessionPromise: Promise<any>) {
+  private async startMicStreaming(stream: MediaStream): Promise<void> {
     if (!this.inputAudioContext) return;
-    
+
+    const session = await this.getSession();
     const source = this.inputAudioContext.createMediaStreamSource(stream);
-    const scriptProcessor = this.inputAudioContext.createScriptProcessor(4096, 1, 1);
-    
-    scriptProcessor.onaudioprocess = (event) => {
-      const inputData = event.inputBuffer.getChannelData(0);
-      
+
+    const workletCode = `
+      class HermesAudioProcessor extends AudioWorkletProcessor {
+        process(inputs) {
+          const input = inputs[0];
+          if (input && input[0]) {
+            this.port.postMessage(input[0]);
+          }
+          return true;
+        }
+      }
+      registerProcessor('hermes-audio-processor', HermesAudioProcessor);
+    `;
+
+    const blob = new Blob([workletCode], { type: 'application/javascript' });
+    const workletUrl = URL.createObjectURL(blob);
+    try {
+      await this.inputAudioContext.audioWorklet.addModule(workletUrl);
+    } finally {
+      URL.revokeObjectURL(workletUrl);
+    }
+
+    const workletNode = new AudioWorkletNode(this.inputAudioContext, 'hermes-audio-processor');
+    this.inputWorkletNode = workletNode;
+    const gain = this.inputAudioContext.createGain();
+    gain.gain.value = 0;
+    this.inputWorkletGain = gain;
+
+    workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
+      const inputData = event.data;
+      if (!inputData || inputData.length === 0) return;
+
       // Calculate volume for UI
       let sum = 0;
       for (let i = 0; i < inputData.length; i++) {
@@ -208,33 +287,35 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
 
       const int16Data = float32ToInt16(inputData);
       const base64 = encode(new Uint8Array(int16Data.buffer));
-      
-      // CRITICAL: Solely rely on sessionPromise resolves and then call `session.sendRealtimeInput`, do not add other condition checks.
-      sessionPromise.then(session => {
-        const audioDataSize = base64.length;
-        
-        // Audio streaming debug summary (large chunks only)
-        if (audioDataSize > 50000) {
-          console.log(`Audio streaming: ${audioDataSize} bytes, session active`);
-        }
-        
-        session.sendRealtimeInput({ 
-          media: { data: base64, mimeType: 'audio/pcm;rate=16000' } 
+      const audioDataSize = base64.length;
+
+      if (audioDataSize > 50000) {
+        console.debug(`Audio streaming: ${audioDataSize} bytes, session active`);
+      }
+
+      try {
+        session.sendRealtimeInput({
+          media: { data: base64, mimeType: 'audio/pcm;rate=16000' }
         });
-      }).catch((err) => {
-        console.error(`Audio streaming error: ${err.message}, data size: ${base64.length}`);
-      });
+      } catch (error) {
+        console.error(`Audio streaming error: ${getErrorMessage(error)}, data size: ${base64.length}`);
+        // If the session is closing, don't treat this as a critical error
+        if (getErrorMessage(error).includes('CLOSING') || getErrorMessage(error).includes('CLOSED')) {
+          console.debug('Session is closing, stopping audio streaming');
+          return;
+        }
+      }
     };
-    
-    source.connect(scriptProcessor);
-    scriptProcessor.connect(this.inputAudioContext.destination);
+
+    source.connect(workletNode);
+    workletNode.connect(gain);
+    gain.connect(this.inputAudioContext.destination);
   }
 
-  private async handleServerMessage(message: LiveServerMessage, sessionPromise: Promise<any>) {
-    // Fix: Using type cast to access usageMetadata which might not be in the official type definition yet
-    const serverContent = message.serverContent as any;
+  private async handleServerMessage(message: LiveServerMessage): Promise<void> {
+    const serverContent = message.serverContent as { usageMetadata?: UsageMetadata } | undefined;
     if (serverContent?.usageMetadata) {
-      this.callbacks.onUsageUpdate(serverContent.usageMetadata as UsageMetadata);
+      this.callbacks.onUsageUpdate(serverContent.usageMetadata);
     }
 
     if (message.serverContent?.inputTranscription?.text) {
@@ -260,8 +341,37 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
 
     if (message.toolCall) {
       for (const fc of message.toolCall.functionCalls) {
+        // Special handling for end_conversation - execute immediately without tool response
+        if (fc.name === 'end_conversation') {
+          console.debug('Processing end_conversation tool call');
+          try {
+            const response = await executeCommand(fc.name, fc.args as ToolArgs, {
+              onLog: (m, t, d) => this.callbacks.onLog(m, t, d),
+              onSystem: (t, d) => this.callbacks.onSystemMessage(t, d as ToolData | undefined),
+              onFileState: (folder, note) => {
+                this.currentFolder = folder;
+                this.currentNote = Array.isArray(note) ? note[note.length - 1] : note;
+                this.callbacks.onFileStateChange(folder, note);
+              },
+              onStopSession: () => {
+                this.stop();
+              },
+              onArchiveConversation: this.callbacks.onArchiveConversation
+            }, undefined, this.currentFolder);
+            console.debug('end_conversation executed successfully, session ending');
+            // Don't send tool response - the session is ending
+            continue;
+          } catch (err) {
+            console.error(`end_conversation failed: ${getErrorMessage(err)}`);
+            // Even if end_conversation fails, we should still stop the session
+            this.stop();
+            continue;
+          }
+        }
+
         // Create a pending system message first
-        const toolCallId = `tool-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const toolCallId = `tool-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const args = isRecord(fc.args) ? (fc.args as ToolArgs) : {};
         
         // Map tool names to descriptive labels
         const toolLabels: { [key: string]: string } = {
@@ -292,19 +402,20 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
         const actionName = toolLabels[fc.name] || fc.name.replace(/_/g, ' ').toUpperCase();
         let toolUpdatedMessage = false;  // Track if tool already updated the message
         
+        const filenameLabel = getStringArg(args, 'filename') || (fc.name === 'internet_search' ? 'Web' : 'Registry');
         this.callbacks.onSystemMessage(`${actionName}...`, {
           id: toolCallId,
           name: fc.name,
-          filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
+          filename: filenameLabel,
           status: 'pending'
         });
         
         try {
-          const response = await executeCommand(fc.name, fc.args, {
+          const response = await executeCommand(fc.name, args, {
             onLog: (m, t, d) => this.callbacks.onLog(m, t, d),
             onSystem: (t, d) => {
               // Pass through to the main callback - the ID is already set by wrappedCallbacks in commands.ts
-              this.callbacks.onSystemMessage(t, d);
+              this.callbacks.onSystemMessage(t, d as ToolData | undefined);
               // Mark that the tool has updated the message (if it set status to success)
               if (d?.status === 'success') {
                 toolUpdatedMessage = true;
@@ -319,97 +430,133 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
               this.stop();
             },
             onArchiveConversation: this.callbacks.onArchiveConversation
-          }, toolCallId);  // Pass the toolCallId to executeCommand
-          
-          sessionPromise.then(s => {
-            // Tool response debug summary
-            const responseData = JSON.stringify({ result: response });
-            console.log(`Tool response: ${fc.name}, size: ${responseData.length} chars`);
-            
-            // Only update the message if the tool didn't already do it
-            if (!toolUpdatedMessage) {
-              // For create operations, show containing folder instead of JSON status
-              let displayContent = '';
-              if (fc.name === 'create_file' || fc.name === 'create_directory') {
-                const path = fc.args?.filename || fc.args?.path;
-                if (path && typeof path === 'string') {
-                  // Extract directory from path
-                  const lastSlashIndex = path.lastIndexOf('/');
-                  const containingFolder = lastSlashIndex === -1 ? '/' : path.substring(0, lastSlashIndex + 1);
-                  displayContent = `Created in: ${containingFolder}`;
-                }
-              } else if (fc.name === 'move_file' || fc.name === 'rename_file') {
-                displayContent = `Moved from: ${fc.args?.sourcePath || fc.args?.oldPath} to: ${fc.args?.targetPath || fc.args?.newPath}`;
-              } else if (fc.name === 'update_file' || fc.name === 'edit_file') {
-                displayContent = `Updated: ${fc.args?.filename}`;
-              } else if (fc.name === 'delete_file') {
-                displayContent = `Deleted: ${fc.args?.filename}`;
-              } else if (response?.text) {
-                displayContent = response.text;
-              } else if (typeof response === 'string') {
-                displayContent = response;
+          }, toolCallId, this.currentFolder);  // Pass the toolCallId and currentFolder to executeCommand
+
+          const session = await this.getSession();
+
+          // Tool response debug summary
+          const responseData = JSON.stringify({ result: response });
+          console.debug(`Tool response: ${fc.name}, size: ${responseData.length} chars`);
+
+          const responseRecord = isRecord(response) ? response : undefined;
+          const responseText = responseRecord && typeof responseRecord.text === 'string' ? responseRecord.text : undefined;
+
+          // Only update the message if the tool didn't already do it
+          if (!toolUpdatedMessage) {
+            // For create operations, show containing folder instead of JSON status
+            let displayContent = '';
+            if (fc.name === 'create_file' || fc.name === 'create_directory') {
+              const path = getStringArg(args, 'filename') || getStringArg(args, 'path');
+              if (path) {
+                // Extract directory from path
+                const lastSlashIndex = path.lastIndexOf('/');
+                const containingFolder = lastSlashIndex === -1 ? '/' : path.substring(0, lastSlashIndex + 1);
+                displayContent = `Created in: ${containingFolder}`;
               }
-              // Don't show JSON for other tool types - let the tool's own onSystem call handle display
-              
-              // Only send completion message if we have display content
-              if (displayContent) {
-                this.callbacks.onSystemMessage(`${actionName} Complete`, {
-                  id: toolCallId,
-                  name: fc.name,
-                  filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
-                  status: 'success',
-                  newContent: displayContent,
-                  groundingChunks: response?.groundingChunks || [],
-                  files: response?.files || response?.directories?.map((d: any) => d.path) || response?.folders,
-                  directoryInfo: response?.directoryInfo
-                });
+            } else if (fc.name === 'move_file' || fc.name === 'rename_file') {
+              const sourcePath = getStringArg(args, 'sourcePath') || getStringArg(args, 'oldPath');
+              const targetPath = getStringArg(args, 'targetPath') || getStringArg(args, 'newPath');
+              if (sourcePath && targetPath) {
+                displayContent = `Moved from: ${sourcePath} to: ${targetPath}`;
               }
+            } else if (fc.name === 'update_file' || fc.name === 'edit_file') {
+              const filename = getStringArg(args, 'filename');
+              if (filename) {
+                displayContent = `Updated: ${filename}`;
+              }
+            } else if (fc.name === 'delete_file') {
+              const filename = getStringArg(args, 'filename');
+              if (filename) {
+                displayContent = `Deleted: ${filename}`;
+              }
+            } else if (responseText) {
+              displayContent = responseText;
+            } else if (typeof response === 'string') {
+              displayContent = response;
             }
-            
-            s.sendToolResponse({ 
-              functionResponses: { id: fc.id, name: fc.name, response: { result: response } } 
+
+            // Only send completion message if we have display content
+            if (displayContent) {
+              const groundingChunks = Array.isArray(responseRecord?.groundingChunks) ? responseRecord?.groundingChunks : [];
+              const responseFiles = Array.isArray(responseRecord?.files)
+                ? responseRecord?.files.filter((file): file is string => typeof file === 'string')
+                : undefined;
+              const responseDirectories = Array.isArray(responseRecord?.directories)
+                ? responseRecord?.directories
+                    .map((dir) => (isRecord(dir) && typeof dir.path === 'string' ? dir.path : null))
+                    .filter((path): path is string => Boolean(path))
+                : undefined;
+              const responseFolders = Array.isArray(responseRecord?.folders)
+                ? responseRecord?.folders.filter((folder): folder is string => typeof folder === 'string')
+                : undefined;
+              const directoryInfo = Array.isArray(responseRecord?.directoryInfo) ? responseRecord?.directoryInfo : undefined;
+
+              this.callbacks.onSystemMessage(`${actionName} Complete`, {
+                id: toolCallId,
+                name: fc.name,
+                filename: filenameLabel,
+                status: 'success',
+                newContent: displayContent,
+                groundingChunks,
+                files: responseFiles || responseDirectories || responseFolders,
+                directoryInfo
+              });
+            }
+          }
+
+          try {
+            const session = await this.getSession();
+            session.sendToolResponse({
+              functionResponses: { id: fc.id, name: fc.name, response: { result: response } }
             });
-          });
-        } catch (err: any) {
-          console.error(err);
-          console.error(`Voice interface tool error: ${fc.name} - ${err.message}`);
+          } catch (responseError) {
+            console.error(`Failed to send tool response: ${getErrorMessage(responseError)}`);
+            // Don't treat this as a critical error - the session may have been intentionally closed
+            // by the tool itself (e.g., end_conversation)
+          }
+        } catch (err) {
+          const errorMessage = getErrorMessage(err);
+          console.error(`Voice interface tool error: ${fc.name} - ${errorMessage}`);
 
           const errorDetails = {
             toolName: fc.name,
-            content: JSON.stringify(fc.args, null, 2),
-            contentSize: JSON.stringify(fc.args).length,
-            stack: err.stack,
+            content: JSON.stringify(args, null, 2),
+            contentSize: JSON.stringify(args).length,
+            stack: getErrorStack(err),
             apiCall: 'executeCommand',
             timestamp: new Date().toISOString(),
             currentFolder: this.currentFolder,
             currentNote: this.currentNote
           };
-          this.callbacks.onLog(`Tool execution error in ${fc.name}: ${err.message}`, 'error', undefined, errorDetails);
-          
+          this.callbacks.onLog(`Tool execution error in ${fc.name}: ${errorMessage}`, 'error', undefined, errorDetails);
+
           // Update the existing message to error status
-          this.callbacks.onSystemMessage(`ERROR in ${fc.name}: ${err.message}`, {
+          this.callbacks.onSystemMessage(`Error in ${fc.name}: ${errorMessage}`, {
             id: toolCallId,
             name: fc.name,
-            filename: (fc.args?.filename as string) || (fc.name === 'internet_search' ? 'Web' : 'Registry'),
+            filename: filenameLabel,
             status: 'error',
-            error: err.message
+            error: errorMessage
           });
-          
-          sessionPromise.then(s => {
-            // Tool error response summary
-            console.log(`Tool error response: ${fc.name} - ${err.message}`);
-            
-            s.sendToolResponse({ 
-              functionResponses: { id: fc.id, name: fc.name, response: { error: err.message } } 
+
+          try {
+            const session = await this.getSession();
+            console.debug(`Tool error response: ${fc.name} - ${errorMessage}`);
+            session.sendToolResponse({
+              functionResponses: { id: fc.id, name: fc.name, response: { error: errorMessage } }
             });
-          });
+          } catch (error) {
+            console.error(`Failed to send tool error response: ${getErrorMessage(error)}`);
+            // Don't treat this as a critical error - the session may have been intentionally closed
+            // by the tool itself (e.g., end_conversation)
+          }
         }
       }
     }
 
     const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
     if (base64Audio && this.outputAudioContext) {
-      const audioBuffer = await decodeAudioData(decode(base64Audio), this.outputAudioContext, 24000, 1);
+      const audioBuffer = decodeAudioData(decode(base64Audio), this.outputAudioContext, 24000, 1);
       this.nextStartTime = Math.max(this.nextStartTime, this.outputAudioContext.currentTime);
       
       const source = this.outputAudioContext.createBufferSource();
@@ -423,7 +570,13 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
     }
 
     if (message.serverContent?.interrupted) {
-      this.sources.forEach(s => { try { s.stop(); } catch (e) {} });
+      this.sources.forEach(source => {
+        try {
+          source.stop();
+        } catch (error) {
+          console.debug('Audio source stop failed', error);
+        }
+      });
       this.sources.clear();
       this.nextStartTime = 0;
       this.callbacks.onInterrupted();
@@ -431,23 +584,57 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
   }
 
   stop(): void {
+    // Archive conversation before stopping (only once)
+    if (this.callbacks.onArchiveConversation && !this.hasArchived) {
+      this.hasArchived = true;
+      console.warn('SHOULD SAVE HISTORY: voiceInterface.stop() calling onArchiveConversation');
+      this.callbacks.onArchiveConversation().catch(err => {
+        console.warn('Failed to archive conversation on stop:', err);
+      });
+    }
+    
     if (this.session) {
-      try { this.session.close(); } catch (e) {}
+      try {
+        this.session.close();
+      } catch (error) {
+        console.debug('Session close failed', error);
+      }
       this.session = null;
     }
     this.sessionPromise = null;
     
+    if (this.inputWorkletNode) {
+      this.inputWorkletNode.disconnect();
+      this.inputWorkletNode = null;
+    }
+
+    if (this.inputWorkletGain) {
+      this.inputWorkletGain.disconnect();
+      this.inputWorkletGain = null;
+    }
+
+    if (this.inputStream) {
+      this.inputStream.getTracks().forEach(track => track.stop());
+      this.inputStream = null;
+    }
+
     if (this.inputAudioContext) {
-      this.inputAudioContext.close();
+      void this.inputAudioContext.close();
       this.inputAudioContext = null;
     }
     
     if (this.outputAudioContext) {
-      this.outputAudioContext.close();
+      void this.outputAudioContext.close();
       this.outputAudioContext = null;
     }
     
-    this.sources.forEach(s => { try { s.stop(); } catch (e) {} });
+    this.sources.forEach(source => {
+      try {
+        source.stop();
+      } catch (error) {
+        console.debug('Output source stop failed', error);
+      }
+    });
     this.sources.clear();
     
     this.currentInputText = '';
@@ -457,25 +644,24 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
   }
 
   sendText(text: string): void {
-    if (this.sessionPromise) {
-      const encoded = encode(new TextEncoder().encode(text));
-      
-      // Text input debug summary
-      console.log(`Text input: ${text.length} chars, encoded: ${encoded.length} bytes`);
-      
-      this.callbacks.onLog(`Sending text input: ${text.length} chars`, 'info');
-      
-      this.sessionPromise.then(session => {
-        try {
-          session.sendRealtimeInput({ media: { data: encoded, mimeType: 'text/plain' } });
-          console.log('Text input sent successfully');
-        } catch (err: any) {
-          console.error(`Text input error: ${err.message}, text length: ${text.length}`);
-          this.callbacks.onLog(`Text input failed: ${err.message}`, 'error');
-        }
-      }).catch((err) => {
-        console.error(`Session promise error (text): ${err.message}`);
-      });
-    }
+    if (this.sessionPromise === null) return;
+
+    const encoded = encode(new TextEncoder().encode(text));
+
+    // Text input debug summary
+    console.debug(`Text input: ${text.length} chars, encoded: ${encoded.length} bytes`);
+
+    this.callbacks.onLog(`Sending text input: ${text.length} chars`, 'info');
+
+    void (async () => {
+      try {
+        const session = await this.getSession();
+        session.sendRealtimeInput({ media: { data: encoded, mimeType: 'text/plain' } });
+        console.debug('Text input sent successfully');
+      } catch (error) {
+        console.error(`Text input error: ${getErrorMessage(error)}, text length: ${text.length}`);
+        this.callbacks.onLog(`Text input failed: ${getErrorMessage(error)}`, 'error');
+      }
+    })();
   }
 }

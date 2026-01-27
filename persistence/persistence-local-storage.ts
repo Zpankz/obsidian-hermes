@@ -1,82 +1,77 @@
+import type { AppSettings } from '../types';
+
 const FILES_KEY = 'hermes_os_filesystem';
 const SETTINGS_KEY = 'hermes_os_settings';
 const CHAT_HISTORY_KEY = 'hermes_os_chat_history';
 
-let cachedSettings: any = null;
+const memoryStore = new Map<string, string>();
+let cachedSettings: AppSettings | null = null;
 
-export const saveFiles = async (files: Record<string, string>): Promise<void> => {
-  localStorage.setItem(FILES_KEY, JSON.stringify(files));
+export const saveFiles = (files: Record<string, string>): Promise<void> => {
+  memoryStore.set(FILES_KEY, JSON.stringify(files));
+  return Promise.resolve();
 };
 
-export const loadFiles = async (): Promise<Record<string, string> | null> => {
-  const data = localStorage.getItem(FILES_KEY);
-  if (!data) return null;
+export const loadFiles = (): Promise<Record<string, string> | null> => {
+  const data = memoryStore.get(FILES_KEY);
+  if (!data) return Promise.resolve(null);
   try {
-    return JSON.parse(data);
-  } catch (e) {
-    console.error('Failed to parse persistent storage', e);
-    return null;
+    return Promise.resolve(JSON.parse(data) as Record<string, string>);
+  } catch (error) {
+    console.error('Failed to parse persistent storage', error);
+    return Promise.resolve(null);
   }
 };
 
-export const saveAppSettings = async (settings: any): Promise<void> => {
+export const saveAppSettings = (settings: AppSettings): Promise<void> => {
   try {
     const toSave = { ...settings };
     cachedSettings = toSave;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(toSave));
-  } catch (e) {
-    console.error('Failed to save settings', e);
+    memoryStore.set(SETTINGS_KEY, JSON.stringify(toSave));
+  } catch (error) {
+    console.error('Failed to save settings', error);
   }
+  return Promise.resolve();
 };
 
-export const loadAppSettings = (): any | null => {
+export const loadAppSettings = (): AppSettings | null => {
   if (cachedSettings) return cachedSettings;
-  
-  const data = localStorage.getItem(SETTINGS_KEY);
+
+  const data = memoryStore.get(SETTINGS_KEY);
   if (!data) return null;
   try {
-    return JSON.parse(data);
-  } catch (e) {
-    console.error('Failed to load settings', e);
+    return JSON.parse(data) as AppSettings;
+  } catch (error) {
+    console.error('Failed to load settings', error);
     return null;
   }
 };
 
-export const loadAppSettingsAsync = async (): Promise<any | null> => {
-  if (cachedSettings) return cachedSettings;
-  return loadAppSettings();
+export const loadAppSettingsAsync = (): Promise<AppSettings | null> => {
+  return Promise.resolve(loadAppSettings());
 };
 
-export const reloadAppSettings = async (): Promise<any | null> => {
-  // Clear cache and reload from localStorage
+export const reloadAppSettings = (): Promise<AppSettings | null> => {
   cachedSettings = null;
-  const data = localStorage.getItem(SETTINGS_KEY);
-  if (!data) return null;
-  try {
-    const parsed = JSON.parse(data);
-    cachedSettings = parsed;
-    return parsed;
-  } catch (e) {
-    console.error('Failed to load settings', e);
-    return null;
-  }
+  return loadAppSettingsAsync();
 };
 
-export const saveChatHistory = async (history: string[]): Promise<void> => {
+export const saveChatHistory = (history: string[]): Promise<void> => {
   try {
-    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history));
-  } catch (e) {
-    console.error('Failed to save chat history', e);
+    memoryStore.set(CHAT_HISTORY_KEY, JSON.stringify(history));
+  } catch (error) {
+    console.error('Failed to save chat history', error);
   }
+  return Promise.resolve();
 };
 
 export const loadChatHistory = (): string[] => {
-  const data = localStorage.getItem(CHAT_HISTORY_KEY);
+  const data = memoryStore.get(CHAT_HISTORY_KEY);
   if (!data) return [];
   try {
-    return JSON.parse(data);
-  } catch (e) {
-    console.error('Failed to load chat history', e);
+    return JSON.parse(data) as string[];
+  } catch (error) {
+    console.error('Failed to load chat history', error);
     return [];
   }
 };

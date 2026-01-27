@@ -3,26 +3,25 @@
  * Helps determine if the code is running in Obsidian vs standalone mode
  */
 
-/**
- * Detects if the code is running inside Obsidian
- * @returns true if running in Obsidian, false if standalone
- */
-export function isObsidian(): boolean {
-  // Check if we're in Obsidian environment
-  // @ts-ignore - Obsidian global app
-  return typeof (globalThis as any).app !== 'undefined' && (globalThis as any).app?.vault !== undefined;
-}
+import { MarkdownView, TFile } from 'obsidian';
+import type { App, Workspace, Vault } from 'obsidian';
+import { getObsidianPlugin } from '../persistence/persistence';
 
 /**
  * Gets the Obsidian app instance if available
  * @returns Obsidian app instance or null
  */
-export function getObsidianApp(): any {
-  if (isObsidian()) {
-    // @ts-ignore - Obsidian global app
-    return (globalThis as any).app;
-  }
-  return null;
+export function getObsidianApp(): App | null {
+  const plugin = getObsidianPlugin();
+  return plugin?.app ?? null;
+}
+
+/**
+ * Detects if the code is running inside Obsidian
+ * @returns true if running in Obsidian, false if standalone
+ */
+export function isObsidian(): boolean {
+  return getObsidianApp() !== null;
 }
 
 /**
@@ -38,7 +37,7 @@ export function hasObsidianAPI(): boolean {
  * Gets the current vault if in Obsidian
  * @returns Obsidian vault or null
  */
-export function getVault(): any {
+export function getVault(): Vault | null {
   const app = getObsidianApp();
   return app?.vault || null;
 }
@@ -47,7 +46,7 @@ export function getVault(): any {
  * Gets the current workspace if in Obsidian
  * @returns Obsidian workspace or null
  */
-export function getWorkspace(): any {
+export function getWorkspace(): Workspace | null {
   const app = getObsidianApp();
   return app?.workspace || null;
 }
@@ -89,9 +88,10 @@ export async function openFileInObsidian(filename: string, options: OpenFileOpti
 
   try {
     const app = getObsidianApp();
+    if (!app) return false;
     const file = app.vault.getAbstractFileByPath(filename);
     
-    if (!file) {
+    if (!file || !(file instanceof TFile)) {
       console.warn(`File not found: ${filename}`);
       return false;
     }
@@ -102,7 +102,7 @@ export async function openFileInObsidian(filename: string, options: OpenFileOpti
     // First, check if the file is already open in any leaf
     if (!newWindow && !split) {
       const existingLeaf = workspace.getLeavesOfType('markdown').find(
-        (leaf: any) => leaf.view?.file?.path === filename
+        (leaf) => leaf.view instanceof MarkdownView && leaf.view.file?.path === filename
       );
       
       if (existingLeaf) {

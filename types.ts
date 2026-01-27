@@ -52,8 +52,9 @@ export interface ToolData {
   removals?: number;
   error?: string;
   files?: string[];
-  directoryInfo?: any[];
-  searchResults?: SearchResult[] | any[]; // Can be either SearchResult[] or image search results
+  directoryInfo?: DirectoryInfoItem[];
+  searchResults?: SearchResult[] | ImageSearchResult[]; // Can be either SearchResult[] or image search results
+  searchKeyword?: string;
   multiDiffs?: FileDiff[];
   groundingChunks?: GroundingChunk[];
   truncated?: boolean;
@@ -62,9 +63,16 @@ export interface ToolData {
   currentPage?: number;
   totalPages?: number;
   truncationNotice?: string;
-  downloadedImages?: any[]; // For image search downloaded images
+  downloadedImages?: DownloadedImage[]; // For image search downloaded images
   targetFolder?: string; // For image search target folder
   totalFound?: number; // For image search total found
+  folderPath?: string;
+  systemPath?: string;
+  paneInfo?: Record<string, unknown>;
+  targetPath?: string;
+  originalPath?: string;
+  restoredPath?: string;
+  description?: string;
   dropdown?: boolean; // Whether to show dropdown for expandable content
   displayFormat?: string; // Custom display format with HTML for special styling
 }
@@ -100,12 +108,14 @@ export interface AppSettings {
   voiceName: string;
   customContext: string;
   systemInstruction: string;
+  manualApiKey?: string;
+  serperApiKey?: string;
+  chatHistoryFolder?: string;
   currentFolder?: string;
   currentNote?: string | null;
   transcripts?: TranscriptionEntry[];
   totalTokens?: number;
-  manualApiKey?: string;
-  googleSearchEngineId?: string;
+  chatHistory?: string[];
 }
 
 export interface VoiceAssistantCallbacks {
@@ -118,6 +128,52 @@ export interface VoiceAssistantCallbacks {
   onUsageUpdate: (usage: UsageMetadata) => void;
   onVolume: (volume: number) => void;
   onArchiveConversation?: () => Promise<void>;
+}
+
+export interface ToolCallbacks {
+  onLog: (message: string, type: LogEntry['type'], duration?: number, errorDetails?: LogEntry['errorDetails']) => void;
+  onSystem: (text: string, toolData?: ToolData) => void;
+  onFileState: (folder: string, note: string | string[] | null) => void;
+  onStopSession?: () => void;
+  onArchiveConversation?: () => Promise<void>;
+}
+
+export interface ImageSearchResult {
+  url: string;
+  title: string;
+  description?: string;
+  image?: {
+    height?: number;
+    width?: number;
+    thumbnail?: string;
+    contextLink?: string;
+  };
+  source?: string;
+  query?: string;
+  originalQuery?: string;
+}
+
+export interface DownloadedImage {
+  filename: string;
+  type: string;
+  size: number;
+  filePath: string;
+}
+
+export interface DirectoryInfoItem {
+  path: string;
+  type?: 'directory' | 'file';
+  hasChildren?: boolean;
+}
+
+declare global {
+  interface Window {
+    hermesSettingsUpdate?: (settings: AppSettings) => void;
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
 }
 
 export interface VoiceAssistant {

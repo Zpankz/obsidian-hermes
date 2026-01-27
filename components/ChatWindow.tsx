@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { TranscriptionEntry } from '../types';
+import { TranscriptionEntry, ImageSearchResult } from '../types';
 import SystemMessage from './messages/SystemMessage';
 import UserMessage from './messages/UserMessage';
 import AiMessage from './messages/AiMessage';
@@ -10,16 +10,8 @@ interface ChatWindowProps {
   transcripts: TranscriptionEntry[];
   hasSavedConversation?: boolean;
   onRestoreConversation?: () => void;
-  onImageDownload?: (image: any, index: number) => void;
+  onImageDownload?: (image: ImageSearchResult, index: number) => void;
 }
-
-const getSystemMessageType = (text: string): 'error' | 'warning' | 'success' | 'info' => {
-  const lower = text.toLowerCase();
-  if (lower.includes('error') || lower.includes('missing') || lower.includes('failed')) return 'error';
-  if (lower.includes('warning') || lower.includes('caution')) return 'warning';
-  if (lower.includes('success') || lower.includes('complete') || lower.includes('saved')) return 'success';
-  return 'info';
-};
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversation, onRestoreConversation, onImageDownload }) => {
   const containerRef = useRef<HTMLDivElement>(null);

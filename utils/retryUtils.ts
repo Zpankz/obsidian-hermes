@@ -14,7 +14,7 @@ export async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
-      lastError = error as Error;
+      lastError = error instanceof Error ? error : new Error(String(error));
       
       if (attempt === options.maxRetries) {
         // Max retries reached, bail out

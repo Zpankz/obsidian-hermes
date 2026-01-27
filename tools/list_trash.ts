@@ -1,6 +1,19 @@
 import { Type } from '@google/genai';
 import { getObsidianApp } from '../utils/environment';
 import { loadAppSettings } from '../persistence/persistence';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getNumberArg = (args: ToolArgs, key: string, fallback: number): number => {
+  const value = args[key];
+  return typeof value === 'number' ? value : fallback;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'list_trash',
@@ -15,7 +28,7 @@ export const declaration = {
 
 export const instruction = `- list_trash: Use this to list files in the trash folder. Shows recently deleted files that can be restored.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = (args: ToolArgs, callbacks: ToolCallbacks): Promise<unknown> => {
   const app = getObsidianApp();
   
   if (!app || !app.vault) {
@@ -24,11 +37,11 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       filename: 'Trash',
       error: 'Obsidian vault not available'
     });
-    return { error: 'Obsidian vault not available' };
+    return Promise.resolve({ error: 'Obsidian vault not available' });
   }
 
-  const { limit = 20 } = args;
-  const maxLimit = Math.min(Math.max(1, parseInt(limit) || 20), 100);
+  const limit = getNumberArg(args, 'limit', 20);
+  const maxLimit = Math.min(Math.max(1, Math.floor(limit) || 20), 100);
 
   try {
     callbacks.onSystem('Scanning trash folder...', {
@@ -38,7 +51,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
     });
 
     // Get current settings to access chatHistoryFolder
-    const currentSettings = loadAppSettings() as any;
+    const currentSettings = loadAppSettings();
     const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
     const trashFolderPath = `${chatHistoryFolder}/trash`;
 
@@ -51,7 +64,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
         status: 'success',
         files: []
       });
-      return { files: [], total: 0, message: 'Trash folder is empty' };
+      return Promise.resolve({ files: [], total: 0, message: 'Trash folder is empty' });
     }
 
     // Get all files in trash folder
@@ -92,26 +105,26 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       name: 'list_trash',
       filename: 'Trash',
       status: 'success',
-      files: formattedFiles,
-      total: totalFiles,
-      shown: formattedFiles.length
+      files: formattedFiles.map(file => `${file.originalName} (${file.formattedDeletionDate || 'unknown date'})`),
+      totalItems: totalFiles,
+      shownItems: formattedFiles.length
     });
 
-    return {
+    return Promise.resolve({
       files: formattedFiles,
       total: totalFiles,
       shown: formattedFiles.length,
       trashFolderPath
-    };
-
+    });
+ 
   } catch (error) {
     callbacks.onSystem('Error listing trash files', {
       name: 'list_trash',
       filename: 'Trash',
       status: 'error',
-      error: error.message || String(error)
+      error: getErrorMessage(error)
     });
-    return { error: error.message || String(error) };
+    return Promise.resolve({ error: getErrorMessage(error) });
   }
 };
 

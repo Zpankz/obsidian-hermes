@@ -38,9 +38,6 @@ const InputBar: React.FC<InputBarProps> = ({
     setChatHistory(history);
   }, []);
 
-  // Normalize volume for visualization (0-1)
-  const normalizedVolume = useMemo(() => Math.min(1, Math.max(0, volume * 10)), [volume]);
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault();

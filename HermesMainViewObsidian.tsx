@@ -1,14 +1,14 @@
 import React from 'react';
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { createRoot, Root } from 'react-dom/client';
-import App from './App';
+import { createRoot } from 'react-dom/client';
+import App, { AppHandle } from './App';
 import './styles.css';
 
 export const VIEW_TYPE_HERMES = 'hermes-voice-assistant';
 
 export class HermesMainViewObsidian extends ItemView {
-  private root: Root | null = null;
-  private appRef: React.RefObject<any> = React.createRef();
+  private root: ReturnType<typeof createRoot> | null = null;
+  private appRef: React.RefObject<AppHandle> = React.createRef();
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -19,14 +19,14 @@ export class HermesMainViewObsidian extends ItemView {
   }
 
   getDisplayText(): string {
-    return 'Hermes Voice Assistant';
+    return 'Hermes voice assistant';
   }
 
   getIcon(): string {
     return 'mic-vocal';
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): void {
     const container = this.containerEl.children[1];
     container.empty();
     const mount = container.createDiv({ cls: 'hermes-root obsidian' });
@@ -38,7 +38,7 @@ export class HermesMainViewObsidian extends ItemView {
     );
   }
 
-  async onClose(): Promise<void> {
+  onClose(): void {
     if (this.root) {
       this.root.unmount();
       this.root = null;
@@ -46,23 +46,23 @@ export class HermesMainViewObsidian extends ItemView {
   }
 
   // Expose start session method for command palette
-  async startSession() {
+  startSession(): void {
     if (this.appRef.current && this.appRef.current.startSession) {
-      this.appRef.current.startSession();
+      void this.appRef.current.startSession();
     }
   }
 
   // Expose stop session method for command palette
-  async stopSession() {
+  stopSession(): void {
     if (this.appRef.current && this.appRef.current.stopSession) {
-      this.appRef.current.stopSession();
+      void this.appRef.current.stopSession();
     }
   }
 
   // Expose toggle session method for command palette
-  async toggleSession() {
+  toggleSession(): void {
     if (this.appRef.current && this.appRef.current.toggleSession) {
-      this.appRef.current.toggleSession();
+      void this.appRef.current.toggleSession();
     }
   }
 }

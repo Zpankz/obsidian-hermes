@@ -1,5 +1,13 @@
 import { getObsidianApp } from '../utils/environment';
-import { ToolData } from '../types';
+import type { ToolCallbacks } from '../types';
+import { getObsidianApp } from '../utils/environment';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const declaration = {
   name: 'open_folder_in_system',
@@ -8,7 +16,7 @@ export const declaration = {
 
 export const instruction = `- open_folder_in_system: Use this to open a folder in the system file browser. Takes a folder path as argument (e.g., path: "documents/notes"). Use "." or empty path for vault root.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<unknown> => {
   const app = getObsidianApp();
   
   if (!app || !app.vault) {
@@ -21,7 +29,7 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
   }
 
   try {
-    const folderPath = args.path || args.folder || '.';
+    const folderPath = getStringArg(args, 'path') || getStringArg(args, 'folder') || '.';
     const vault = app.vault;
     
     let targetPath: string;
@@ -65,18 +73,9 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       // Use Obsidian's built-in openPath method
       await app.vault.adapter.openPath(targetPath);
     } else {
-      // Fallback: try system commands
-      const { exec } = require('child_process');
-      
-      if (process.platform === 'darwin') {
-        // macOS
-        exec(`open "${targetPath}"`);
-      } else if (process.platform === 'win32') {
-        // Windows
-        exec(`explorer "${targetPath}"`);
-      } else {
-        // Linux
-        exec(`xdg-open "${targetPath}"`);
+      const openWithDefaultApp = (app as { openWithDefaultApp?: (path: string) => Promise<void> | void }).openWithDefaultApp;
+      if (openWithDefaultApp) {
+        await openWithDefaultApp(targetPath);
       }
     }
 

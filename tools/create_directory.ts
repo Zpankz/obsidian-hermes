@@ -1,6 +1,13 @@
 import { Type } from '@google/genai';
-import { createDirectory } from '../services/mockFiles';
-import { getDirectoryFromPath } from '../utils/environment';
+import { createDirectory } from '../services/vaultOperations';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const declaration = {
   name: 'create_directory',
@@ -16,18 +23,22 @@ export const declaration = {
 
 export const instruction = `- create_directory: Use this to create new directories in the vault. All paths are relative to vault root. Parent directories are created automatically.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  await createDirectory(args.path);
-  const dirName = args.path.split('/').pop() || args.path;
-  const parentPath = args.path.replace(/[^\/]+$/, '');
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ status: string; path: string }> => {
+  const path = getStringArg(args, 'path');
+  if (!path) {
+    throw new Error('Missing directory path');
+  }
+  await createDirectory(path);
+  const dirName = path.split('/').pop() || path;
+  const parentPath = path.replace(/[^/]+$/, '');
   
-  callbacks.onSystem(`Created directory ${args.path}`, {
+  callbacks.onSystem(`Created directory ${path}`, {
     name: 'create_directory',
-    filename: args.path,
+    filename: path,
     displayFormat: `${parentPath}<span style="color: #10b981; font-weight: 600;">${dirName}</span>`,
     dropdown: false
   });
   // Don't automatically open the newly created directory
   // callbacks.onFileState(directoryPath, args.path);
-  return { status: 'created', path: args.path };
+  return { status: 'created', path };
 };

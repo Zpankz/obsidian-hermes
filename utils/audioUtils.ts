@@ -18,12 +18,12 @@ export function encode(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-export async function decodeAudioData(
+export function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
   sampleRate: number,
   numChannels: number,
-): Promise<AudioBuffer> {
+): AudioBuffer {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);

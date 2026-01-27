@@ -1,6 +1,14 @@
 import { Type } from '@google/genai';
-import { deleteFile } from '../services/mockFiles';
+import { deleteFile } from '../services/vaultOperations';
 import { getDirectoryFromPath } from '../utils/environment';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const declaration = {
   name: 'delete_file',
@@ -16,15 +24,19 @@ export const declaration = {
 
 export const instruction = `- delete_file: Use this to move a note to the trash folder (chat history/trash). Files in trash are hidden from directory listings but can be recovered manually. All paths are relative to vault root.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  await deleteFile(args.filename);
-  callbacks.onSystem(`Moved ${args.filename} to trash`, {
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ status: string; filename: string }> => {
+  const filename = getStringArg(args, 'filename');
+  if (!filename) {
+    throw new Error('Missing filename');
+  }
+  await deleteFile(filename);
+  callbacks.onSystem(`Moved ${filename} to trash`, {
     name: 'delete_file',
-    filename: args.filename,
-    oldContent: args.filename,
+    filename: filename,
+    oldContent: filename,
     newContent: ''
   });
-  const fileDirectory = getDirectoryFromPath(args.filename);
+  const fileDirectory = getDirectoryFromPath(filename);
   callbacks.onFileState(fileDirectory, null);
-  return { status: 'moved_to_trash', filename: args.filename };
+  return { status: 'moved_to_trash', filename: filename };
 };

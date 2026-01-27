@@ -1,4 +1,6 @@
 import type { Plugin } from 'obsidian';
+import type { Plugin } from 'obsidian';
+import type { AppSettings } from '../types';
 import * as localStoragePersistence from '../persistence/persistence-local-storage';
 import * as obsidianPersistence from '../persistence/persistence-obsidian';
 
@@ -27,28 +29,28 @@ export const loadFiles = async (): Promise<Record<string, string> | null> => {
   return localStoragePersistence.loadFiles();
 };
 
-export const saveAppSettings = async (settings: any): Promise<void> => {
+export const saveAppSettings = async (settings: AppSettings): Promise<void> => {
   if (useObsidian) {
     return obsidianPersistence.saveAppSettings(settings);
   }
   return localStoragePersistence.saveAppSettings(settings);
 };
 
-export const loadAppSettings = (): any | null => {
+export const loadAppSettings = (): AppSettings | null => {
   if (useObsidian) {
     return obsidianPersistence.loadAppSettings();
   }
   return localStoragePersistence.loadAppSettings();
 };
 
-export const loadAppSettingsAsync = async (): Promise<any | null> => {
+export const loadAppSettingsAsync = async (): Promise<AppSettings | null> => {
   if (useObsidian) {
     return obsidianPersistence.loadAppSettingsAsync();
   }
   return localStoragePersistence.loadAppSettingsAsync();
 };
 
-export const reloadAppSettings = async (): Promise<any | null> => {
+export const reloadAppSettings = async (): Promise<AppSettings | null> => {
   if (useObsidian) {
     return obsidianPersistence.reloadAppSettings();
   }

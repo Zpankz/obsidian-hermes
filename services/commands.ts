@@ -27,9 +27,32 @@ import * as list_trash from '../tools/list_trash';
 import * as restore_from_trash from '../tools/restore_from_trash';
 import * as get_obsidian_commands from '../tools/get_obsidian_commands';
 import * as run_obsidian_command from '../tools/run_obsidian_command';
-import { ToolData } from '../types';
+import { ToolData, ToolCallbacks, LogEntry } from '../types';
 
-const TOOLS: Record<string, any> = {
+type ToolArgs = Record<string, unknown>;
+
+type ToolDeclaration = {
+  name: string;
+  description?: string;
+  parameters?: unknown;
+};
+
+type ToolModule = {
+  declaration: ToolDeclaration;
+  execute: (args: ToolArgs, callbacks: ToolCallbacks) => Promise<unknown>;
+  instruction?: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null;
+};
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const TOOLS: Record<string, ToolModule> = {
   list_directory,
   list_vault_files,
   get_folder_tree,
@@ -64,16 +87,11 @@ export const COMMAND_DECLARATIONS = Object.values(TOOLS).map(t => t.declaration)
 
 export const executeCommand = async (
   name: string, 
-  args: any, 
-  callbacks: {
-    onLog: (msg: string, type: 'action' | 'error', duration?: number, errorDetails?: any) => void,
-    onSystem: (text: string, toolData?: ToolData) => void,
-    onFileState: (folder: string, note: string | string[] | null) => void,
-    onStopSession?: () => void,
-    onArchiveConversation?: () => Promise<void>
-  },
-  existingToolCallId?: string
-): Promise<any> => {
+  args: ToolArgs, 
+  callbacks: ToolCallbacks,
+  existingToolCallId?: string,
+  currentFolder?: string
+): Promise<unknown> => {
   const startTime = performance.now();
   const tool = TOOLS[name];
 
@@ -89,20 +107,20 @@ export const executeCommand = async (
   }
 
   // Use existing ID if provided, otherwise generate new one
-  const toolCallId = existingToolCallId || `tool-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+  const toolCallId = existingToolCallId || `tool-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   // Only create pending message if we generated a new ID (no existing one passed)
   if (!existingToolCallId) {
     callbacks.onSystem(`${name.replace(/_/g, ' ').toUpperCase()}...`, {
       id: toolCallId,
       name,
-      filename: args.filename || (name === 'internet_search' ? 'Web' : 'Registry'),
+      filename: getStringArg(args, 'filename') || (name === 'internet_search' ? 'Web' : 'Registry'),
       status: 'pending'
     });
   }
 
   // Wrapped callbacks to ensure tool call ID is preserved for updates
-  const wrappedCallbacks = {
+  const wrappedCallbacks: ToolCallbacks = {
     ...callbacks,
     onSystem: (text: string, toolData?: ToolData) => {
       callbacks.onSystem(text, { ...toolData, id: toolCallId } as ToolData);
@@ -110,7 +128,9 @@ export const executeCommand = async (
   };
 
   try {
-    const result = await tool.execute(args, wrappedCallbacks);
+    // Add currentFolder to args for tools that need it
+    const argsWithFolder = currentFolder ? { ...args, currentFolder } : args;
+    const result = await tool.execute(argsWithFolder, wrappedCallbacks);
     
     // Check if result exceeds threshold and needs truncation
     const truncatedResult = truncateLargeResult(name, result, wrappedCallbacks);
@@ -118,20 +138,22 @@ export const executeCommand = async (
     const duration = Math.round(performance.now() - startTime);
     callbacks.onLog(`Executed ${name} in ${duration}ms`, 'action', duration);
     return truncatedResult;
-  } catch (error: any) {
+  } catch (error) {
     const duration = Math.round(performance.now() - startTime);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     const errorDetails = {
       toolName: name,
       content: JSON.stringify(args, null, 2),
       contentSize: JSON.stringify(args).length,
-      stack: error.stack,
+      stack: errorStack,
       apiCall: 'tool_execution'
     };
-    callbacks.onLog(`Error in ${name}: ${error.message}`, 'error', duration, errorDetails);
-    wrappedCallbacks.onSystem(`Error: ${error.message}`, { 
+    callbacks.onLog(`Error in ${name}: ${errorMessage}`, 'error', duration, errorDetails);
+    wrappedCallbacks.onSystem(`Error: ${errorMessage}`, { 
       name, 
-      filename: args.filename || (name === 'internet_search' ? 'Web' : 'unknown'), 
-      error: error.message,
+      filename: getStringArg(args, 'filename') || (name === 'internet_search' ? 'Web' : 'unknown'), 
+      error: errorMessage,
       status: 'error'
     } as ToolData);
     throw error;
@@ -139,11 +161,11 @@ export const executeCommand = async (
 };
 
 // Helper function to truncate large results and add pagination info
-function truncateLargeResult(toolName: string, result: any, callbacks: any): any {
+function truncateLargeResult(toolName: string, result: unknown, callbacks: ToolCallbacks): unknown {
   const MAX_ITEMS = 100;
   
   // Handle different result structures
-  if (result?.files && Array.isArray(result.files)) {
+  if (isRecord(result) && Array.isArray(result.files)) {
     const totalFiles = result.files.length;
     
     if (totalFiles > MAX_ITEMS) {
@@ -155,13 +177,13 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       const truncationNotice = `\n\n=== RESULT TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalFiles} items (Page ${currentPage} of ${totalPages}).\n\nTo see more results, consider:\n- Using list_vault_files with pagination (limit/offset parameters)\n- Using search_keyword or search_regexp for targeted searches\n- Using get_folder_tree for folder structure only\n- Adding a filter parameter to narrow results\n\nCurrent results show first ${MAX_ITEMS} items only.`;
       
       // Log truncation info
-      console.log(`Tool result truncated: ${toolName}, ${MAX_ITEMS}/${totalFiles} items, page ${currentPage}/${totalPages}`);
+      console.debug(`Tool result truncated: ${toolName}, ${MAX_ITEMS}/${totalFiles} items, page ${currentPage}/${totalPages}`);
       
       // Update system message with truncation info
       callbacks.onSystem(`Registry Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFiles} items)`, {
         name: toolName,
         filename: 'Vault Root',
-        files: truncatedFiles,
+        files: truncatedFiles as string[],
         truncated: true,
         totalItems: totalFiles,
         shownItems: MAX_ITEMS,
@@ -172,7 +194,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       // Return truncated result with notice
       return {
         ...result,
-        files: truncatedFiles,
+        files: truncatedFiles as string[],
         truncated: true,
         totalItems: totalFiles,
         shownItems: MAX_ITEMS,
@@ -183,7 +205,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
     }
   }
   
-  if (result?.folders && Array.isArray(result.folders)) {
+  if (isRecord(result) && Array.isArray(result.folders)) {
     const totalFolders = result.folders.length;
     
     if (totalFolders > MAX_ITEMS) {
@@ -193,12 +215,12 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       const truncationNotice = `\n\n=== RESULT TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalFolders} folders (Page ${currentPage} of ${totalPages}).\n\nFor large folder structures, consider:\n- Using search_keyword to find specific folders\n- Using list_vault_files with filter parameter\n- Asking for a specific subfolder path\n\nCurrent results show first ${MAX_ITEMS} folders only.`;
       
-      console.log(`Folder structure truncated: ${toolName}, ${MAX_ITEMS}/${totalFolders} folders, page ${currentPage}/${totalPages}`);
+      console.debug(`Folder structure truncated: ${toolName}, ${MAX_ITEMS}/${totalFolders} folders, page ${currentPage}/${totalPages}`);
       
       callbacks.onSystem(`Folder Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalFolders} folders)`, {
         name: toolName,
         filename: 'Folder Tree',
-        files: truncatedFolders,
+        files: truncatedFolders as string[],
         truncated: true,
         totalItems: totalFolders,
         shownItems: MAX_ITEMS,
@@ -208,7 +230,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       return {
         ...result,
-        folders: truncatedFolders,
+        folders: truncatedFolders as string[],
         truncated: true,
         totalItems: totalFolders,
         shownItems: MAX_ITEMS,
@@ -220,9 +242,10 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
   }
   
   // Handle directory list (hierarchical structure)
-  if (result?.directories && Array.isArray(result.directories)) {
-    const flattenDirectories = (dirs: any[], count = 0): { items: any[], total: number } => {
-      let items: any[] = [];
+  if (isRecord(result) && Array.isArray(result.directories)) {
+    type DirectoryNode = { path: string; children?: DirectoryNode[] };
+    const flattenDirectories = (dirs: DirectoryNode[], count = 0): { items: { path: string; type: 'directory' | 'file'; hasChildren: boolean }[]; total: number } => {
+      let items: { path: string; type: 'directory' | 'file'; hasChildren: boolean }[] = [];
       let total = count;
       
       dirs.forEach(dir => {
@@ -239,7 +262,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       return { items, total };
     };
     
-    const { items: flatDirs, total: totalDirectories } = flattenDirectories(result.directories);
+      const { items: flatDirs, total: totalDirectories } = flattenDirectories(result.directories as DirectoryNode[]);
     
     if (totalDirectories > MAX_ITEMS) {
       const truncatedDirs = flatDirs.slice(0, MAX_ITEMS);
@@ -248,7 +271,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       const truncationNotice = `\n\n=== DIRECTORY LIST TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalDirectories} directories (Page ${currentPage} of ${totalPages}).\n\nFor large directory structures, consider:\n- Using search_keyword to find specific directories\n- Using list_vault_files with filter parameter\n- Asking for a specific directory path\n- Using get_folder_tree for a simple folder list\n\nCurrent results show first ${MAX_ITEMS} directories only.`;
       
-      console.log(`Directory list truncated: ${toolName}, ${MAX_ITEMS}/${totalDirectories} directories, page ${currentPage}/${totalPages}`);
+      console.debug(`Directory list truncated: ${toolName}, ${MAX_ITEMS}/${totalDirectories} directories, page ${currentPage}/${totalPages}`);
       
       callbacks.onSystem(`Directory Structure Scanned (TRUNCATED: ${MAX_ITEMS}/${totalDirectories} directories)`, {
         name: toolName,
@@ -276,7 +299,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
   }
   
   // Handle search results that might be large
-  if (result?.results && Array.isArray(result.results)) {
+  if (isRecord(result) && Array.isArray(result.results)) {
     const totalResults = result.results.length;
     
     if (totalResults > MAX_ITEMS) {
@@ -286,7 +309,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
       
       const truncationNotice = `\n\n=== SEARCH RESULTS TRUNCATED ===\nShowing ${MAX_ITEMS} of ${totalResults} results (Page ${currentPage} of ${totalPages}).\n\nFor more results, consider:\n- Refining your search terms\n- Using pagination parameters if available\n- Adding filters to narrow the search\n\nCurrent results show first ${MAX_ITEMS} matches only.`;
       
-      console.log(`Search results truncated: ${toolName}, ${MAX_ITEMS}/${totalResults} results, page ${currentPage}/${totalPages}`);
+      console.debug(`Search results truncated: ${toolName}, ${MAX_ITEMS}/${totalResults} results, page ${currentPage}/${totalPages}`);
       
       return {
         ...result,
@@ -306,7 +329,7 @@ function truncateLargeResult(toolName: string, result: any, callbacks: any): any
     const truncatedContent = result.substring(0, 50000);
     const truncationNotice = `\n\n=== CONTENT TRUNCATED ===\nShowing first 50,000 characters of ${result.length} total characters.\n\nFor large files, consider:\n- Reading specific sections with line numbers\n- Searching for specific content within the file\n- Using more targeted read operations\n\nCurrent content shows first 50,000 characters only.`;
     
-    console.log(`Content truncated: ${toolName}, 50000/${result.length} chars`);
+    console.debug(`Content truncated: ${toolName}, 50000/${result.length} chars`);
     
     return truncatedContent + truncationNotice;
   }

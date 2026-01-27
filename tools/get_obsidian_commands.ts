@@ -1,5 +1,18 @@
 import { Type } from '@google/genai';
 import { getObsidianApp } from '../utils/environment';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 export const declaration = {
   name: 'get_obsidian_commands',
@@ -17,8 +30,8 @@ export const declaration = {
 
 export const instruction = `- get_obsidian_commands: Use this to list all available Obsidian commands. You can optionally filter commands by name or description.`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  const { filter } = args;
+export const execute = (args: ToolArgs, callbacks: ToolCallbacks): Promise<unknown> => {
+  const filter = getStringArg(args, 'filter');
   
   try {
     const app = getObsidianApp();
@@ -27,8 +40,8 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
       throw new Error('Not running in Obsidian environment');
     }
 
-    const commands = app.commands.commands;
-    const commandList = Object.entries(commands).map(([id, command]: [string, any]) => ({
+    const commands = app.commands.commands as Record<string, { name: string; editor?: { name?: string } }>;
+    const commandList = Object.entries(commands).map(([id, command]) => ({
       id,
       name: command.name,
       description: command.editor?.name || command.name
@@ -50,19 +63,19 @@ export const execute = async (args: any, callbacks: any): Promise<any> => {
 
     const commandNames = filteredCommands.map(cmd => `${cmd.name} (${cmd.id})`);
     
-    callbacks.onSystem(`Obsidian Commands (${filteredCommands.length} total)`, {
+    callbacks.onSystem(`Obsidian commands (${filteredCommands.length} total)`, {
       name: 'get_obsidian_commands',
       filename: 'Command Registry',
       files: commandNames
     });
 
-    return {
+    return Promise.resolve({
       commands: filteredCommands,
       total: commandList.length,
       filtered: filteredCommands.length,
       filter: filter || null
-    };
-  } catch (error: any) {
-    throw new Error(`Failed to get Obsidian commands: ${error.message}`);
+    });
+  } catch (error) {
+    throw new Error(`Failed to get Obsidian commands: ${getErrorMessage(error)}`);
   }
 };

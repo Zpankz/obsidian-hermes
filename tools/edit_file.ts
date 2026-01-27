@@ -1,7 +1,20 @@
 
 import { Type } from '@google/genai';
-import { readFile, editFile } from '../services/mockFiles';
+import { readFile, editFile } from '../services/vaultOperations';
 import { getDirectoryFromPath, openFileInObsidian } from '../utils/environment';
+import type { ToolCallbacks } from '../types';
+
+type ToolArgs = Record<string, unknown>;
+
+const getStringArg = (args: ToolArgs, key: string): string | undefined => {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const getNumberArg = (args: ToolArgs, key: string): number | undefined => {
+  const value = args[key];
+  return typeof value === 'number' ? value : undefined;
+};
 
 export const declaration = {
   name: 'edit_file',
@@ -23,23 +36,32 @@ export const declaration = {
 
 export const instruction = `- edit_file: Use this for targeted modifications (appending, replacing lines, or removing lines).`;
 
-export const execute = async (args: any, callbacks: any): Promise<any> => {
-  const oldContent = await readFile(args.filename).catch(() => '');
-  await editFile(args.filename, args.operation, args.text, args.lineNumber);
-  const newContent = await readFile(args.filename);
+export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ status: string }> => {
+  const filename = getStringArg(args, 'filename');
+  const operation = getStringArg(args, 'operation') as 'append' | 'replace_line' | 'remove_line' | undefined;
+  const text = getStringArg(args, 'text');
+  const lineNumber = getNumberArg(args, 'lineNumber');
+
+  if (!filename || !operation) {
+    throw new Error('Missing filename or operation');
+  }
+
+  const oldContent = await readFile(filename).catch(() => '');
+  await editFile(filename, operation, text, lineNumber);
+  const newContent = await readFile(filename);
 
   // Open the edited file in Obsidian using smart tab management
-  await openFileInObsidian(args.filename);
+  await openFileInObsidian(filename);
 
-  callbacks.onSystem(`Edited ${args.filename}`, {
+  callbacks.onSystem(`Edited ${filename}`, {
     name: 'edit_file',
-    filename: args.filename,
+    filename: filename,
     oldContent,
     newContent,
-    additions: args.operation === 'append' ? 1 : (args.operation === 'replace_line' ? 1 : 0),
-    removals: args.operation === 'remove_line' ? 1 : (args.operation === 'replace_line' ? 1 : 0)
+    additions: operation === 'append' ? 1 : (operation === 'replace_line' ? 1 : 0),
+    removals: operation === 'remove_line' ? 1 : (operation === 'replace_line' ? 1 : 0)
   });
-  const fileDirectory = getDirectoryFromPath(args.filename);
-  callbacks.onFileState(fileDirectory, args.filename);
+  const fileDirectory = getDirectoryFromPath(filename);
+  callbacks.onFileState(fileDirectory, filename);
   return { status: 'edited' };
 };

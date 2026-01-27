@@ -1,5 +1,5 @@
 import React from 'react';
-import { TranscriptionEntry, LogEntry, UsageMetadata } from '../types';
+import { TranscriptionEntry, LogEntry, UsageMetadata, ImageSearchResult } from '../types';
 import ChatWindow from './ChatWindow';
 import KernelLog from './KernelLog';
 
@@ -12,7 +12,7 @@ interface MainWindowProps {
   usage?: UsageMetadata;
   onFlushLogs: () => void;
   fileCount: number;
-  onImageDownload?: (image: any, index: number) => void;
+  onImageDownload?: (image: ImageSearchResult, index: number) => void;
 }
 
 const MainWindow: React.FC<MainWindowProps> = ({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getFolderTree } from '../services/mockFiles';
+import { getFolderTree } from '../services/vaultOperations';
 
 interface FolderTreeProps {
   currentFolder: string;
@@ -10,7 +10,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ currentFolder, onFolderChange }
   const [folders, setFolders] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadFolders = async () => {
+    const loadFolders = () => {
       try {
         const folderList = getFolderTree();
         setFolders(folderList);
