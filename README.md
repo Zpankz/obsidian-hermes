@@ -222,10 +222,11 @@ It'd be good to have per folder instructions, right? PRs welcome.
 1. **Connection Issues**: Check network connectivity and API quota - be mindful of your quota! Have no clue when you'll start paying. They seem to be generous though. You might have to activate the billing account to work flawlessly for longer sessions.
 2. **Large Vaults**: Use `list_vault_files` with limits for better performance - I tried working around by doing smart chunking, but it's not a fully solved problem.
 
+Mobile support: I did not test. Will do.
+
 
 ## ⚖️ License
 See LICENSE
-
 
 
 ---

@@ -251,14 +251,7 @@ const App = forwardRef<any, {}>((props, ref) => {
         
         const message = await archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current);
         addLog(message, 'action');
-        // Clear the transcripts after successful archiving
-        setTranscripts([{
-          id: 'welcome-init',
-          role: 'system',
-          text: 'HERMES INITIALIZED.',
-          isComplete: true,
-          timestamp: Date.now()
-        }]);
+        // Note: Conversation remains in UI after archiving - no reset
       } catch (err: any) {
         const errorDetails = {
           toolName: 'archiveConversation',

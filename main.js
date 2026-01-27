@@ -43267,13 +43267,6 @@ History length: ${toArchive.length} entries`,
         const chatHistoryFolder = currentSettings?.chatHistoryFolder || "chat-history";
         const message = await archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current);
         addLog(message, "action");
-        setTranscripts([{
-          id: "welcome-init",
-          role: "system",
-          text: "HERMES INITIALIZED.",
-          isComplete: true,
-          timestamp: Date.now()
-        }]);
       } catch (err) {
         const errorDetails = {
           toolName: "archiveConversation",
