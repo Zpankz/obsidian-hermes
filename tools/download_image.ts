@@ -98,6 +98,7 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
     return downloadedImage;
     
   } catch (error) {
+    console.error('Download image error:', error);
     callbacks.onSystem('Error downloading image', {
       name: 'download_image',
       filename: title,

@@ -68,6 +68,7 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
       executedAt: new Date().toISOString()
     };
   } catch (error) {
+    console.error('Run Obsidian command error:', error);
     const errorMessage = getErrorMessage(error);
     callbacks.onSystem(`Command execution failed: ${errorMessage}`, {
       name: 'run_obsidian_command',

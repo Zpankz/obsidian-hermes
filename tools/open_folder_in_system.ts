@@ -96,6 +96,7 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
     };
     
   } catch (error) {
+    console.error('Open folder in system browser error:', error);
     callbacks.onSystem('Error opening folder in system browser', {
       name: 'open_folder_in_system',
       filename: 'System Browser',

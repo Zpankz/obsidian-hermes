@@ -144,6 +144,7 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
     };
 
   } catch (error) {
+    console.error('Restore from trash error:', error);
     callbacks.onSystem('Error restoring file from trash', {
       name: 'restore_from_trash',
       filename: trashFilename,

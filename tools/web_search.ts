@@ -25,6 +25,8 @@ export const declaration = {
 export const instruction = `- internet_search: Use this to fetch real-time data or information not contained within the local vault. Always use this tool for questions about current events, celebrities, weather, or general knowledge.`;
 
 export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise<{ text: string; groundingChunks: unknown[]; searchQuery: string }> => {
+  const startTime = performance.now();
+  
   // Get API key from settings or environment
   const settings = loadAppSettings();
   const apiKey = settings?.manualApiKey?.trim();
@@ -57,14 +59,20 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
 
   const text = response.text || "No results found.";
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  
+  const endTime = performance.now();
+  const duration = Math.round(endTime - startTime);
+  const responseLength = text.length;
 
-  // Update system message with results and grounding chunks
+  // Update system message with results, grounding chunks, and performance info
   callbacks.onSystem(`Internet search: ${query}`, {
     name: 'internet_search',
     filename: query,
     status: 'success',
     newContent: text,
-    groundingChunks: groundingChunks
+    groundingChunks: groundingChunks,
+    duration: duration,
+    responseLength: responseLength
   });
 
   return { 

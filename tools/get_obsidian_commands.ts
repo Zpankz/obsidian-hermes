@@ -76,6 +76,7 @@ export const execute = (args: ToolArgs, callbacks: ToolCallbacks): Promise<unkno
       filter: filter || null
     });
   } catch (error) {
+    console.error('Get Obsidian commands error:', error);
     throw new Error(`Failed to get Obsidian commands: ${getErrorMessage(error)}`);
   }
 };

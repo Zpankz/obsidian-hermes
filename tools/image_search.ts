@@ -176,6 +176,7 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
     };
     
   } catch (error) {
+    console.error('Image search error:', error);
     callbacks.onSystem('Error during image search and download', {
       name: 'image_search',
       filename: query,

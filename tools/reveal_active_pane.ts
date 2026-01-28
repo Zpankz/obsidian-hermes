@@ -105,6 +105,7 @@ export const execute = (_args: ToolArgs, callbacks: ToolCallbacks): Promise<unkn
     return Promise.resolve({ paneInfo });
     
   } catch (error) {
+    console.error('Reveal active pane error:', error);
     callbacks.onSystem('Error retrieving active pane information', {
       name: 'reveal_active_pane',
       filename: 'Active Pane',

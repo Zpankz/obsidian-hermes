@@ -118,6 +118,7 @@ export const execute = (args: ToolArgs, callbacks: ToolCallbacks): Promise<unkno
     });
  
   } catch (error) {
+    console.error('List trash error:', error);
     callbacks.onSystem('Error listing trash files', {
       name: 'list_trash',
       filename: 'Trash',
