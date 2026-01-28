@@ -14,7 +14,7 @@
     "build-standalone": "pnpm build-css && npx vite build",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "release": "npm version patch -m \"Release %s\" && git push origin main --follow-tags"
+    "release": "npm config set tag-version-prefix '' && npm version patch -m \"Release %s\" && git push origin main --follow-tags"
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
