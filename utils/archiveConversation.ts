@@ -1,26 +1,167 @@
 import { TranscriptionEntry, ToolData } from '../types';
 import { isObsidian } from './environment';
+import { toYaml } from './yamlUtils';
+import { listDirectory, readFile } from '../services/vaultOperations';
+import { loadAppSettings } from '../persistence/persistence';
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return String(error);
 };
 
+/**
+ * Gets the next available index for today's date in the chat history folder
+ * Reads existing files, finds today's notes, and returns YYYY-MM-DD-(II+1)
+ * where II is the highest existing index for today
+ * @param chatHistoryFolderParam - Optional folder path, defaults to settings or 'chat-history'
+ */
+export const getNextArchiveIndex = async (chatHistoryFolderParam?: string): Promise<string> => {
+  try {
+    // Get chat history folder from parameter or settings
+    const settings = loadAppSettings();
+    const chatHistoryFolder = chatHistoryFolderParam || settings?.chatHistoryFolder || 'chat-history';
+    
+    // Get all files in the vault
+    const allFiles = listDirectory();
+    
+    // Filter files in the chat history folder and match the pattern YYYY-MM-DD-II*.md
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayPattern = new RegExp(`^${chatHistoryFolder}/${today}-\\d{2}.*\\.md$`);
+    
+    const todayFiles = allFiles.filter(file => todayPattern.test(file));
+    
+    if (todayFiles.length === 0) {
+      // No files for today, start with index 01
+      return `${today}-01`;
+    }
+    
+    // Extract indices from filenames and find the highest
+    const indices = todayFiles.map(file => {
+      const match = file.match(new RegExp(`^${chatHistoryFolder}/${today}-(\\d{2})`));
+      return match ? parseInt(match[1]) : 0;
+    }).filter(index => index > 0);
+    
+    const highestIndex = Math.max(...indices);
+    const nextIndex = highestIndex + 1;
+    
+    // Pad with leading zero to ensure 2 digits
+    return `${today}-${nextIndex.toString().padStart(2, '0')}`;
+  } catch (error) {
+    console.warn('Failed to get next archive index:', error);
+    // Fallback to current date with index 01
+    const today = new Date().toISOString().split('T')[0];
+    return `${today}-01`;
+  }
+};
+
+interface ArchiveData {
+  summary: string;
+  suggestedFilename?: string;
+  conversation?: TranscriptionEntry[];
+}
+
+/**
+ * Convert file references to Obsidian wiki links
+ */
+const convertFileLinks = (text: string): string => {
+  return text
+    .replace(/(?:file:\s*|)([a-zA-Z0-9_/-]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))/g, '[[$1]]')
+    .replace(/"([a-zA-Z0-9_/-]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))"/g, '[[$1]]')
+    .replace(/`([a-zA-Z0-9_/-]+\.(md|txt|js|ts|jsx|tsx|json|yaml|yml|css|html|py|java|cpp|c|h|go|rs|php|rb|swift|kt|scala|sh|sql|xml|csv|pdf|doc|docx|png|jpg|jpeg|gif|svg))`/g, '[[$1]]');
+};
+
+/**
+ * STEP 2: Convert filtered history to markdown format
+ * Exported for use by historyPersistence.ts
+ */
+export const convertToMarkdown = (history: TranscriptionEntry[]): string => {
+  // Group consecutive entries by role to merge multi-line messages
+  const groupedEntries: TranscriptionEntry[][] = [];
+  let currentGroup: TranscriptionEntry[] = [];
+  let currentRole: string | null = null;
+  
+  history.forEach(entry => {
+    if (currentRole === null || entry.role !== currentRole) {
+      if (currentGroup.length > 0) {
+        groupedEntries.push(currentGroup);
+      }
+      currentGroup = [entry];
+      currentRole = entry.role;
+    } else {
+      currentGroup.push(entry);
+    }
+  });
+  
+  if (currentGroup.length > 0) {
+    groupedEntries.push(currentGroup);
+  }
+
+  return groupedEntries
+    .map((group) => {
+      const firstEntry = group[0];
+      let block = '';
+      
+      // Merge text from all entries in the group
+      const mergedText = group.map(e => e.text).join(' ').trim();
+      
+      if (firstEntry.role === 'user') {
+        block = convertFileLinks(mergedText);
+      } else if (firstEntry.role === 'model') {
+        block = `> ${convertFileLinks(mergedText).split('\n').join('\n> ')}`;
+      } else if (firstEntry.role === 'system') {
+        const systemBlocks = group.map(entry => {
+          if (entry.toolData?.name === 'rename_file') {
+            return `**RENAME** ~~${entry.toolData.oldContent}~~ -> [[${entry.toolData.newContent}]]`;
+          } else if (entry.toolData?.name === 'topic_switch') {
+            return `## ${entry.toolData.newContent}`;
+          } else {
+            let output = `\`\`\`system\n${entry.text}\n\`\`\``;
+            if (entry.toolData) {
+              const fileRef = `[[${entry.toolData.filename}]]`;
+              if (entry.toolData.oldContent !== undefined && entry.toolData.newContent !== undefined && entry.toolData.oldContent !== entry.toolData.newContent) {
+                const hasRemovedContent = entry.toolData.oldContent && 
+                  entry.toolData.oldContent.trim() !== '' && 
+                  !entry.toolData.newContent.includes(entry.toolData.oldContent);
+                
+                if (hasRemovedContent) {
+                  output += `\n\n${fileRef}\n\n--- Removed\n\`\`\`markdown\n${entry.toolData.oldContent || '(empty)'}\n\`\`\`\n\n+++ Added\n\`\`\`markdown\n${entry.toolData.newContent || '(empty)'}\n\`\`\``;
+                } else {
+                  output += `\n\n${fileRef}\n\`\`\`markdown\n${entry.toolData.newContent}\n\`\`\``;
+                }
+              } else if (entry.toolData.name === 'read_file' || entry.toolData.name === 'create_file') {
+                output += `\n\n${fileRef}\n\`\`\`markdown\n${entry.toolData.newContent}\n\`\`\``;
+              }
+            }
+            return output;
+          }
+        });
+        
+        block = systemBlocks.join('\n\n');
+      }
+      
+      return block;
+    })
+    .filter(block => block.trim() !== '')
+    .join('\n\n');
+};
+
 export const archiveConversation = async (
-  summary: unknown,
+  data: string | ArchiveData,
   history: TranscriptionEntry[],
   chatHistoryFolder?: string,
   textInterface?: { generateSummary: (text: string) => Promise<string> }
 ): Promise<string> => {
-  // Handle case where summary might be passed as JSON object
+  // Handle case where data might be passed as string or object
   let summaryText = '';
-  if (typeof summary === 'object' && summary !== null) {
-    const summaryRecord = summary as Record<string, unknown>;
-    const candidate = summaryRecord.summary ?? summaryRecord.title ?? summaryRecord;
-    summaryText = String(candidate);
+  let suggestedFilename = '';
+  
+  if (typeof data === 'object' && data !== null) {
+    summaryText = data.summary || '';
+    suggestedFilename = data.suggestedFilename || '';
   } else {
-    summaryText = String(summary ?? '');
+    summaryText = String(data || '');
   }
+  
   // Ensure summaryText is a string
   summaryText = summaryText || 'Conversation';
   
@@ -39,54 +180,25 @@ export const archiveConversation = async (
     return words.join('-');
   };
   
-  const keywords = generateKeywordsFromText(summaryText);
-  const now = new Date();
-  const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+  // Use suggested filename if available, otherwise extract from summary
+  const keywords = suggestedFilename || generateKeywordsFromText(summaryText);
   const safeKeywords = keywords.toLowerCase().replace(/[^a-z0-9-]/g, '-').substring(0, 40);
   const historyFolder = chatHistoryFolder || 'chat-history';
   
-  // Get order within day (incremental counter)
-  const getOrderWithinDay = (): string => {
-    const today = new Date().toISOString().split('T')[0];
-    const orderKey = `hermes-chat-order-${today}`;
-    
-    try {
-      let currentOrder = 0;
-      
-      if (isObsidian()) {
-        // In Obsidian, use a simple in-memory counter for this session
-        // This will reset to 0 each time the plugin loads, which is acceptable
-        if (!(globalThis as any)._hermesChatOrder) {
-          (globalThis as any)._hermesChatOrder = {};
-        }
-        currentOrder = (globalThis as any)._hermesChatOrder[today] || 0;
-        (globalThis as any)._hermesChatOrder[today] = currentOrder + 1;
-      } else {
-        // In standalone mode, use localStorage
-        currentOrder = parseInt(localStorage.getItem(orderKey) || '0');
-        const newOrder = currentOrder + 1;
-        localStorage.setItem(orderKey, newOrder.toString());
-      }
-      
-      return (currentOrder + 1).toString().padStart(2, '0');
-    } catch (error) {
-      // Fallback to simple timestamp if storage fails
-      console.warn('Failed to get order within day:', error);
-      return '01';
-    }
-  };
-  
-  const order = getOrderWithinDay();
-  const filename = `${historyFolder}/${dateStr}-${order}-${safeKeywords || 'conversation'}.md`;
+  // Get next available index for today's date
+  const archiveIndex = await getNextArchiveIndex();
+  const filename = `${historyFolder}/${archiveIndex}-${safeKeywords || 'conversation'}.md`;
 
   const filteredHistory = history.filter(t => {
     if (t.id === 'welcome-init') return false;
     if (t.role === 'model' && t.text.trim().toLowerCase().replace(/\./g, '') === 'done') return false;
+    if (t.toolData?.name === 'context') return false;
     return true;
   });
 
   // Calculate duration from first to last entry
   const timestamps = filteredHistory.map(t => t.timestamp).filter(t => t > 0);
+  const now = new Date();
   const startDate = timestamps.length > 0 ? new Date(timestamps[0]).toISOString() : now.toISOString();
   const endDate = timestamps.length > 0 ? new Date(timestamps[timestamps.length - 1]).toISOString() : now.toISOString();
   const duration = timestamps.length > 1 ? Math.round((timestamps[timestamps.length - 1] - timestamps[0]) / 1000) : 0;
@@ -203,7 +315,24 @@ export const archiveConversation = async (
         .join('\n');
       
       if (conversationText.trim()) {
-        aiSummary = await textInterface.generateSummary(conversationText);
+        const prompt = `Summarize this conversation as a YAML bulletpoint list. Use the format:
+- point one
+- point two
+- point three
+
+Conversation:
+${conversationText}`;
+        
+        aiSummary = await textInterface.generateSummary(prompt);
+        
+        // Convert to valid YAML if it's not already
+        if (aiSummary && !aiSummary.includes('- ')) {
+          // If AI returned plain text, convert to YAML list format
+          const points = aiSummary.split('.').filter(p => p.trim()).map(p => p.trim());
+          if (points.length > 1) {
+            aiSummary = toYaml(points.map(p => `- ${p}`)).trim();
+          }
+        }
       }
     } catch (error) {
       console.warn('Failed to generate AI summary:', getErrorMessage(error));
@@ -217,19 +346,16 @@ export const archiveConversation = async (
     // Ensure the chat history directory exists
     await createDirectory(historyFolder);
     
-    const frontmatter = `---
-title: ${summaryText.length > 50 ? summaryText.substring(0, 47) + '...' : summaryText}
-date: ${startDate}
-end_date: ${endDate}
-duration: ${duration}
-tags:
-  ${tagList}
-format: hermes-chat-archive
-summary: ${summaryText.replace(/"/g, '\\"')}
-${aiSummary ? `ai_summary: ${aiSummary.replace(/"/g, '\\"')}` : ''}
----
-
-`;
+    const frontmatter = `---\n${toYaml({
+      title: summaryText.length > 50 ? summaryText.substring(0, 47) + '...' : summaryText,
+      date: startDate,
+      end_date: endDate,
+      duration: duration,
+      tags: tagList.split('\n  ').filter(tag => tag.trim()),
+      format: 'hermes-chat-archive',
+      summary: summaryText,
+      ...(aiSummary && { ai_summary: aiSummary })
+    })}---\n\n`;
     
     await createFile(filename, `${frontmatter}${markdown}`);
     return `Segment archived to ${filename}`;

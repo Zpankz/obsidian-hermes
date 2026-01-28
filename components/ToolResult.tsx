@@ -305,7 +305,7 @@ const WebSearchView: React.FC<{ content: string, chunks: GroundingChunk[] }> = (
           <div className="grid grid-cols-1 gap-2">
             {chunks.slice(0, 10).map((chunk, i) => {
               const item = chunk.web || chunk.maps;
-              if (!item) return null;
+              if (!item || !item.uri) return null;
               return (
                 <a 
                   key={i} 
@@ -320,7 +320,7 @@ const WebSearchView: React.FC<{ content: string, chunks: GroundingChunk[] }> = (
                     </svg>
                   </div>
                   <div className="flex flex-col truncate">
-                    <span className="text-[11px] font-bold hermes-text-normal group-hover:hermes-text-accent transition-colors truncate">{item.title}</span>
+                    <span className="text-[11px] font-bold hermes-text-normal group-hover:hermes-text-accent transition-colors truncate">{item.title || 'Untitled'}</span>
                     <span className="text-[9px] hermes-text-muted truncate font-mono">{new URL(item.uri).hostname}</span>
                   </div>
                 </a>
@@ -484,10 +484,6 @@ const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownlo
 
       {isExpanded && !isPending && (
         <div className="hermes-border-t hermes-bg-tertiary max-h-[600px] overflow-y-auto custom-scrollbar">
-          {toolData.name === 'internet_search' && toolData.newContent && (
-            <WebSearchView content={toolData.newContent} chunks={toolData.groundingChunks || []} />
-          )}
-
           {toolData.name === 'image_search' && toolData.status === 'search_results' && toolData.searchResults && (
             <ImageSearchResultsView 
               searchResults={toolData.searchResults} 

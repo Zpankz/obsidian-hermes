@@ -1,5 +1,6 @@
 import { getObsidianApp } from '../utils/environment';
 import { requestUrl, type App } from 'obsidian';
+import { Type } from '@google/genai';
 import type { ToolCallbacks, DownloadedImage } from '../types';
 
 type ToolArgs = Record<string, unknown>;
@@ -23,13 +24,13 @@ export const declaration = {
   name: 'download_image',
   description: 'Download a specific image from a URL to the vault.',
   parameters: {
-    type: 'object' as const,
+    type: Type.OBJECT,
     properties: {
-      imageUrl: { type: 'string', description: 'The URL of the image to download.' },
-      title: { type: 'string', description: 'The title of the image for filename generation.' },
-      query: { type: 'string', description: 'The original search query for filename context.' },
-      index: { type: 'number', description: 'The index of the image in search results.' },
-      folder: { type: 'string', description: 'Target folder path (optional).' }
+      imageUrl: { type: Type.STRING, description: 'The URL of the image to download.' },
+      title: { type: Type.STRING, description: 'The title of the image for filename generation.' },
+      query: { type: Type.STRING, description: 'The original search query for filename context.' },
+      index: { type: Type.NUMBER, description: 'The index of the image in search results.' },
+      folder: { type: Type.STRING, description: 'Target folder path (optional).' }
     },
     required: ['imageUrl', 'title', 'query']
   }

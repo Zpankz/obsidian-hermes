@@ -25,7 +25,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversati
   const handleScroll = () => {
     if (!containerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 500;
     setShouldAutoScroll(isAtBottom);
   };
 

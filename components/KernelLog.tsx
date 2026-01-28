@@ -121,9 +121,7 @@ const KernelLog: React.FC<KernelLogProps> = ({ isVisible, logs, usage, onFlush, 
                         <div className="text-[8px] font-mono p-1 rounded max-h-16 overflow-y-auto" style={{ color: 'var(--hermes-error, #ef4444)', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
                           <div className="font-bold mb-1" style={{ color: 'var(--hermes-error, #ef4444)' }}>Content Preview:</div>
                           <div className="whitespace-pre-wrap break-all">
-                            {log.errorDetails.content.length > 200 
-                              ? log.errorDetails.content.substring(0, 200) + '...' 
-                              : log.errorDetails.content}
+                            {log.errorDetails.content}
                           </div>
                         </div>
                       )}

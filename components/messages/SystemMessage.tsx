@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import React, { useState, useEffect } from 'react';
 import { ToolData, SearchResult, SearchMatch, ImageSearchResult, DownloadedImage, GroundingChunk, DirectoryInfoItem } from '../../types';
 import MarkdownRenderer from '../MarkdownRenderer';
 import { COMMAND_DECLARATIONS } from '../../services/commands';
@@ -246,11 +245,231 @@ const specialCases: Record<string, string> = {
   'delete_file': 'DELETE',
   'image_search': 'IMAGE',
   'download_image': 'SAVE',
+  'context': 'CONTEXT',
   'error': 'ERROR'
 };
 
 const getActionLabel = (name: string) => {
   return specialCases[name] || toolLabels[name] || 'ACTION';
+};
+
+// ContextDropdownView component for displaying context information
+const ContextDropdownView: React.FC<{ contextInfo: any }> = ({ contextInfo }) => {
+  const [activeSection, setActiveSection] = useState<string>('overview');
+  
+  const sections = [
+    { id: 'overview', label: '📍 Overview', icon: '📍' },
+    { id: 'workspace', label: '🖥️ Workspace', icon: '🖥️' },
+    { id: 'recent', label: '⏰ Recent Files', icon: '⏰' },
+    { id: 'chat', label: '💬 Chat Activity', icon: '💬' },
+    { id: 'directory', label: '📂 Directory', icon: '📂' },
+    { id: 'tags', label: '🏷️ Tags', icon: '🏷️' },
+    { id: 'vault', label: '📊 Vault Stats', icon: '📊' }
+  ];
+
+  const renderSectionContent = () => {
+    switch (activeSection) {
+      case 'overview':
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3 p-3 bg-gray-800/20 rounded-lg">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <span className="text-blue-400">📄</span>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-medium text-gray-200">Current Note</div>
+                <div className="text-[9px] text-gray-400 font-mono truncate">
+                  {contextInfo.currentNote || 'No active note'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3 p-3 bg-gray-800/20 rounded-lg">
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <span className="text-green-400">📁</span>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-medium text-gray-200">Current Folder</div>
+                <div className="text-[9px] text-gray-400 font-mono truncate">
+                  {contextInfo.currentFolder || '/'}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'workspace':
+        return (
+          <div className="space-y-3">
+            <div className="p-3 bg-gray-800/20 rounded-lg">
+              <div className="text-xs font-medium text-gray-200 mb-2">Open Files ({contextInfo.workspace?.totalOpenFiles || 0})</div>
+              <div className="space-y-1">
+                {contextInfo.workspace?.openedFiles?.slice(0, 8).map((file: string, index: number) => (
+                  <div key={index} className="flex items-center space-x-2 text-[9px] text-gray-400 font-mono truncate">
+                    <span className="text-blue-400">📄</span>
+                    <span>{file}</span>
+                  </div>
+                ))}
+                {(contextInfo.workspace?.openedFiles?.length || 0) > 8 && (
+                  <div className="text-[8px] text-gray-500 italic">
+                    ... and {(contextInfo.workspace?.openedFiles?.length || 0) - 8} more files
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'recent':
+        return (
+          <div className="space-y-2">
+            {contextInfo.recentFiles?.slice(0, 10).map((file: any, index: number) => (
+              <div key={index} className="flex items-center space-x-3 p-2 bg-gray-800/20 rounded-lg hover:bg-gray-700/20 transition-colors">
+                <div className="w-6 h-6 rounded bg-orange-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-orange-400 text-xs">📄</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-gray-200 truncate">{file.name}</div>
+                  <div className="text-[8px] text-gray-500">{file.modified} • {file.size}</div>
+                </div>
+              </div>
+            ))}
+            {(contextInfo.recentFiles?.length || 0) > 10 && (
+              <div className="text-[8px] text-gray-500 italic text-center pt-2">
+                ... and {(contextInfo.recentFiles?.length || 0) - 10} more recent files
+              </div>
+            )}
+          </div>
+        );
+
+      case 'chat':
+        return (
+          <div className="space-y-3">
+            <div className="p-3 bg-gray-800/20 rounded-lg">
+              <div className="text-xs font-medium text-gray-200 mb-2">Recent Messages ({contextInfo.chatHistory?.totalMessages || 0})</div>
+              <div className="space-y-2">
+                {contextInfo.chatHistory?.messages?.slice(0, 5).map((msg: string, index: number) => (
+                  <div key={index} className="text-[9px] text-gray-400 italic bg-gray-900/30 p-2 rounded">
+                    "{msg.length > 80 ? msg.substring(0, 80) + '...' : msg}"
+                  </div>
+                ))}
+                {(contextInfo.chatHistory?.messages?.length || 0) > 5 && (
+                  <div className="text-[8px] text-gray-500 italic">
+                    ... and {(contextInfo.chatHistory?.messages?.length || 0) - 5} more messages
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-3 bg-gray-800/20 rounded-lg">
+              <div className="text-xs font-medium text-gray-200">Archived Conversations</div>
+              <div className="text-[9px] text-gray-400">{contextInfo.totalArchived || 0} conversations archived</div>
+            </div>
+          </div>
+        );
+
+      case 'directory':
+        return (
+          <div className="space-y-2">
+            {contextInfo.directoryStructure?.slice(0, 20).map((folder: string, index: number) => (
+              <div key={index} className="flex items-center space-x-2 text-[9px] text-gray-400 font-mono p-1 hover:bg-gray-700/20 rounded">
+                <span className="text-yellow-400">📁</span>
+                <span>{folder}</span>
+              </div>
+            ))}
+            {(contextInfo.directoryStructure?.length || 0) > 20 && (
+              <div className="text-[8px] text-gray-500 italic text-center pt-2">
+                ... and {(contextInfo.directoryStructure?.length || 0) - 20} more folders
+              </div>
+            )}
+          </div>
+        );
+
+      case 'tags':
+        return (
+          <div className="space-y-2">
+            <div className="p-3 bg-gray-800/20 rounded-lg">
+              <div className="text-xs font-medium text-gray-200 mb-2">Most Used Tags ({contextInfo.tags?.totalTags || 0})</div>
+              <div className="flex flex-wrap gap-2">
+                {contextInfo.tags?.mostUsed?.slice(0, 15).map((tagInfo: any, index: number) => (
+                  <div key={index} className="inline-flex items-center space-x-1 bg-purple-500/10 px-2 py-1 rounded-full">
+                    <span className="text-[8px] text-purple-400 font-medium">{tagInfo.tag}</span>
+                    <span className="text-[7px] text-purple-500">({tagInfo.count})</span>
+                  </div>
+                ))}
+              </div>
+              {(contextInfo.tags?.mostUsed?.length || 0) > 15 && (
+                <div className="text-[8px] text-gray-500 italic mt-2">
+                  ... and {(contextInfo.tags?.mostUsed?.length || 0) - 15} more tags
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'vault':
+        return (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="p-3 bg-gray-800/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-blue-400">📄</span>
+                    <span className="text-xs font-medium text-gray-200">Total Files</span>
+                  </div>
+                  <span className="text-xs font-bold text-blue-400">{contextInfo.vault?.totalFiles || 0}</span>
+                </div>
+              </div>
+              <div className="p-3 bg-gray-800/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-400">📁</span>
+                    <span className="text-xs font-medium text-gray-200">Total Folders</span>
+                  </div>
+                  <span className="text-xs font-bold text-green-400">{contextInfo.vault?.totalFolders || 0}</span>
+                </div>
+              </div>
+              <div className="p-3 bg-gray-800/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-purple-400">💾</span>
+                    <span className="text-xs font-medium text-gray-200">Total Size</span>
+                  </div>
+                  <span className="text-xs font-bold text-purple-400">{contextInfo.vault?.totalSize || '0 B'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Section Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-700 pb-3">
+        {sections.map((section) => (
+          <button
+            key={section.id}
+            onClick={() => setActiveSection(section.id)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeSection === section.id
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-gray-800/20 text-gray-400 hover:bg-gray-700/20 border border-gray-700/30'
+            }`}
+          >
+            {section.icon} {section.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Section Content */}
+      <div className="min-h-[200px] max-h-[350px] overflow-y-auto">
+        {renderSectionContent()}
+      </div>
+    </div>
+  );
 };
 
 // Import WebSearchView from ToolResult
@@ -493,13 +712,44 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
       </div>
 
       {isExpanded && !isPending && hasExpandableContent && (
-        <div 
-          className="max-h-[400px] overflow-y-auto custom-scrollbar"
-          style={{ 
-            backgroundColor: styles.contentBg,
-            borderTop: styles.borderColor
-          }}
-        >
+        <>
+          {/* Performance Information - Above scrollable content */}
+          {toolData?.name === 'internet_search' && (toolData.duration !== undefined || toolData.responseLength !== undefined) && (
+            <div 
+              className="flex items-center justify-between px-4 py-2"
+              style={{ 
+                backgroundColor: styles.contentBg,
+                borderTop: styles.borderColor
+              }}
+            >
+              <div className="flex items-center space-x-4 text-[9px]" style={{ color: styles.mutedColor }}>
+                {toolData.duration !== undefined && (
+                  <div className="flex items-center space-x-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{toolData.duration}ms</span>
+                  </div>
+                )}
+                {toolData.responseLength !== undefined && (
+                  <div className="flex items-center space-x-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>{toolData.responseLength.toLocaleString()} chars</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div 
+            className="max-h-[400px] overflow-y-auto custom-scrollbar"
+            style={{ 
+              backgroundColor: styles.contentBg,
+              borderTop: toolData?.name === 'internet_search' && (toolData.duration !== undefined || toolData.responseLength !== undefined) ? 'none' : styles.borderColor
+            }}
+          >
           {/* Directory listing - render content directly without nesting ToolResult */}
           {toolData?.name === 'list_directory' && toolData?.files ? (
             <div className="p-4 font-mono text-[10px]">
@@ -602,6 +852,8 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
               totalFound={toolData.totalFound || 0}
               onImageDownload={onImageDownload}
             />
+          ) : toolData?.name === 'context' && toolData?.contextInfo ? (
+            <ContextDropdownView contextInfo={toolData.contextInfo} />
           ) : toolData?.name === 'internet_search' ? (
             <div className="p-2">
               <WebSearchView content={toolData.newContent || ''} chunks={toolData.groundingChunks || []} />
@@ -641,6 +893,7 @@ const SystemMessage: React.FC<SystemMessageProps> = ({ children, toolData, isLas
             </>
           )}
         </div>
+        </>
       )}
     </div>
   );

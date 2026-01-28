@@ -27,6 +27,7 @@ import * as list_trash from '../tools/list_trash';
 import * as restore_from_trash from '../tools/restore_from_trash';
 import * as get_obsidian_commands from '../tools/get_obsidian_commands';
 import * as run_obsidian_command from '../tools/run_obsidian_command';
+import * as context from '../tools/context';
 import { ToolData, ToolCallbacks, LogEntry } from '../types';
 
 type ToolArgs = Record<string, unknown>;
@@ -80,7 +81,8 @@ const TOOLS: Record<string, ToolModule> = {
   list_trash,
   restore_from_trash,
   get_obsidian_commands,
-  run_obsidian_command
+  run_obsidian_command,
+  context
 };
 
 export const COMMAND_DECLARATIONS = Object.values(TOOLS).map(t => t.declaration);
@@ -139,6 +141,7 @@ export const executeCommand = async (
     callbacks.onLog(`Executed ${name} in ${duration}ms`, 'action', duration);
     return truncatedResult;
   } catch (error) {
+    console.error('Command execution error:', error);
     const duration = Math.round(performance.now() - startTime);
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;

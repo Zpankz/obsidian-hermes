@@ -1,10 +1,16 @@
 import type { TAbstractFile, App } from 'obsidian';
+import { normalizePath } from 'obsidian';
 import { loadAppSettings } from '../persistence/persistence';
 import { getObsidianApp } from '../utils/environment';
 import { SearchResult, SearchMatch } from '../types';
 
 const isFolder = (file: TAbstractFile): file is TAbstractFile & { children: TAbstractFile[] } => {
   return 'children' in file;
+};
+
+// Normalize folder paths by removing trailing slashes
+const normalizeFolderPath = (path: string): string => {
+  return path.endsWith('/') ? path.slice(0, -1) : path;
 };
 
 const getApp = (): App => {
@@ -77,9 +83,50 @@ export const getVaultFiles = (options: {
   return Promise.resolve({ files: paginated, total });
 };
 
-export const getFolderTree = (): string[] => {
+export const getFolderTree = (folderPath?: string): string[] => {
   const app = getApp();
   const allFiles = app.vault.getAllLoadedFiles();
+  
+  // If folderPath is provided, filter files in that specific folder
+  if (folderPath) {
+    // Normalize path by removing trailing slashes
+    const normalizedPath = normalizeFolderPath(folderPath);
+    
+    // Try the normalized path first
+    let targetFolder = app.vault.getAbstractFileByPath(normalizePath(normalizedPath));
+    
+    // If not found, try the original path (in case it's a file)
+    if (!targetFolder) {
+      targetFolder = app.vault.getAbstractFileByPath(normalizePath(folderPath));
+    }
+    
+    // If still not found, try adding a trailing slash (some edge cases)
+    if (!targetFolder && !folderPath.endsWith('/')) {
+      targetFolder = app.vault.getAbstractFileByPath(normalizePath(folderPath + '/'));
+    }
+    
+    if (!targetFolder || !isFolder(targetFolder)) {
+      // Provide more detailed error message for debugging
+      const debugInfo = [
+        `Original path: "${folderPath}"`,
+        `Normalized path: "${normalizedPath}"`,
+        `With trailing slash: "${folderPath + '/'}"`
+      ].join(', ');
+      throw new Error(`Folder not found: ${folderPath}. Attempted: ${debugInfo}`);
+    }
+    
+    // Get all files (not just folders) in the specified folder
+    return allFiles
+      .filter((file) => {
+        // Include files that are directly in the specified folder or its subfolders
+        const basePath = normalizedPath || folderPath;
+        return file.path.startsWith(basePath + '/') || file.path === basePath;
+      })
+      .map((file) => file.path)
+      .sort();
+  }
+  
+  // Original behavior: return all folders
   return allFiles
     .filter((file) => isFolder(file) && file.path !== 'chat history/trash')
     .map((file) => file.path)
@@ -98,7 +145,7 @@ export const getDirectoryList = (): DirectoryNode[] => {
 
 export const readFile = async (filename: string): Promise<string> => {
   const app = getApp();
-  const file = app.vault.getAbstractFileByPath(filename);
+  const file = app.vault.getAbstractFileByPath(normalizePath(filename));
   if (!file) throw new Error(`File not found in vault: ${filename}`);
   return await app.vault.read(file as any);
 };
@@ -121,22 +168,23 @@ export const createBinaryFile = async (filename: string, data: ArrayBuffer | Uin
 
 export const createFile = async (filename: string, content: string): Promise<string> => {
   const app = getApp();
+  const normalizedFilename = normalizePath(filename);
   
-  const dirPath = filename.substring(0, filename.lastIndexOf('/'));
+  const dirPath = normalizedFilename.substring(0, normalizedFilename.lastIndexOf('/'));
   if (dirPath && dirPath.length > 0) {
-    const folder = app.vault.getAbstractFileByPath(dirPath);
+    const folder = app.vault.getAbstractFileByPath(normalizePath(dirPath));
     if (!folder) {
       await app.vault.createFolder(dirPath);
     }
   }
   
-  await app.vault.create(filename, content);
+  await app.vault.create(normalizedFilename, content);
   return `Created ${filename} in vault`;
 };
 
 export const updateFile = async (filename: string, content: string): Promise<string> => {
   const app = getApp();
-  const file = app.vault.getAbstractFileByPath(filename);
+  const file = app.vault.getAbstractFileByPath(normalizePath(filename));
   if (!file) throw new Error(`File not found: ${filename}`);
   await app.vault.modify(file as any, content);
   return `Updated ${filename} in vault`;
@@ -144,21 +192,23 @@ export const updateFile = async (filename: string, content: string): Promise<str
 
 export const renameFile = async (oldFilename: string, newFilename: string): Promise<string> => {
   const app = getApp();
-  const file = app.vault.getAbstractFileByPath(oldFilename);
+  const file = app.vault.getAbstractFileByPath(normalizePath(oldFilename));
   if (!file) throw new Error(`File not found: ${oldFilename}`);
-  await app.fileManager.renameFile(file, newFilename);
+  await app.fileManager.renameFile(file, normalizePath(newFilename));
   return `Renamed ${oldFilename} to ${newFilename} in vault`;
 };
 
 export const moveFile = async (sourcePath: string, targetPath: string): Promise<string> => {
   const app = getApp();
-  const file = app.vault.getAbstractFileByPath(sourcePath);
+  const normalizedSource = normalizePath(sourcePath);
+  const normalizedTarget = normalizePath(targetPath);
+  const file = app.vault.getAbstractFileByPath(normalizedSource);
   if (!file) throw new Error(`Source file not found: ${sourcePath}`);
   
-  const targetFile = app.vault.getAbstractFileByPath(targetPath);
+  const targetFile = app.vault.getAbstractFileByPath(normalizedTarget);
   if (targetFile) throw new Error(`Target file already exists: ${targetPath}`);
   
-  await app.fileManager.renameFile(file, targetPath);
+  await app.fileManager.renameFile(file, normalizedTarget);
   return `Moved ${sourcePath} to ${targetPath} in vault`;
 };
 
@@ -189,34 +239,35 @@ export const editFile = async (filename: string, operation: string, text?: strin
 
 export const createDirectory = async (path: string): Promise<string> => {
   const app = getApp();
-  const folder = app.vault.getAbstractFileByPath(path);
+  const normalizedPath = normalizePath(normalizeFolderPath(path));
+  const folder = app.vault.getAbstractFileByPath(normalizedPath);
   if (folder) {
-    return `Directory ${path} already exists`;
+    return `Directory ${normalizedPath} already exists`;
   }
   
   // Ensure parent directories exist
-  const parentPath = path.substring(0, path.lastIndexOf('/'));
+  const parentPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
   if (parentPath && parentPath.length > 0) {
-    const parentFolder = app.vault.getAbstractFileByPath(parentPath);
+    const parentFolder = app.vault.getAbstractFileByPath(normalizePath(parentPath));
     if (!parentFolder) {
       await app.vault.createFolder(parentPath);
     }
   }
   
-  await app.vault.createFolder(path);
-  return `Created directory ${path} in vault`;
+  await app.vault.createFolder(normalizedPath);
+  return `Created directory ${normalizedPath} in vault`;
 };
 
 export const deleteFile = async (filename: string): Promise<string> => {
   const app = getApp();
-  const file = app.vault.getAbstractFileByPath(filename);
+  const file = app.vault.getAbstractFileByPath(normalizePath(filename));
   if (!file) throw new Error(`File not found: ${filename}`);
   
   const currentSettings = loadAppSettings();
   const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
   
   const trashFolderPath = `${chatHistoryFolder}/trash`;
-  const trashFolder = app.vault.getAbstractFileByPath(trashFolderPath);
+  const trashFolder = app.vault.getAbstractFileByPath(normalizePath(trashFolderPath));
   if (!trashFolder) {
     await app.vault.createFolder(trashFolderPath);
   }

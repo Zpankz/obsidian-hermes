@@ -187,9 +187,7 @@ export default class HermesPlugin extends Plugin {
     }
 
     async saveSettings() {
-        await this.saveData(this.settings);
-        
-        // Also save to persistence layer for consistency
+        // Use only the persistence layer to avoid race conditions
         await saveAppSettings(this.settings);
         
         // Notify React app about settings change

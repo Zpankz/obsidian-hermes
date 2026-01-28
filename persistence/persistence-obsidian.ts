@@ -1,10 +1,43 @@
 import type { Plugin } from 'obsidian';
-
-import type { Plugin } from 'obsidian';
-import type { AppSettings } from '../types';
+import type { AppSettings, ArchivedConversation } from '../types';
 
 let obsidianPlugin: Plugin | null = null;
 let cachedSettings: AppSettings | null = null;
+let cachedConversations: ArchivedConversation[] | null = null;
+
+// Mutex lock to prevent concurrent writes
+let persistLock: Promise<void> = Promise.resolve();
+
+/**
+ * Central persistence function that ensures atomic read-modify-write.
+ * All writes go through this to prevent race conditions.
+ * @param updater Function that receives current data and returns updated data
+ */
+export const persistData = async (updater: (currentData: Record<string, unknown>) => Record<string, unknown>): Promise<void> => {
+  // Chain onto the existing lock to serialize all writes
+  const previousLock = persistLock;
+  let releaseLock: () => void;
+  persistLock = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+
+  try {
+    await previousLock;
+    
+    if (!obsidianPlugin) {
+      console.warn('persistData called without obsidianPlugin');
+      return;
+    }
+
+    const currentData = (await obsidianPlugin.loadData()) || {};
+    const nextData = updater(currentData);
+    await obsidianPlugin.saveData(nextData);
+  } catch (error) {
+    console.error('Failed to persist data', error);
+  } finally {
+    releaseLock!();
+  }
+};
 
 export const setObsidianPlugin = (plugin: Plugin) => {
   obsidianPlugin = plugin;
@@ -26,16 +59,13 @@ export const loadFiles = (): Promise<Record<string, string> | null> => {
 };
 
 export const saveAppSettings = async (settings: AppSettings): Promise<void> => {
-  try {
-    const toSave = { ...settings };
-    cachedSettings = toSave;
-    
-    if (obsidianPlugin) {
-      await obsidianPlugin.saveData(toSave);
-    }
-  } catch (error) {
-    console.error('Failed to save settings', error);
-  }
+  const toSave = { ...settings };
+  cachedSettings = toSave;
+  
+  await persistData((currentData) => ({
+    ...currentData,
+    ...toSave
+  }));
 };
 
 export const loadAppSettings = (): AppSettings | null => {
@@ -72,15 +102,21 @@ export const reloadAppSettings = async (): Promise<AppSettings | null> => {
 };
 
 export const saveChatHistory = async (history: string[]): Promise<void> => {
-  try {
-    if (obsidianPlugin) {
-      const currentData = (await obsidianPlugin.loadData()) || {};
-      const nextData = { ...currentData, chatHistory: history };
-      await obsidianPlugin.saveData(nextData);
-    }
-  } catch (error) {
-    console.error('Failed to save chat history', error);
-  }
+  // Filter out AI tags like <noise> and <ctrl46>
+  const aiTagBlacklist = ['<noise>', '<ctrl46>'];
+  const filteredHistory = history.map(message => {
+    let filteredMessage = message;
+    aiTagBlacklist.forEach(tag => {
+      const regex = new RegExp(tag, 'gi');
+      filteredMessage = filteredMessage.replace(regex, '');
+    });
+    return filteredMessage.trim();
+  });
+  
+  await persistData((currentData) => ({
+    ...currentData,
+    chatHistory: filteredHistory
+  }));
 };
 
 export const loadChatHistory = (): string[] => {
@@ -88,4 +124,44 @@ export const loadChatHistory = (): string[] => {
     return cachedSettings.chatHistory;
   }
   return [];
+};
+
+export const saveArchivedConversations = async (conversations: ArchivedConversation[]): Promise<void> => {
+  cachedConversations = conversations;
+  
+  await persistData((currentData) => ({
+    ...currentData,
+    archivedConversations: conversations
+  }));
+};
+
+export const loadArchivedConversations = async (): Promise<ArchivedConversation[]> => {
+  if (cachedConversations) {
+    return cachedConversations;
+  }
+  
+  if (obsidianPlugin) {
+    try {
+      const data = await obsidianPlugin.loadData();
+      cachedConversations = data?.archivedConversations || [];
+      return cachedConversations;
+    } catch (error) {
+      console.error('Failed to load archived conversations', error);
+      return [];
+    }
+  }
+  
+  return [];
+};
+
+export const addArchivedConversation = async (conversation: ArchivedConversation): Promise<void> => {
+  const existing = await loadArchivedConversations();
+  const updated = [...existing, conversation];
+  await saveArchivedConversations(updated);
+};
+
+export const deleteArchivedConversation = async (key: string): Promise<void> => {
+  const existing = await loadArchivedConversations();
+  const updated = existing.filter(conv => conv.key !== key);
+  await saveArchivedConversations(updated);
 };

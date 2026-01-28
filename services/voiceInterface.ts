@@ -584,12 +584,12 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
   }
 
   stop(): void {
-    // Archive conversation before stopping (only once)
+    // [HISTORY-PERSIST] Archive conversation before stopping (only once)
     if (this.callbacks.onArchiveConversation && !this.hasArchived) {
       this.hasArchived = true;
-      console.warn('SHOULD SAVE HISTORY: voiceInterface.stop() calling onArchiveConversation');
+      console.warn('[HISTORY] EVENT: end_conversation (voiceInterface.stop)');
       this.callbacks.onArchiveConversation().catch(err => {
-        console.warn('Failed to archive conversation on stop:', err);
+        console.warn('[HISTORY] Archive failed:', err);
       });
     }
     

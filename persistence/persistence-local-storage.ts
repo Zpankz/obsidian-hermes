@@ -1,11 +1,13 @@
-import type { AppSettings } from '../types';
+import type { AppSettings, ArchivedConversation } from '../types';
 
 const FILES_KEY = 'hermes_os_filesystem';
 const SETTINGS_KEY = 'hermes_os_settings';
 const CHAT_HISTORY_KEY = 'hermes_os_chat_history';
+const ARCHIVED_CONVERSATIONS_KEY = 'hermes_os_archived_conversations';
 
 const memoryStore = new Map<string, string>();
 let cachedSettings: AppSettings | null = null;
+let cachedConversations: ArchivedConversation[] | null = null;
 
 export const saveFiles = (files: Record<string, string>): Promise<void> => {
   memoryStore.set(FILES_KEY, JSON.stringify(files));
@@ -58,7 +60,18 @@ export const reloadAppSettings = (): Promise<AppSettings | null> => {
 
 export const saveChatHistory = (history: string[]): Promise<void> => {
   try {
-    memoryStore.set(CHAT_HISTORY_KEY, JSON.stringify(history));
+    // Filter out AI tags like <noise> and <ctrl46>
+    const aiTagBlacklist = ['<noise>', '<ctrl46>'];
+    const filteredHistory = history.map(message => {
+      let filteredMessage = message;
+      aiTagBlacklist.forEach(tag => {
+        const regex = new RegExp(tag, 'gi');
+        filteredMessage = filteredMessage.replace(regex, '');
+      });
+      return filteredMessage.trim();
+    });
+    
+    memoryStore.set(CHAT_HISTORY_KEY, JSON.stringify(filteredHistory));
   } catch (error) {
     console.error('Failed to save chat history', error);
   }
@@ -74,4 +87,42 @@ export const loadChatHistory = (): string[] => {
     console.error('Failed to load chat history', error);
     return [];
   }
+};
+
+export const saveArchivedConversations = (conversations: ArchivedConversation[]): Promise<void> => {
+  try {
+    cachedConversations = conversations;
+    memoryStore.set(ARCHIVED_CONVERSATIONS_KEY, JSON.stringify(conversations));
+  } catch (error) {
+    console.error('Failed to save archived conversations', error);
+  }
+  return Promise.resolve();
+};
+
+export const loadArchivedConversations = (): Promise<ArchivedConversation[]> => {
+  if (cachedConversations) {
+    return Promise.resolve(cachedConversations);
+  }
+  
+  const data = memoryStore.get(ARCHIVED_CONVERSATIONS_KEY);
+  if (!data) return Promise.resolve([]);
+  try {
+    cachedConversations = JSON.parse(data) as ArchivedConversation[];
+    return Promise.resolve(cachedConversations);
+  } catch (error) {
+    console.error('Failed to load archived conversations', error);
+    return Promise.resolve([]);
+  }
+};
+
+export const addArchivedConversation = async (conversation: ArchivedConversation): Promise<void> => {
+  const existing = await loadArchivedConversations();
+  const updated = [...existing, conversation];
+  await saveArchivedConversations(updated);
+};
+
+export const deleteArchivedConversation = async (key: string): Promise<void> => {
+  const existing = await loadArchivedConversations();
+  const updated = existing.filter(conv => conv.key !== key);
+  await saveArchivedConversations(updated);
 };

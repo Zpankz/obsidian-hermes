@@ -1,5 +1,6 @@
 
 import { getFolderTree } from '../services/vaultOperations';
+import { Type } from '@google/genai';
 import type { ToolCallbacks } from '../types';
 
 type ToolArgs = Record<string, unknown>;
@@ -8,11 +9,14 @@ export const declaration = {
   name: 'get_folder_tree',
   description: 'Lists all folders in the vault as a flat array to understand hierarchy, or lists all files (notes and other files) in a specific folder. All paths are relative to vault root.',
   parameters: {
-    folder_path: {
-      type: 'string',
-      description: 'Optional: Path to a specific folder to query. If provided, returns all files (notes, images, PDFs, etc.) in that folder and its subfolders. If not provided, returns all folders in the vault.',
-      required: false
-    }
+    type: Type.OBJECT,
+    properties: {
+      folder_path: { 
+        type: Type.STRING, 
+        description: 'Optional: Path to a specific folder to query. If provided, returns all files (notes, images, PDFs, etc.) in that folder and its subfolders. If not provided, returns all folders in the vault.' 
+      }
+    },
+    required: []
   }
 };
 

@@ -37,8 +37,8 @@ export interface FileDiff {
 }
 
 export interface GroundingChunk {
-  web?: { uri: string; title: string };
-  maps?: { uri: string; title: string };
+  web?: { uri?: string; title?: string };
+  maps?: { uri?: string; title?: string };
 }
 
 export interface ToolData {
@@ -73,8 +73,11 @@ export interface ToolData {
   originalPath?: string;
   restoredPath?: string;
   description?: string;
+  contextInfo?: Record<string, unknown>;
   dropdown?: boolean; // Whether to show dropdown for expandable content
   displayFormat?: string; // Custom display format with HTML for special styling
+  duration?: number; // Time taken to execute the tool in milliseconds
+  responseLength?: number; // Length of the response content
 }
 
 export interface TranscriptionEntry {
@@ -84,6 +87,22 @@ export interface TranscriptionEntry {
   isComplete: boolean;
   toolData?: ToolData;
   timestamp: number;
+  topicId?: string;  // Groups messages by conversation topic; changes on topic_switch
+}
+
+/**
+ * Archived conversation with LLM-generated metadata
+ * See HISTORY-PERSISTENCE.md for the full pipeline documentation
+ */
+export interface ArchivedConversation {
+  key: string;
+  topicId: string;                    // Unique topic identifier for deduplication
+  title: string;                      // From LLM (STEP 3)
+  tags: string[];                     // From LLM (STEP 3)
+  summary: string;                    // From LLM (STEP 3)
+  suggestedFilename: string;          // From LLM (STEP 3)
+  archivedAt: number;
+  conversation: TranscriptionEntry[]; // FILTERED-HISTORY from STEP 1
 }
 
 export interface FileData {

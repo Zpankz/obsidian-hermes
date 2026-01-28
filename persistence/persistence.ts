@@ -1,6 +1,5 @@
 import type { Plugin } from 'obsidian';
-import type { Plugin } from 'obsidian';
-import type { AppSettings } from '../types';
+import type { AppSettings, ArchivedConversation } from '../types';
 import * as localStoragePersistence from '../persistence/persistence-local-storage';
 import * as obsidianPersistence from '../persistence/persistence-obsidian';
 
@@ -69,4 +68,32 @@ export const loadChatHistory = (): string[] => {
     return obsidianPersistence.loadChatHistory();
   }
   return localStoragePersistence.loadChatHistory();
+};
+
+export const saveArchivedConversations = async (conversations: ArchivedConversation[]): Promise<void> => {
+  if (useObsidian) {
+    return obsidianPersistence.saveArchivedConversations(conversations);
+  }
+  return localStoragePersistence.saveArchivedConversations(conversations);
+};
+
+export const loadArchivedConversations = async (): Promise<ArchivedConversation[]> => {
+  if (useObsidian) {
+    return obsidianPersistence.loadArchivedConversations();
+  }
+  return localStoragePersistence.loadArchivedConversations();
+};
+
+export const addArchivedConversation = async (conversation: ArchivedConversation): Promise<void> => {
+  if (useObsidian) {
+    return obsidianPersistence.addArchivedConversation(conversation);
+  }
+  return localStoragePersistence.addArchivedConversation(conversation);
+};
+
+export const deleteArchivedConversation = async (key: string): Promise<void> => {
+  if (useObsidian) {
+    return obsidianPersistence.deleteArchivedConversation(key);
+  }
+  return localStoragePersistence.deleteArchivedConversation(key);
 };

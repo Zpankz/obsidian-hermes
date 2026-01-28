@@ -213,7 +213,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
     return this.chatHistory;
   }
 
-  async generateSummary(conversationText: string): Promise<string> {
+  async generateSummary(prompt: string): Promise<string> {
     if (!this.ai) {
       throw new Error('Text interface not initialized');
     }
@@ -223,7 +223,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
         model: this.model,
         contents: [{
           role: 'user',
-          parts: [{ text: `Please provide a concise summary (2-3 sentences) of the following conversation:\n\n${conversationText}` }]
+          parts: [{ text: prompt }]
         }]
       });
 
@@ -231,6 +231,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
       const textParts = candidate?.content?.parts?.filter(part => part.text);
       return textParts?.map(part => part.text).join('') || '';
     } catch (error) {
+      console.error('Text interface error:', error);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to generate summary: ${message}`);
     }

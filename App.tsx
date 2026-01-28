@@ -9,6 +9,7 @@ import { DEFAULT_SYSTEM_INSTRUCTION } from './utils/defaultPrompt';
 import { isObsidian } from './utils/environment';
 import { archiveConversation } from './utils/archiveConversation';
 import { executeCommand } from './services/commands';
+import { persistConversationHistory, PersistenceOptions } from './utils/historyPersistence';
 
 // Components
 import Header from './components/Header';
@@ -16,6 +17,7 @@ import Settings from './components/Settings';
 import MainWindow from './components/MainWindow';
 import InputBar from './components/InputBar';
 import ApiKeySetup from './components/ApiKeySetup';
+import History from './components/History';
 
 export interface AppHandle {
   startSession: () => Promise<void>;
@@ -42,13 +44,15 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
   useEffect(() => {
     // Check if there's a saved conversation
     const data = loadAppSettings();
-    setHasSavedConversation(!!data?.transcripts && data.transcripts.length > 0);
+    const chatHistory = loadChatHistory();
+    setHasSavedConversation(!!chatHistory && chatHistory.length > 0);
   }, []);
 
   const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [inputText, setInputText] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [showKernel, setShowKernel] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState<'user' | 'model' | 'none'>('none');
   const [micVolume, setMicVolume] = useState(0);
@@ -73,6 +77,15 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
   const [usage, setUsage] = useState<UsageMetadata>({ totalTokenCount: saved.totalTokens || 0 });
   const [fileCount, setFileCount] = useState<number>(0);
   const [showApiKeySetup, setShowApiKeySetup] = useState<boolean>(false);
+  
+  // Topic ID for grouping messages - generated on init and on topic_switch
+  const [currentTopicId, setCurrentTopicId] = useState<string>(() => `topic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const currentTopicIdRef = useRef<string>(currentTopicId);
+  
+  // Keep topicId ref in sync
+  useEffect(() => {
+    currentTopicIdRef.current = currentTopicId;
+  }, [currentTopicId]);
 
   const assistantRef = useRef<GeminiVoiceAssistant | null>(null);
   const textInterfaceRef = useRef<GeminiTextInterface | null>(null);
@@ -92,47 +105,118 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     }]);
   }, []);
 
-  const restoreConversation = () => {
-    const data = loadAppSettings();
-    if (data?.transcripts) {
-      setTranscripts(data.transcripts);
+  const restoreConversation = (conversation?: TranscriptionEntry[]) => {
+    if (conversation) {
+      // Restore from archived conversation
+      setTranscripts(conversation);
       setHasSavedConversation(false);
-      addLog('Previous conversation restored', 'info');
+      addLog('Archived conversation restored', 'info');
+      setHistoryOpen(false); // Close history panel after restore
+    } else {
+      // Restore from chat history (original functionality)
+      const chatHistory = loadChatHistory();
+      if (chatHistory && chatHistory.length > 0) {
+        // Convert chat history to transcript format
+        const transcriptHistory: TranscriptionEntry[] = chatHistory.map((message, index) => ({
+          id: `chat-${index}`,
+          role: 'user' as const,
+          text: message,
+          isComplete: true,
+          timestamp: Date.now() - (chatHistory.length - index) * 1000,
+          topicId: currentTopicIdRef.current
+        }));
+        setTranscripts(transcriptHistory);
+        setHasSavedConversation(false);
+        addLog('Chat history restored', 'info');
+      }
     }
+  };
+
+  const resetConversation = () => {
+    setTranscripts([{
+      id: 'welcome-init',
+      role: 'system',
+      text: 'HERMES INITIALIZED.',
+      isComplete: true,
+      timestamp: Date.now(),
+      topicId: currentTopicIdRef.current
+    }]);
+    setHasSavedConversation(false);
+    addLog('Conversation reset', 'info');
   };
 
   useEffect(() => {
     const lastMsg = transcripts[transcripts.length - 1];
     if (lastMsg?.role === 'system' && lastMsg.toolData?.name === 'topic_switch') {
-      console.warn('SHOULD SAVE HISTORY: topic_switch detected');
-      console.warn('SHOULD SAVE HISTORY: total transcripts:', transcripts.length);
-      console.warn('SHOULD SAVE HISTORY: transcripts:', transcripts.map(t => ({ id: t.id, role: t.role, text: t.text.substring(0, 50) + '...' })));
+      console.warn('[HISTORY] EVENT: topic_switch detected - Topic switch triggered');
       
-      const summary = lastMsg.toolData.newContent || 'Shift';
-      const toArchive = transcripts.filter(t => t.id !== 'welcome-init' && t.id !== lastMsg.id);
-      console.warn('SHOULD SAVE HISTORY: after filtering (excluding topic_switch), toArchive:', toArchive.length);
+      // Get the OLD topicId before we switch (from the topic_switch message itself or current)
+      const oldTopicId = lastMsg.topicId || currentTopicIdRef.current;
       
-      if (toArchive.length > 0) {
-        console.warn('SHOULD SAVE HISTORY: has entries to archive:', toArchive.length);
-        // Get current settings to access chatHistoryFolder
-        const currentSettings = loadAppSettings();
-        const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
-        
-        archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current)
-          .then(message => addLog(message, 'action'))
-          .catch(err => {
+      // Generate NEW topicId for subsequent messages
+      const newTopicId = `topic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setCurrentTopicId(newTopicId);
+      console.warn(`[HISTORY] Topic switch: ${oldTopicId} -> ${newTopicId}`);
+      
+      // Filter messages belonging to the OLD topic only
+      const transcriptsToArchive = transcripts.filter(t => 
+        t.id !== 'welcome-init' && 
+        t.id !== lastMsg.id && 
+        t.topicId === oldTopicId
+      );
+      
+      // Get current settings to access chatHistoryFolder
+      const currentSettings = loadAppSettings();
+      const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
+      
+      // Prepare options for the persistence pipeline
+      const options: PersistenceOptions = {
+        transcripts: transcriptsToArchive,
+        chatHistoryFolder,
+        textInterface: textInterfaceRef.current,
+        topicId: oldTopicId
+      };
+      
+      // Use the same unified pipeline as end_conversation
+      persistConversationHistory(options)
+        .then(result => {
+          if (result.success) {
+            if (result.skipped) {
+              addLog(result.message, 'info');
+            } else {
+              addLog(result.message, 'action');
+              // Add system marker for conversation boundary instead of clearing
+              setTranscripts(prev => [...prev, {
+                id: `archived-${Date.now()}`,
+                role: 'system',
+                text: `📁 Topic switch - conversation archived: ${result.message}`,
+                timestamp: Date.now(),
+                isComplete: true,
+                topicId: newTopicId  // Use NEW topicId for archive marker
+              }]);
+            }
+          } else {
             const errorDetails = {
-              toolName: 'archiveConversation',
-              content: `Summary: ${summary}\nHistory length: ${toArchive.length} entries`,
-              contentSize: summary.length + JSON.stringify(toArchive).length,
-              stack: getErrorMessage(err),
-              apiCall: 'createFile'
+              toolName: 'persistConversationHistory',
+              content: `History length: ${transcriptsToArchive.length} entries`,
+              contentSize: JSON.stringify(transcriptsToArchive).length,
+              stack: result.error,
+              apiCall: 'archiveConversation'
             };
-            addLog(`Persistence Failure: ${getErrorMessage(err)}`, 'error', undefined, errorDetails);
-          });
-      } else {
-        console.warn('SHOULD SAVE HISTORY: no entries to archive, skipping');
-      }
+            addLog(`Persistence Failure: ${result.message}`, 'error', undefined, errorDetails);
+          }
+        })
+        .catch(error => {
+          const errorMsg = getErrorMessage(error);
+          const errorDetails = {
+            toolName: 'persistConversationHistory',
+            content: `History length: ${transcriptsToArchive.length} entries`,
+            contentSize: JSON.stringify(transcriptsToArchive).length,
+            stack: errorMsg,
+            apiCall: 'archiveConversation'
+          };
+          addLog(`Persistence Failure: ${errorMsg}`, 'error', undefined, errorDetails);
+        });
     }
   }, [transcripts, addLog]);
 
@@ -143,13 +227,17 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
         const files = listDirectory();
         setFileCount(files.length);
         addLog('HERMES_OS: Modules online.', 'info');
-        if (transcripts.length === 0) {
+        
+        // Check if we have chat history to restore
+        const chatHistory = loadChatHistory();
+        if (transcripts.length === 0 && (!chatHistory || chatHistory.length === 0)) {
           setTranscripts([{
             id: 'welcome-init',
             role: 'system',
             text: 'HERMES INITIALIZED.',
             isComplete: true,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            topicId: currentTopicIdRef.current
           }]);
         }
       } catch (error) {
@@ -160,7 +248,6 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
 
   useEffect(() => {
     void saveAppSettings({
-      transcripts,
       voiceName,
       customContext,
       systemInstruction,
@@ -170,7 +257,7 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
       currentNote,
       totalTokens
     });
-  }, [transcripts, voiceName, customContext, systemInstruction, manualApiKey, serperApiKey, currentFolder, currentNote, totalTokens]);
+  }, [voiceName, customContext, systemInstruction, manualApiKey, serperApiKey, currentFolder, currentNote, totalTokens]);
 
   // Check API key and show setup screen if needed
   useEffect(() => {
@@ -230,6 +317,14 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     };
   }, [showApiKeySetup, addLog]);
 
+  const toggleSession = async () => {
+    if (status === ConnectionStatus.CONNECTED) {
+        await stopSession();
+    } else {
+        await startSession();
+    }
+  };
+
   // Expose methods via ref for command palette access
   useImperativeHandle(ref, () => ({
     startSession,
@@ -252,86 +347,57 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     // Use ref to get latest transcripts (avoids stale closure issue)
     const currentTranscripts = transcriptsRef.current;
     
-    console.warn('SHOULD SAVE HISTORY: archiveCurrentConversation called');
-    console.warn('SHOULD SAVE HISTORY: total transcripts:', currentTranscripts.length);
-    console.warn('SHOULD SAVE HISTORY: transcripts:', currentTranscripts.map(t => ({ id: t.id, role: t.role, text: t.text.substring(0, 50) + '...' })));
+    console.warn('[HISTORY] EVENT: end_conversation - Session ending (archiveCurrentConversation)');
     
-    const toArchive = currentTranscripts.filter(t => t.id !== 'welcome-init');
-    console.warn('SHOULD SAVE HISTORY: after filtering, toArchive:', toArchive.length);
+    // Get current settings to access chatHistoryFolder
+    const currentSettings = loadAppSettings();
+    const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
     
-    if (toArchive.length > 0) {
-      console.warn('SHOULD SAVE HISTORY: has entries to archive:', toArchive.length);
-      // Generate summary from conversation content
-      let summary = 'Conversation';
+    // Prepare options for the persistence pipeline
+    const options: PersistenceOptions = {
+      transcripts: currentTranscripts,
+      chatHistoryFolder,
+      textInterface: textInterfaceRef.current
+    };
+    
+    try {
+      const result = await persistConversationHistory(options);
       
-      try {
-        // Extract keywords from user messages for the title
-        const userMessages = toArchive
-          .filter(entry => entry.role === 'user')
-          .map(entry => entry.text)
-          .join(' ');
-        
-        if (userMessages.trim()) {
-          // Use first user message as basis for title (cleaned up)
-          const firstUserMsg = toArchive.find(entry => entry.role === 'user')?.text || '';
-          summary = firstUserMsg
-            .replace(/[^\w\s]/g, ' ')
-            .split(/\s+/)
-            .filter(word => word.length > 2)
-            .slice(0, 4)
-            .join(' ')
-            .substring(0, 30)
-            .trim() || 'Conversation';
+      if (result.success) {
+        if (result.skipped) {
+          addLog(result.message, 'info');
+        } else {
+          addLog(result.message, 'action');
+          // Add system marker for conversation boundary instead of clearing
+          setTranscripts(prev => [...prev, {
+            id: `archived-${Date.now()}`,
+            role: 'system',
+            text: `📁 Conversation archived: ${result.message}`,
+            timestamp: Date.now(),
+            isComplete: true,
+            topicId: currentTopicIdRef.current
+          }]);
         }
-        
-        // Try AI title generation if text interface is available
-        if (textInterfaceRef.current && userMessages.trim()) {
-          try {
-            const conversationText = toArchive
-              .filter(entry => entry.role === 'user' || entry.role === 'model')
-              .map(entry => `${entry.role}: ${entry.text}`)
-              .join('\n');
-            
-            const aiTitle = await textInterfaceRef.current.generateSummary(
-              `Please generate a short, keyword-rich title (2-4 words, max 30 characters) for this conversation. Focus on the main topic or task:\n\n${conversationText}`
-            );
-            
-            // Clean up the AI response
-            const cleanedTitle = aiTitle
-              .replace(/^(title|subject|topic):?\s*/i, '')
-              .replace(/^["'`]|["'`]$/g, '')
-              .replace(/\.$/, '')
-              .trim()
-              .substring(0, 30);
-            
-            if (cleanedTitle && cleanedTitle.length >= 2) {
-              summary = cleanedTitle;
-            }
-          } catch (error) {
-            console.warn('Failed to generate AI title:', getErrorMessage(error));
-            // Continue with keyword-based title
-          }
-        }
-        
-        // Get current settings to access chatHistoryFolder
-        const currentSettings = loadAppSettings();
-        const chatHistoryFolder = currentSettings?.chatHistoryFolder || 'chat-history';
-        
-        const message = await archiveConversation(summary, toArchive, chatHistoryFolder, textInterfaceRef.current);
-        addLog(message, 'action');
-        // Note: Conversation remains in UI after archiving - no reset
-      } catch (err) {
+      } else {
         const errorDetails = {
-          toolName: 'archiveConversation',
-          content: `Summary: ${summary}\nHistory length: ${toArchive.length} entries`,
-          contentSize: summary.length + JSON.stringify(toArchive).length,
-          stack: getErrorMessage(err),
-          apiCall: 'createFile'
+          toolName: 'persistConversationHistory',
+          content: `History length: ${currentTranscripts.length} entries`,
+          contentSize: JSON.stringify(currentTranscripts).length,
+          stack: result.error,
+          apiCall: 'archiveConversation'
         };
-        addLog(`Persistence Failure: ${getErrorMessage(err)}`, 'error', undefined, errorDetails);
+        addLog(`Persistence Failure: ${result.message}`, 'error', undefined, errorDetails);
       }
-    } else {
-      console.warn('SHOULD SAVE HISTORY: no entries to archive, skipping');
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      const errorDetails = {
+        toolName: 'persistConversationHistory',
+        content: `History length: ${currentTranscripts.length} entries`,
+        contentSize: JSON.stringify(currentTranscripts).length,
+        stack: errorMsg,
+        apiCall: 'archiveConversation'
+      };
+      addLog(`Persistence Failure: ${errorMsg}`, 'error', undefined, errorDetails);
     }
   }, [addLog]);
 
@@ -352,7 +418,7 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
           return next;
         }
       }
-      return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now() }];
+      return [...prev, { id: 'sys-' + Date.now(), role: 'system', text, isComplete: true, toolData, timestamp: Date.now(), topicId: currentTopicIdRef.current }];
     });
     setFileCount(listDirectory().length);
   }, []);
@@ -389,16 +455,32 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     },
     onLog: (m: string, t: LogEntry['type'], d?: number, e?: LogEntry['errorDetails']) => addLog(m, t, d, e),
     onTranscription: (role: 'user' | 'model', text: string, isComplete: boolean) => {
-      console.warn('TRANSCRIPTION: role:', role, 'text:', text.substring(0, 50) + '...', 'isComplete:', isComplete);
       setActiveSpeaker(isComplete ? 'none' : role);
       setTranscripts(prev => {
         const activeIdx = prev.reduceRight((acc, e, i) => (acc !== -1 ? acc : (e.role === role && !e.isComplete ? i : -1)), -1);
         if (activeIdx !== -1) {
           const updated = [...prev];
           updated[activeIdx] = { ...updated[activeIdx], text: text || updated[activeIdx].text, isComplete };
+          
+          // Save completed user messages to chat history
+          if (role === 'user' && isComplete && text.trim()) {
+            const currentHistory = loadChatHistory();
+            const updatedHistory = [...currentHistory, text];
+            void saveChatHistory(updatedHistory);
+          }
+          
           return updated;
         }
-        return [...prev, { id: Math.random().toString(36).slice(2, 11), role, text, isComplete, timestamp: Date.now() }];
+        const newEntry = { id: Math.random().toString(36).slice(2, 11), role, text, isComplete, timestamp: Date.now(), topicId: currentTopicIdRef.current };
+        
+        // Save completed user messages to chat history
+        if (role === 'user' && isComplete && text.trim()) {
+          const currentHistory = loadChatHistory();
+          const updatedHistory = [...currentHistory, text];
+          void saveChatHistory(updatedHistory);
+        }
+        
+        return [...prev, newEntry];
       });
     },
     onSystemMessage: handleSystemMessage,
@@ -419,8 +501,47 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     onArchiveConversation: archiveCurrentConversation
   }), [addLog, isObsidianEnvironment, handleSystemMessage, archiveCurrentConversation]);
 
+  // Initialize text interface when API key is available (for text mode)
+  useEffect(() => {
+    const activeKey = manualApiKey.trim();
+    if (activeKey && !textInterfaceRef.current) {
+      textInterfaceRef.current = new GeminiTextInterface({
+        onLog: (m, t, d, e) => addLog(m, t, d, e),
+        onTranscription: (role, text, isComplete) => {
+          setTranscripts(prev => {
+            const activeIdx = prev.reduceRight((acc, e, i) => (acc !== -1 ? acc : (e.role === role && !e.isComplete ? i : -1)), -1);
+            if (activeIdx !== -1) {
+              const updated = [...prev];
+              updated[activeIdx] = { ...updated[activeIdx], text: text || updated[activeIdx].text, isComplete };
+              return updated;
+            }
+            return [...prev, { id: Math.random().toString(36).slice(2, 11), role, text, isComplete, timestamp: Date.now(), topicId: currentTopicIdRef.current }];
+          });
+        },
+        onSystemMessage: handleSystemMessage,
+        onFileStateChange: (folder, note) => {
+          setCurrentFolder(folder);
+          const notes = Array.isArray(note) ? note : (note ? [note] : []);
+          if (notes.length > 0) {
+            setCurrentNote(notes[notes.length - 1]);
+          }
+        },
+        onUsageUpdate: (usage: UsageMetadata) => { 
+          setUsage(usage);
+          const tokens = usage.totalTokenCount;
+          if (tokens !== undefined) setTotalTokens(tokens); 
+        },
+        onArchiveConversation: archiveCurrentConversation
+      });
+      
+      textInterfaceRef.current.initialize(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
+    }
+  }, [manualApiKey, voiceName, customContext, systemInstruction, currentFolder, currentNote, addLog, handleSystemMessage, archiveCurrentConversation]);
+
   const startSession = async () => {
     try {
+      console.warn('[HISTORY] EVENT: start_conversation - Session started');
+      
       const activeKey = manualApiKey.trim();
       if (!activeKey) {
         setShowApiKeySetup(true);
@@ -467,6 +588,16 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     const updatedHistory = [...currentHistory, message];
     await saveChatHistory(updatedHistory);
     
+    // Also add to transcripts for display
+    setTranscripts(prev => [...prev, {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      text: message,
+      isComplete: true,
+      timestamp: Date.now(),
+      topicId: currentTopicIdRef.current
+    }]);
+    
     // If voice session is active, stop it first before using text API
     if (status === ConnectionStatus.CONNECTED && assistantRef.current) {
       assistantRef.current.stop();
@@ -482,21 +613,39 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
       return;
     }
     
-    textInterfaceRef.current = new GeminiTextInterface({
-      onLog: (m, t, d, e) => addLog(m, t, d, e),
-      onTranscription: (role, text, isComplete) => {
-        console.warn('TRANSCRIPTION 2: role:', role, 'text:', text.substring(0, 50) + '...', 'isComplete:', isComplete);
-        setTranscripts(prev => {
-          const activeIdx = prev.reduceRight((acc, e, i) => (acc !== -1 ? acc : (e.role === role && !e.isComplete ? i : -1)), -1);
-          if (activeIdx !== -1) {
-            const updated = [...prev];
-            updated[activeIdx] = { ...updated[activeIdx], text: text || updated[activeIdx].text, isComplete };
-            return updated;
-          }
-          return [...prev, { id: Math.random().toString(36).slice(2, 11), role, text, isComplete, timestamp: Date.now() }];
-        });
-      },
-      onSystemMessage: handleSystemMessage,
+    // Initialize text interface if not already done
+    if (!textInterfaceRef.current) {
+      textInterfaceRef.current = new GeminiTextInterface({
+        onLog: (m, t, d, e) => addLog(m, t, d, e),
+        onTranscription: (role, text, isComplete) => {
+          setTranscripts(prev => {
+            const activeIdx = prev.reduceRight((acc, e, i) => (acc !== -1 ? acc : (e.role === role && !e.isComplete ? i : -1)), -1);
+            if (activeIdx !== -1) {
+              const updated = [...prev];
+              updated[activeIdx] = { ...updated[activeIdx], text: text || updated[activeIdx].text, isComplete };
+              
+              // Save completed user messages to chat history
+              if (role === 'user' && isComplete && text.trim()) {
+                const currentHistory = loadChatHistory();
+                const updatedHistory = [...currentHistory, text];
+                void saveChatHistory(updatedHistory);
+              }
+              
+              return updated;
+            }
+            const newEntry = { id: Math.random().toString(36).slice(2, 11), role, text, isComplete, timestamp: Date.now(), topicId: currentTopicIdRef.current };
+            
+            // Save completed user messages to chat history
+            if (role === 'user' && isComplete && text.trim()) {
+              const currentHistory = loadChatHistory();
+              const updatedHistory = [...currentHistory, text];
+              void saveChatHistory(updatedHistory);
+            }
+            
+            return [...prev, newEntry];
+          });
+        },
+        onSystemMessage: handleSystemMessage,
         onFileStateChange: (folder, note) => {
           setCurrentFolder(folder);
           const notes = Array.isArray(note) ? note : (note ? [note] : []);
@@ -512,16 +661,9 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
       });
       
       textInterfaceRef.current.initialize(activeKey, { voiceName, customContext, systemInstruction }, { folder: currentFolder, note: currentNote });
+    }
     
     textInterfaceRef.current.sendMessage(message);
-  };
-
-  const toggleSession = async () => {
-    if (status === ConnectionStatus.CONNECTED) {
-        await stopSession();
-    } else {
-        await startSession();
-    }
   };
 
   const handleApiKeySave = (apiKey: string) => {
@@ -557,21 +699,28 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
             showLogs={showKernel}
             onToggleLogs={() => setShowKernel(!showKernel)}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenHistory={() => setHistoryOpen(!historyOpen)}
             isListening={status === ConnectionStatus.CONNECTED}
             onStopSession={stopSession}
+            onResetConversation={resetConversation}
+            transcripts={transcripts}
           />
           
-          <MainWindow 
-            showKernel={showKernel}
-            transcripts={transcripts} 
-            hasSavedConversation={hasSavedConversation}
-            onRestoreConversation={restoreConversation}
-            logs={logs}
-            usage={usage}
-            onFlushLogs={() => setLogs([])}
-            fileCount={fileCount}
-            onImageDownload={handleImageDownload}
-          />
+          {historyOpen ? (
+            <History isActive={true} onRestoreConversation={restoreConversation} />
+          ) : (
+            <MainWindow 
+              showKernel={showKernel}
+              transcripts={transcripts} 
+              hasSavedConversation={hasSavedConversation}
+              onRestoreConversation={restoreConversation}
+              logs={logs}
+              usage={usage}
+              onFlushLogs={() => setLogs([])}
+              fileCount={fileCount}
+              onImageDownload={handleImageDownload}
+            />
+          )}
           
           <InputBar 
             inputText={inputText} 

@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
+    "js-yaml": "^4.1.1",
     "marked": "^17.0.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -21,10 +22,13 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.0.0",
     "esbuild": "^0.15.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-obsidianmd": "^0.1.9",
     "obsidian": "^1.1.1",
     "typescript": "^4.9.0",
     "vite": "^5.0.0"

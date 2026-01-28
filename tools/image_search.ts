@@ -1,5 +1,6 @@
 import { getObsidianApp } from '../utils/environment';
 import { requestUrl, type App } from 'obsidian';
+import { Type } from '@google/genai';
 import type { ToolCallbacks, ImageSearchResult, DownloadedImage } from '../types';
 import { reloadAppSettings } from '../persistence/persistence';
 
@@ -7,13 +8,13 @@ export const declaration = {
   name: 'image_search',
   description: 'Search for images on the internet and preview them. Click on any image in the preview to download it to the vault.',
   parameters: {
-    type: 'object' as const,
+    type: Type.OBJECT,
     properties: {
-      query: { type: 'string', description: 'The search query to find images.' },
-      count: { type: 'number', description: 'Number of images to show in preview (default: 3, max: 10).' },
-      auto_download: { type: 'boolean', description: 'Whether to automatically download images (default: false).' },
-      folder: { type: 'string', description: 'Target folder path (optional, defaults to current folder or assets folder).' },
-      filename_prefix: { type: 'string', description: 'Prefix for generated filenames (optional).' }
+      query: { type: Type.STRING, description: 'The search query to find images.' },
+      count: { type: Type.NUMBER, description: 'Number of images to show in preview (default: 3, max: 10).' },
+      auto_download: { type: Type.BOOLEAN, description: 'Whether to automatically download images (default: false).' },
+      folder: { type: Type.STRING, description: 'Target folder path (optional, defaults to current folder or assets folder).' },
+      filename_prefix: { type: Type.STRING, description: 'Prefix for generated filenames (optional).' }
     },
     required: ['query']
   }
