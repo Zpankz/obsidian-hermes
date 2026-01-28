@@ -35,7 +35,7 @@ export const persistData = async (updater: (currentData: Record<string, unknown>
   } catch (error) {
     console.error('Failed to persist data', error);
   } finally {
-    releaseLock!();
+    releaseLock();
   }
 };
 

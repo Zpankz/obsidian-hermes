@@ -347,7 +347,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
           try {
             const response = await executeCommand(fc.name, fc.args as ToolArgs, {
               onLog: (m, t, d) => this.callbacks.onLog(m, t, d),
-              onSystem: (t, d) => this.callbacks.onSystemMessage(t, d as ToolData | undefined),
+              onSystem: (t, d) => this.callbacks.onSystemMessage(t, d),
               onFileState: (folder, note) => {
                 this.currentFolder = folder;
                 this.currentNote = Array.isArray(note) ? note[note.length - 1] : note;
@@ -415,7 +415,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             onLog: (m, t, d) => this.callbacks.onLog(m, t, d),
             onSystem: (t, d) => {
               // Pass through to the main callback - the ID is already set by wrappedCallbacks in commands.ts
-              this.callbacks.onSystemMessage(t, d as ToolData | undefined);
+              this.callbacks.onSystemMessage(t, d);
               // Mark that the tool has updated the message (if it set status to success)
               if (d?.status === 'success') {
                 toolUpdatedMessage = true;

@@ -1,7 +1,6 @@
-import { TranscriptionEntry, ToolData } from '../types';
-import { isObsidian } from './environment';
+import { TranscriptionEntry } from '../types';
 import { toYaml } from './yamlUtils';
-import { listDirectory, readFile } from '../services/vaultOperations';
+import { listDirectory } from '../services/vaultOperations';
 import { loadAppSettings } from '../persistence/persistence';
 
 const getErrorMessage = (error: unknown): string => {
@@ -159,7 +158,7 @@ export const archiveConversation = async (
     summaryText = data.summary || '';
     suggestedFilename = data.suggestedFilename || '';
   } else {
-    summaryText = String(data || '');
+    summaryText = typeof data === 'string' ? data : (data && typeof data === 'object' && 'summary' in data) ? String(data.summary) : 'Conversation';
   }
   
   // Ensure summaryText is a string
@@ -242,7 +241,7 @@ export const archiveConversation = async (
   }
 
   const markdown = groupedEntries
-    .map((group, groupIndex) => {
+    .map((group) => {
       const firstEntry = group[0];
       let block = '';
       

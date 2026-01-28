@@ -14,7 +14,7 @@ const DocumentLink: React.FC<DocumentLinkProps> = ({ href, children, className =
       e.preventDefault();
       
       try {
-        // @ts-ignore - Obsidian global app
+        // @ts-expect-error - Obsidian global app
         const app = getObsidianApp();
         if (app && app.vault && app.workspace) {
           // Get the file by path
@@ -22,7 +22,7 @@ const DocumentLink: React.FC<DocumentLinkProps> = ({ href, children, className =
           if (file) {
             // Open the file in a new tab
             const leaf = app.workspace.getLeaf('tab');
-            leaf.openFile(file);
+            void leaf.openFile(file);
           } else {
             // Try to create the file if it doesn't exist
             console.warn(`File not found: ${href}. You may need to create it first.`);

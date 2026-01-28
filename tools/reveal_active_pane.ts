@@ -37,7 +37,7 @@ export const execute = (_args: ToolArgs, callbacks: ToolCallbacks): Promise<unkn
     
     // Try to get the active leaf first, but fall back to finding a leaf with the active file
     let activeLeaf = workspace.activeLeaf;
-    let targetFile = activeFile;
+    const targetFile = activeFile;
     
     // If no active leaf or it's not a markdown view, try to find a leaf with the active file
     if (!activeLeaf || activeLeaf.view.getViewType() !== 'markdown') {

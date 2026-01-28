@@ -6,7 +6,7 @@ import * as yaml from 'js-yaml';
  * @param options - YAML dump options
  * @returns Valid YAML string
  */
-export const toYaml = (data: any, options?: yaml.DumpOptions): string => {
+export const toYaml = (data: unknown, options?: yaml.DumpOptions): string => {
   try {
     return yaml.dump(data, {
       indent: 2,
@@ -27,7 +27,7 @@ export const toYaml = (data: any, options?: yaml.DumpOptions): string => {
  * @param yamlString - The YAML string to parse
  * @returns Parsed object or null if parsing fails
  */
-export const fromYaml = (yamlString: string): any => {
+export const fromYaml = (yamlString: string): unknown => {
   try {
     return yaml.load(yamlString);
   } catch (error) {
@@ -55,7 +55,7 @@ export const isValidYaml = (yamlString: string): boolean => {
  * @param data - The data to convert to frontmatter
  * @returns Frontmatter string with --- delimiters
  */
-export const toFrontmatter = (data: any): string => {
+export const toFrontmatter = (data: unknown): string => {
   const yamlContent = toYaml(data);
   return `---\n${yamlContent}---`;
 };
@@ -65,7 +65,7 @@ export const toFrontmatter = (data: any): string => {
  * @param markdown - The markdown content with frontmatter
  * @returns Object with frontmatter data and content, or null if no frontmatter
  */
-export const fromFrontmatter = (markdown: string): { frontmatter: any; content: string } | null => {
+export const fromFrontmatter = (markdown: string): { frontmatter: unknown; content: string } | null => {
   const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
   const match = markdown.match(frontmatterRegex);
   

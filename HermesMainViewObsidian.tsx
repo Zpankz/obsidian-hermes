@@ -7,7 +7,7 @@ import './styles.css';
 export const VIEW_TYPE_HERMES = 'hermes-voice-assistant';
 
 export class HermesMainViewObsidian extends ItemView {
-  private root: ReturnType<typeof createRoot> | null = null;
+  private root: ReturnType<typeof createRoot> = null!;
   private appRef: React.RefObject<AppHandle> = React.createRef();
 
   constructor(leaf: WorkspaceLeaf) {
@@ -26,7 +26,7 @@ export class HermesMainViewObsidian extends ItemView {
     return 'mic-vocal';
   }
 
-  onOpen(): void {
+  async onOpen(): Promise<void> {
     const container = this.containerEl.children[1];
     container.empty();
     const mount = container.createDiv({ cls: 'hermes-root obsidian' });
@@ -38,7 +38,7 @@ export class HermesMainViewObsidian extends ItemView {
     );
   }
 
-  onClose(): void {
+  async onClose(): Promise<void> {
     if (this.root) {
       this.root.unmount();
       this.root = null;

@@ -36,9 +36,7 @@ export class HermesSettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.classList.add('hermes-settings');
 
-    new Setting(containerEl)
-      .setName('Hermes voice assistant')
-      .setHeading();
+    ;
 
     // Voice Selection
     new Setting(containerEl)

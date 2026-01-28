@@ -13,7 +13,7 @@ interface ChatWindowProps {
   onImageDownload?: (image: ImageSearchResult, index: number) => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, hasSavedConversation, onRestoreConversation, onImageDownload }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ transcripts, onImageDownload }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   

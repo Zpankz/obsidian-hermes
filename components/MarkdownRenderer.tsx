@@ -14,7 +14,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
   const processedContent = React.useMemo(() => {
     if (!content) return [];
 
-    const tokens = marked.lexer(content) as TokensList;
+    const tokens = marked.lexer(content);
 
     const processTokens = (tokensToProcess: TokensList | Tokens[], keyPrefix: string = '0'): React.ReactNode[] => {
       const result: React.ReactNode[] = [];

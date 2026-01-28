@@ -7,7 +7,6 @@ import { GeminiVoiceAssistant } from './services/voiceInterface';
 import { GeminiTextInterface } from './services/textInterface';
 import { DEFAULT_SYSTEM_INSTRUCTION } from './utils/defaultPrompt';
 import { isObsidian } from './utils/environment';
-import { archiveConversation } from './utils/archiveConversation';
 import { executeCommand } from './services/commands';
 import { persistConversationHistory, PersistenceOptions } from './utils/historyPersistence';
 
@@ -27,7 +26,7 @@ export interface AppHandle {
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
-  return String(error);
+  return typeof error === 'string' ? error : 'Unknown error';
 };
 
 const getErrorStack = (error: unknown): string | undefined => {
@@ -38,12 +37,11 @@ const getErrorStack = (error: unknown): string | undefined => {
 const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
   const saved = useMemo(() => {
     const data = loadAppSettings();
-    return data || {};
+    return data ?? {};
   }, []);
 
   useEffect(() => {
     // Check if there's a saved conversation
-    const data = loadAppSettings();
     const chatHistory = loadChatHistory();
     setHasSavedConversation(!!chatHistory && chatHistory.length > 0);
   }, []);
@@ -319,7 +317,7 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
 
   const toggleSession = async () => {
     if (status === ConnectionStatus.CONNECTED) {
-        await stopSession();
+        stopSession();
     } else {
         await startSession();
     }
@@ -566,7 +564,7 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     }
   };
 
-  const stopSession = async () => {
+  const stopSession = () => {
     if (assistantRef.current) {
       // Archive is now handled inside voiceInterface.stop()
       assistantRef.current.stop();

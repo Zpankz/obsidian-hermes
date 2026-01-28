@@ -27,7 +27,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ currentFolder, onFolderChange }
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
       </svg>
       <div className="flex items-center space-x-1 overflow-x-auto max-w-[300px] scrollbar-thin scrollbar-hermes-border">
-        {folders.map((folder, index) => (
+        {folders.map((folder) => (
           <button
             key={folder}
             onClick={() => onFolderChange(folder)}
