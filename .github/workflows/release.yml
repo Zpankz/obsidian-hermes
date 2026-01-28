@@ -24,6 +24,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -78,4 +79,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Push version bump
-        run: git push
+        run: git push origin main
