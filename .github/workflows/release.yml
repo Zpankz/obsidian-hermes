@@ -52,14 +52,6 @@ jobs:
           fi
           echo "Determined version: $VERSION"
           
-      - name: Update manifest.json version
-        run: |
-          sed -i 's/"version": "[^"]*"/"version": "${{ steps.version.outputs.version }}"/' manifest.json
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
-          
       - name: Build plugin
         run: pnpm run build
         
@@ -77,6 +69,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Push version bump
-        run: git push origin main
