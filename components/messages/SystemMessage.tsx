@@ -254,7 +254,23 @@ const getActionLabel = (name: string) => {
 };
 
 // ContextDropdownView component for displaying context information
-const ContextDropdownView: React.FC<{ contextInfo: any }> = ({ contextInfo }) => {
+interface RecentFile {
+  path: string;
+  name: string;
+  modified: string;
+  size: string;
+}
+
+interface ContextInfo {
+  recentFiles?: RecentFile[];
+  tags?: {
+    totalTags: number;
+    mostUsed: { tag: string; count: number }[];
+  };
+  // Add other properties as needed
+}
+
+const ContextDropdownView: React.FC<{ contextInfo: ContextInfo }> = ({ contextInfo }) => {
   const [activeSection, setActiveSection] = useState<string>('overview');
   
   const sections = [
@@ -322,7 +338,7 @@ const ContextDropdownView: React.FC<{ contextInfo: any }> = ({ contextInfo }) =>
       case 'recent':
         return (
           <div className="space-y-2">
-            {contextInfo.recentFiles?.slice(0, 10).map((file: any, index: number) => (
+            {contextInfo.recentFiles?.slice(0, 10).map((file, index: number) => (
               <div key={index} className="flex items-center space-x-3 p-2 bg-gray-800/20 rounded-lg hover:bg-gray-700/20 transition-colors">
                 <div className="w-6 h-6 rounded bg-orange-500/10 flex items-center justify-center shrink-0">
                   <span className="text-orange-400 text-xs">📄</span>
@@ -389,7 +405,7 @@ const ContextDropdownView: React.FC<{ contextInfo: any }> = ({ contextInfo }) =>
             <div className="p-3 bg-gray-800/20 rounded-lg">
               <div className="text-xs font-medium text-gray-200 mb-2">Most Used Tags ({contextInfo.tags?.totalTags || 0})</div>
               <div className="flex flex-wrap gap-2">
-                {contextInfo.tags?.mostUsed?.slice(0, 15).map((tagInfo: any, index: number) => (
+                {contextInfo.tags?.mostUsed?.slice(0, 15).map((tagInfo, index: number) => (
                   <div key={index} className="inline-flex items-center space-x-1 bg-purple-500/10 px-2 py-1 rounded-full">
                     <span className="text-[8px] text-purple-400 font-medium">{tagInfo.tag}</span>
                     <span className="text-[7px] text-purple-500">({tagInfo.count})</span>

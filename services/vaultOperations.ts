@@ -1,5 +1,5 @@
 import type { TAbstractFile, App } from 'obsidian';
-import { normalizePath } from 'obsidian';
+import { TFile, normalizePath } from 'obsidian';
 import { loadAppSettings } from '../persistence/persistence';
 import { getObsidianApp } from '../utils/environment';
 import { SearchResult, SearchMatch } from '../types';
@@ -146,8 +146,8 @@ export const getDirectoryList = (): DirectoryNode[] => {
 export const readFile = async (filename: string): Promise<string> => {
   const app = getApp();
   const file = app.vault.getAbstractFileByPath(normalizePath(filename));
-  if (!file) throw new Error(`File not found in vault: ${filename}`);
-  return await app.vault.read(file as any);
+  if (!file || !(file instanceof TFile)) throw new Error(`File not found in vault: ${filename}`);
+  return await app.vault.read(file);
 };
 
 export const createBinaryFile = async (filename: string, data: ArrayBuffer | Uint8Array): Promise<string> => {
@@ -161,8 +161,8 @@ export const createBinaryFile = async (filename: string, data: ArrayBuffer | Uin
   }
   
   // Convert Uint8Array to ArrayBuffer if needed
-  const buffer = data instanceof Uint8Array ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : data;
-  await app.vault.adapter.writeBinary(filename, buffer);
+  const buffer = data instanceof Uint8Array ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : data as ArrayBuffer;
+  await app.vault.adapter.writeBinary(filename, buffer as ArrayBuffer);
   return `Created binary file ${filename} in vault`;
 };
 
@@ -185,8 +185,8 @@ export const createFile = async (filename: string, content: string): Promise<str
 export const updateFile = async (filename: string, content: string): Promise<string> => {
   const app = getApp();
   const file = app.vault.getAbstractFileByPath(normalizePath(filename));
-  if (!file) throw new Error(`File not found: ${filename}`);
-  await app.vault.modify(file as any, content);
+  if (!file || !(file instanceof TFile)) throw new Error(`File not found: ${filename}`);
+  await app.vault.modify(file, content);
   return `Updated ${filename} in vault`;
 };
 

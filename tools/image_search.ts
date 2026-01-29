@@ -191,10 +191,10 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
 // Helper function to open Obsidian settings
 function openObsidianSettings(): void {
   const app = getObsidianApp();
-  if (app && (app as any).setting) {
-    (app as any).setting.open();
+  if (app && (app as unknown as { setting?: { open: () => void; openTabById: (id: string) => void } }).setting) {
+    (app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } }).setting.open();
     // Navigate to our plugin's settings tab
-    (app as any).setting.openTabById('hermes-voice-assistant');
+    (app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } }).setting.openTabById('hermes-voice-assistant');
   }
 }
 

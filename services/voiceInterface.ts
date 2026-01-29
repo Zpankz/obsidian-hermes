@@ -369,7 +369,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
         if (fc.name === 'end_conversation') {
           console.debug('Processing end_conversation tool call');
           try {
-            const _response = await executeCommand(fc.name, fc.args as ToolArgs, {
+            await executeCommand(fc.name, fc.args as ToolArgs, {
               onLog: (m, t, d) => this.callbacks.onLog(m, t, d),
               onSystem: (t, d) => this.callbacks.onSystemMessage(t, d),
               onFileState: (folder, note) => {
@@ -456,7 +456,7 @@ Current Note Name: ${this.currentNote || 'No note currently selected'}
             onArchiveConversation: this.callbacks.onArchiveConversation
           }, toolCallId, this.currentFolder);  // Pass the toolCallId and currentFolder to executeCommand
 
-          const _session = await this.getSession();
+          await this.getSession();
 
           // Tool response debug summary
           const responseData = JSON.stringify({ result: response });

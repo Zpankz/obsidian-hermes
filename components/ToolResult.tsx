@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ToolData, FileDiff, GroundingChunk, SearchResult, SearchMatch, ImageSearchResult, DownloadedImage, DirectoryInfoItem } from '../types';
+import { ToolData, FileDiff, SearchResult, SearchMatch, ImageSearchResult, DownloadedImage, DirectoryInfoItem } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { COMMAND_DECLARATIONS } from '../services/commands';
 import { openFileInObsidian } from '../utils/environment';
@@ -293,50 +293,6 @@ const ImageSearchResultsView: React.FC<{ searchResults: ImageSearchResult[], que
   );
 };
 
-const _WebSearchView: React.FC<{ content: string, chunks: GroundingChunk[] }> = ({ content, chunks }) => {
-  return (
-    <div className="p-6 hermes-bg-tertiary space-y-4 animate-in fade-in duration-500">
-      <div className="pb-4 hermes-border-b mb-4">
-        <MarkdownRenderer content={content} />
-      </div>
-      {chunks.length > 0 && (
-        <div className="space-y-3">
-          <div className="text-[8px] font-black uppercase tracking-[0.2em] hermes-text-accent/70 ml-1">Source Grounding</div>
-          <div className="grid grid-cols-1 gap-2">
-            {chunks.slice(0, 10).map((chunk, i) => {
-              const item = chunk.web || chunk.maps;
-              if (!item || !item.uri) return null;
-              return (
-                <a 
-                  key={i} 
-                  href={item.uri} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center space-x-3 p-3 rounded-xl hermes-bg-secondary/5 hermes-border/5 hermes-hover:bg-secondary/10 hermes-hover:border/10 transition-all group shadow-sm"
-                >
-                  <div className="w-8 h-8 rounded-lg hermes-interactive-bg/10 flex items-center justify-center shrink-0 hermes-border/20">
-                    <svg className="w-4 h-4 hermes-text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </div>
-                  <div className="flex flex-col truncate">
-                    <span className="text-[11px] font-bold hermes-text-normal group-hover:hermes-text-accent transition-colors truncate">{item.title || 'Untitled'}</span>
-                    <span className="text-[9px] hermes-text-muted truncate font-mono">{new URL(item.uri).hostname}</span>
-                  </div>
-                </a>
-              );
-            })}
-            {chunks.length > 10 && (
-              <div className="hermes-text-muted italic text-[9px] pt-2 px-3 hermes-border-t">
-                ... and {chunks.length - 10} more sources (truncated)
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const ToolResult: React.FC<ToolResultProps> = ({ toolData, isLast, onImageDownload }) => {
   const [isExpanded, setIsExpanded] = useState(false);

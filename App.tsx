@@ -663,7 +663,7 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     }
   };
 
-  const handleSendText = async (e: React.FormEvent) => {
+  const handleSendText = (e: React.FormEvent) => {
     e.preventDefault(); 
     if (!inputText.trim()) return;
     
@@ -768,7 +768,7 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
             setManualApiKey={setManualApiKey}
             serperApiKey={serperApiKey}
             setSerperApiKey={setSerperApiKey}
-            onUpdateApiKey={() => (window as any).aistudio?.openSelectKey()}
+            onUpdateApiKey={() => (window as { aistudio?: { openSelectKey?: () => void } }).aistudio?.openSelectKey()}
           />
           
           <Header 

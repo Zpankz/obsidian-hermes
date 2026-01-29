@@ -1,11 +1,18 @@
 import { Type } from '@google/genai';
+import { MarkdownView, getAllTags } from 'obsidian';
 import { getObsidianApp } from '../utils/environment';
 import { loadAppSettings, loadChatHistory, loadArchivedConversations } from '../persistence/persistence';
 import { getVaultFiles, getFolderTree } from '../services/vaultOperations';
-import { getAllTags } from 'obsidian';
 import type { ToolCallbacks } from '../types';
 
 type ToolArgs = Record<string, unknown>;
+
+interface RecentFile {
+  path: string;
+  name: string;
+  modified: string;
+  size: string;
+}
 
 const getStringArg = (args: ToolArgs, key: string): string | undefined => {
   const value = args[key];
@@ -148,12 +155,12 @@ export const execute = async (args: ToolArgs, callbacks: ToolCallbacks): Promise
     const lastOpenFiles = workspace.getLastOpenFiles();
     const openLeaves = workspace.getLeavesOfType('markdown');
     const openedFiles = openLeaves
-      .map(leaf => (leaf.view as any)?.file?.path)
+      .map(leaf => (leaf.view as MarkdownView)?.file?.path)
       .filter((path): path is string => !!path)
       .filter((path, index, arr) => arr.indexOf(path) === index); // Remove duplicates
 
     // Get recent files
-    let recentFiles: any[] = [];
+    let recentFiles: RecentFile[] = [];
     if (includeRecentFiles) {
       const vaultFilesResult = await getVaultFiles({ 
         limit: recentFilesLimit, 
