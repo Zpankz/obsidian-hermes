@@ -1,9 +1,8 @@
-
 export interface LogEntry {
   id: string;
   message: string;
   timestamp: Date;
-  type: 'info' | 'action' | 'error';
+  type: "info" | "action" | "error";
   duration?: number; // Time in ms
   errorDetails?: {
     toolName?: string;
@@ -45,7 +44,7 @@ export interface ToolData {
   id?: string;
   name: string;
   filename: string;
-  status?: 'pending' | 'success' | 'error' | 'search_results';
+  status?: "pending" | "success" | "error" | "search_results";
   oldContent?: string;
   newContent?: string;
   additions?: number;
@@ -82,12 +81,12 @@ export interface ToolData {
 
 export interface TranscriptionEntry {
   id: string;
-  role: 'user' | 'model' | 'system';
+  role: "user" | "model" | "system";
   text: string;
   isComplete: boolean;
   toolData?: ToolData;
   timestamp: number;
-  topicId?: string;  // Groups messages by conversation topic; changes on topic_switch
+  topicId?: string; // Groups messages by conversation topic; changes on topic_switch
 }
 
 /**
@@ -96,11 +95,11 @@ export interface TranscriptionEntry {
  */
 export interface ArchivedConversation {
   key: string;
-  topicId: string;                    // Unique topic identifier for deduplication
-  title: string;                      // From LLM (STEP 3)
-  tags: string[];                     // From LLM (STEP 3)
-  summary: string;                    // From LLM (STEP 3)
-  suggestedFilename: string;          // From LLM (STEP 3)
+  topicId: string; // Unique topic identifier for deduplication
+  title: string; // From LLM (STEP 3)
+  tags: string[]; // From LLM (STEP 3)
+  summary: string; // From LLM (STEP 3)
+  suggestedFilename: string; // From LLM (STEP 3)
   archivedAt: number;
   conversation: TranscriptionEntry[]; // FILTERED-HISTORY from STEP 1
 }
@@ -111,10 +110,10 @@ export interface FileData {
 }
 
 export enum ConnectionStatus {
-  DISCONNECTED = 'DISCONNECTED',
-  CONNECTING = 'CONNECTING',
-  CONNECTED = 'CONNECTED',
-  ERROR = 'ERROR'
+  DISCONNECTED = "DISCONNECTED",
+  CONNECTING = "CONNECTING",
+  CONNECTED = "CONNECTED",
+  ERROR = "ERROR",
 }
 
 export interface UsageMetadata {
@@ -132,6 +131,7 @@ export interface AppSettings {
   chatHistoryFolder?: string;
   currentFolder?: string;
   currentNote?: string | null;
+  enableVision?: boolean;
   transcripts?: TranscriptionEntry[];
   totalTokens?: number;
   chatHistory?: string[];
@@ -139,8 +139,17 @@ export interface AppSettings {
 
 export interface VoiceAssistantCallbacks {
   onStatusChange: (status: ConnectionStatus) => void;
-  onLog: (message: string, type: LogEntry['type'], duration?: number, errorDetails?: LogEntry['errorDetails']) => void;
-  onTranscription: (role: 'user' | 'model', text: string, isComplete: boolean) => void;
+  onLog: (
+    message: string,
+    type: LogEntry["type"],
+    duration?: number,
+    errorDetails?: LogEntry["errorDetails"],
+  ) => void;
+  onTranscription: (
+    role: "user" | "model",
+    text: string,
+    isComplete: boolean,
+  ) => void;
   onSystemMessage: (text: string, toolData?: ToolData) => void;
   onInterrupted: () => void;
   onFileStateChange: (folder: string, note: string | string[] | null) => void;
@@ -150,7 +159,12 @@ export interface VoiceAssistantCallbacks {
 }
 
 export interface ToolCallbacks {
-  onLog: (message: string, type: LogEntry['type'], duration?: number, errorDetails?: LogEntry['errorDetails']) => void;
+  onLog: (
+    message: string,
+    type: LogEntry["type"],
+    duration?: number,
+    errorDetails?: LogEntry["errorDetails"],
+  ) => void;
   onSystem: (text: string, toolData?: ToolData) => void;
   onFileState: (folder: string, note: string | string[] | null) => void;
   onStopSession?: () => void;
@@ -181,7 +195,7 @@ export interface DownloadedImage {
 
 export interface DirectoryInfoItem {
   path: string;
-  type?: 'directory' | 'file';
+  type?: "directory" | "file";
   hasChildren?: boolean;
 }
 
@@ -196,6 +210,11 @@ declare global {
 }
 
 export interface VoiceAssistant {
-  start: (apiKey: string, config: AppSettings, initialState?: { folder: string; note: string | null }, conversationHistory?: string) => Promise<void>;
+  start: (
+    apiKey: string,
+    config: AppSettings,
+    initialState?: { folder: string; note: string | null },
+    conversationHistory?: string,
+  ) => Promise<void>;
   stop: () => void;
 }
