@@ -41612,7 +41612,7 @@ var BackgroundAnalyzer = class {
   constructor(ai) {
     this.pendingAnalysis = null;
     this.ai = ai;
-    this.model = "gemini-2.0-flash";
+    this.model = "gemini-2.5-flash";
     this.beliefState = {
       vertexBeliefs: {},
       sessionInsights: []
