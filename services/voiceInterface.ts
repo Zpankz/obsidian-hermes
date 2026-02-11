@@ -13,7 +13,12 @@ import {
   decodeAudioData,
   float32ToInt16,
 } from "../utils/audioUtils";
-import { COMMAND_DECLARATIONS, executeCommand } from "./commands";
+import {
+  COMMAND_DECLARATIONS,
+  PEX_DECLARATIONS,
+  executeCommand,
+} from "./commands";
+import { PEX_SYSTEM_INSTRUCTION } from "../utils/pexPrompt";
 import { withRetry, RetryCounter } from "../utils/retryUtils";
 import { getErrorMessage } from "../utils/getErrorMessage";
 
@@ -168,11 +173,19 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.inputStream = stream;
 
+      const visionContext = settings.enableVision
+        ? `\nVISION: You can see the user's screen in real-time via screen capture frames sent every 2 seconds. When the user asks about what's on screen, describe what you see. Reference visible content naturally.\n`
+        : "";
+
+      const pexContext = settings.enablePexInterview
+        ? PEX_SYSTEM_INSTRUCTION
+        : "";
+
       const contextString = `
 CURRENT_CONTEXT:
 Current Folder Path: ${this.currentFolder}
 Current Note Name: ${this.currentNote || "No note currently selected"}
-`;
+${visionContext}${pexContext}`;
       // Include conversation history in system prompt if provided
       const historySection = conversationHistory
         ? `\n\nPREVIOUS_CONVERSATION:\n${conversationHistory}\n`
@@ -190,16 +203,19 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
         "info",
       );
 
+      // Use latest native audio model — supports audio, video, text inputs
+      const model = "gemini-2.5-flash-native-audio-preview-12-2025";
+
       // Session configuration debug summary
       console.debug(
-        `Session config: model=gemini-2.5-flash-native-audio-preview-12-2025, tools=${COMMAND_DECLARATIONS.length}, voice=${settings.voiceName}`,
+        `Session config: model=${model}, vision=${settings.enableVision}, tools=${COMMAND_DECLARATIONS.length}, voice=${settings.voiceName}`,
       );
 
       this.callbacks.onLog("Initializing Gemini live connection...", "info");
 
       // Initializing session promise to be used for all subsequent real-time inputs.
       this.sessionPromise = ai.live.connect({
-        model: "gemini-2.5-flash-native-audio-preview-12-2025",
+        model,
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction,
@@ -210,7 +226,13 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
               prebuiltVoiceConfig: { voiceName: settings.voiceName },
             },
           },
-          tools: [{ functionDeclarations: COMMAND_DECLARATIONS }],
+          tools: [
+            {
+              functionDeclarations: settings.enablePexInterview
+                ? [...COMMAND_DECLARATIONS, ...PEX_DECLARATIONS]
+                : COMMAND_DECLARATIONS,
+            },
+          ],
         },
         callbacks: {
           onopen: () => {
@@ -222,7 +244,9 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
             );
             if (this.sessionPromise !== null) {
               void this.startMicStreaming(stream);
+              console.debug(`[VISION] enableVision=${settings.enableVision}`);
               if (settings.enableVision) {
+                console.debug("[VISION] Starting screen capture...");
                 void this.startScreenCapture();
               }
             }
@@ -520,6 +544,16 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
           open_folder_in_system: "System File Browser",
           end_conversation: "Session End",
           topic_switch: "Topic Switch",
+          pex_start_interview: "PEX Interview Start",
+          pex_record_probe: "PEX Probe Record",
+          pex_advance_vertex: "PEX Next Vertex",
+          pex_get_state: "PEX State",
+          pex_set_phase: "PEX Phase Change",
+          pex_mark_filled: "PEX Fill",
+          pex_mark_corrected: "PEX Correction",
+          pex_search_grounding: "PEX Vault Search",
+          pex_export_report: "PEX Report Export",
+          pex_end_interview: "PEX Interview End",
         };
 
         const actionName =
@@ -777,13 +811,158 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
     }
   }
 
+  /**
+   * Show a picker for the user to choose which screen or window to capture.
+   * Returns the selected source ID, or null if cancelled/unavailable.
+   */
+  private async pickScreenSource(): Promise<string | null> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const electron = window.require("electron");
+      const { desktopCapturer } = electron;
+      if (!desktopCapturer) return null;
+
+      const sources = await desktopCapturer.getSources({
+        types: ["screen", "window"],
+        thumbnailSize: { width: 320, height: 180 },
+        fetchWindowIcons: true,
+      });
+
+      if (sources.length === 0) return null;
+      // Single source — use it directly without picker
+      if (sources.length === 1) return sources[0].id;
+
+      return new Promise<string | null>((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "hermes-source-picker-overlay";
+
+        const modal = document.createElement("div");
+        modal.className = "hermes-source-picker-modal";
+
+        const title = document.createElement("h3");
+        title.textContent = "Choose what to share";
+        modal.appendChild(title);
+
+        // Separate screens and windows
+        const screens = sources.filter((s: { id: string }) =>
+          s.id.startsWith("screen:"),
+        );
+        const windows = sources.filter((s: { id: string }) =>
+          s.id.startsWith("window:"),
+        );
+
+        const createSection = (
+          label: string,
+          items: Array<{
+            id: string;
+            name: string;
+            thumbnail: { toDataURL: () => string };
+            appIcon?: { toDataURL: () => string } | null;
+          }>,
+        ) => {
+          if (items.length === 0) return;
+          const section = document.createElement("div");
+          section.className = "hermes-source-picker-section";
+          const heading = document.createElement("div");
+          heading.className = "hermes-source-picker-section-label";
+          heading.textContent = label;
+          section.appendChild(heading);
+
+          const grid = document.createElement("div");
+          grid.className = "hermes-source-picker-grid";
+
+          for (const source of items) {
+            const item = document.createElement("div");
+            item.className = "hermes-source-picker-item";
+
+            const thumb = document.createElement("img");
+            thumb.src = source.thumbnail.toDataURL();
+            thumb.className = "hermes-source-picker-thumb";
+            item.appendChild(thumb);
+
+            const labelEl = document.createElement("span");
+            labelEl.className = "hermes-source-picker-label";
+            labelEl.textContent = source.name;
+            item.appendChild(labelEl);
+
+            item.addEventListener("click", () => {
+              overlay.remove();
+              resolve(source.id);
+            });
+            grid.appendChild(item);
+          }
+          section.appendChild(grid);
+          modal.appendChild(section);
+        };
+
+        createSection("Screens", screens);
+        createSection("Windows", windows);
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.className = "hermes-source-picker-cancel";
+        cancelBtn.addEventListener("click", () => {
+          overlay.remove();
+          resolve(null);
+        });
+        modal.appendChild(cancelBtn);
+
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) {
+            overlay.remove();
+            resolve(null);
+          }
+        });
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+      });
+    } catch (err) {
+      console.debug("[VISION] desktopCapturer not available:", err);
+      return null;
+    }
+  }
+
   private async startScreenCapture(): Promise<void> {
     try {
+      console.debug("[VISION] startScreenCapture called");
       this.callbacks.onLog("Requesting screen capture...", "info");
 
-      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 1, max: 2 } },
-      });
+      if (Platform.isDesktopApp) {
+        // Try to show source picker for multi-monitor / window selection
+        const sourceId = await this.pickScreenSource();
+
+        if (sourceId === null) {
+          // Picker cancelled or desktopCapturer unavailable — capture primary screen
+          console.debug(
+            "[VISION] Using default desktop capture (primary screen)",
+          );
+        } else {
+          console.debug(`[VISION] User selected source: ${sourceId}`);
+        }
+
+        const constraints: Record<string, unknown> = {
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: "desktop",
+              ...(sourceId ? { chromeMediaSourceId: sourceId } : {}),
+              maxFrameRate: 2,
+            },
+          },
+        };
+        this.screenStream = await navigator.mediaDevices.getUserMedia(
+          constraints as MediaStreamConstraints,
+        );
+      } else {
+        console.debug("[VISION] Using getDisplayMedia (browser)");
+        this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 1, max: 2 } },
+        });
+      }
+      console.debug(
+        `[VISION] Screen capture succeeded, tracks=${this.screenStream.getTracks().length}`,
+      );
 
       // Handle user stopping screen share via browser UI
       const videoTrack = this.screenStream.getVideoTracks()[0];
@@ -831,11 +1010,20 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
       !this.screenCanvas ||
       !this.screenCtx ||
       !this.session
-    )
+    ) {
+      console.debug(
+        `[VISION] sendScreenFrame skip: video=${!!this.screenVideo} canvas=${!!this.screenCanvas} ctx=${!!this.screenCtx} session=${!!this.session}`,
+      );
       return;
+    }
 
     const video = this.screenVideo;
-    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.debug(
+        `[VISION] sendScreenFrame skip: videoWidth=${video.videoWidth} videoHeight=${video.videoHeight}`,
+      );
+      return;
+    }
 
     // Resize to max 768px on longest side
     const maxDim = 768;
@@ -856,11 +1044,18 @@ Current Note Name: ${this.currentNote || "No note currently selected"}
     const base64 = dataUrl.split(",")[1];
     if (!base64) return;
 
+    console.debug(
+      `[VISION] Sending frame ${width}x${height}, base64 length=${base64.length}`,
+    );
+
     try {
       this.session.sendRealtimeInput({
         media: { data: base64, mimeType: "image/jpeg" },
       });
     } catch (error) {
+      console.error(
+        `[VISION] sendRealtimeInput error: ${getErrorMessage(error)}`,
+      );
       if (
         getErrorMessage(error).includes("CLOSING") ||
         getErrorMessage(error).includes("CLOSED")

@@ -12,6 +12,7 @@ export interface HermesSettings {
   serperApiKey: string;
   chatHistoryFolder: string;
   enableVision: boolean;
+  enablePexInterview: boolean;
 }
 
 export const DEFAULT_HERMES_SETTINGS: HermesSettings = {
@@ -22,6 +23,7 @@ export const DEFAULT_HERMES_SETTINGS: HermesSettings = {
   serperApiKey: "",
   chatHistoryFolder: "chat-history",
   enableVision: false,
+  enablePexInterview: false,
 };
 
 export class HermesSettingsTab extends PluginSettingTab {
@@ -132,6 +134,26 @@ export class HermesSettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             if (this.plugin.settings) {
               this.plugin.settings.enableVision = value;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
+
+    // PEX Interview Mode
+    new Setting(containerEl)
+      .setName("Enable PEX interview")
+      .setDesc(
+        "Activate PEX exam interview mode — Hermes becomes a Socratic examiner that probes your knowledge across physiology, pharmacology, and physics vertices",
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(
+            this.plugin.settings?.enablePexInterview ??
+              DEFAULT_HERMES_SETTINGS.enablePexInterview,
+          )
+          .onChange(async (value) => {
+            if (this.plugin.settings) {
+              this.plugin.settings.enablePexInterview = value;
               await this.plugin.saveSettings();
             }
           });
