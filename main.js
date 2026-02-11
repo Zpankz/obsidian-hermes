@@ -40127,30 +40127,44 @@ var initPexSession = (params) => {
 var classifyQuadrant = (score, confident) => {
   if (score >= 4 && confident)
     return "SOLID";
+  if (score >= 4 && !confident)
+    return "UNDERCONFIDENT";
   if (score >= 3 && !confident)
     return "UNDERCONFIDENT";
+  if (score >= 3 && confident)
+    return "SOLID";
   if (score <= 2 && confident)
     return "HYPERCORRECTION_TARGET";
   return "GAP";
 };
+var PROBE_LAYERS = [
+  "recall",
+  "mechanism",
+  "clinical",
+  "quantitative"
+];
 var recordProbe = (probe) => {
   const quadrant = classifyQuadrant(probe.score, probe.confident);
   const result = {
     vertex: probe.vertex,
+    layer: probe.layer,
     level: probe.level,
     score: probe.score,
     quadrant,
+    confident: probe.confident,
     answerSummary: probe.answerSummary,
     timestamp: Date.now()
   };
   const existing = currentState.vertices[probe.vertex];
   if (!existing)
     return currentState;
+  const updatedLayers = existing.probedLayers.includes(probe.layer) ? existing.probedLayers : [...existing.probedLayers, probe.layer];
   const updatedVertex = {
     ...existing,
     bestScore: Math.max(existing.bestScore, probe.score),
     quadrant,
-    probeCount: existing.probeCount + 1
+    probeCount: existing.probeCount + 1,
+    probedLayers: updatedLayers
   };
   currentState = {
     ...currentState,
@@ -40202,6 +40216,32 @@ var markCorrected = (vertex) => {
   };
   return currentState;
 };
+var getNextUnprobedLayer = (vertex) => {
+  const existing = currentState.vertices[vertex];
+  if (!existing)
+    return "recall";
+  for (const layer of PROBE_LAYERS) {
+    if (!existing.probedLayers.includes(layer))
+      return layer;
+  }
+  return null;
+};
+var isVertexLayerComplete = (vertex) => {
+  const existing = currentState.vertices[vertex];
+  if (!existing)
+    return false;
+  if (existing.probedLayers.length >= 4)
+    return true;
+  const probes = currentState.probeHistory.filter((p) => p.vertex === vertex);
+  const weakProbes = probes.filter((p) => p.score <= 2);
+  if (weakProbes.length >= 2)
+    return true;
+  const strongProbes = probes.filter((p) => p.score >= 4);
+  if (strongProbes.length >= 2)
+    return true;
+  return false;
+};
+var getVertexProbes = (vertex) => currentState.probeHistory.filter((p) => p.vertex === vertex);
 var getGaps = () => Object.values(currentState.vertices).filter(
   (v2) => v2.quadrant === "GAP" || v2.quadrant === "HYPERCORRECTION_TARGET"
 );
@@ -40466,7 +40506,8 @@ var executeStartInterview = async (args, callbacks) => {
       quadrant: null,
       probeCount: 0,
       filled: false,
-      corrected: false
+      corrected: false,
+      probedLayers: []
     };
   }
   const state = initPexSession({
@@ -40481,31 +40522,32 @@ var executeStartInterview = async (args, callbacks) => {
     filename: `${college} \u2014 ${domains.length === 0 ? "All domains" : domains.join(", ")}`,
     status: "success"
   });
+  const firstVertex = queue[0] ?? null;
+  const firstDef = firstVertex ? VERTEX_DATA[firstVertex] : null;
   return {
     status: "started",
     college: state.college,
     domains: state.domains.length === 0 ? ["All"] : state.domains,
-    depth: state.depth,
     totalVertices: queue.length,
-    vertexQueue: queue.map((v2, i) => ({
-      position: i + 1,
-      name: v2,
-      description: VERTEX_DATA[v2]?.description ?? "",
-      subTopics: VERTEX_DATA[v2]?.subTopics ?? []
-    })),
-    firstVertex: queue[0] ?? null,
-    instructions: "Begin probing the first vertex. Ask L1 recognition questions first, then L2 if correct. Track confidence with each question. Do NOT reveal correctness during probing \u2014 hold errors for the hypercorrection phase."
+    firstVertex,
+    firstVertexDescription: firstDef?.description ?? "",
+    firstVertexHint: firstDef ? `Start with a clinical anchor, then ask one simple recall question about ${firstVertex}.` : null,
+    vertexNames: queue
   };
 };
 var recordProbeDeclaration = {
   name: "pex_record_probe",
-  description: "Record the result of probing a vertex. Call after evaluating the user's verbal answer. Score 1-5, indicate confidence level. Returns updated state with quadrant classification and next action.",
+  description: "Record the result of probing a vertex. Call after evaluating the user's verbal answer. Specify the layer (recall/mechanism/clinical/quantitative) and score 1-5. Returns layer completion status and next layer to probe.",
   parameters: {
     type: Type.OBJECT,
     properties: {
       vertex: {
         type: Type.STRING,
         description: "The vertex name being probed (e.g. Flow=\u0394P/R)"
+      },
+      layer: {
+        type: Type.STRING,
+        description: "Probing layer: recall (definitions/equations), mechanism (why/how/cause-effect), clinical (when/where/scenarios), quantitative (calculations/values/ranges)"
       },
       level: {
         type: Type.NUMBER,
@@ -40524,11 +40566,18 @@ var recordProbeDeclaration = {
         description: "Brief summary of the user's answer for the record"
       }
     },
-    required: ["vertex", "level", "score", "confident", "answerSummary"]
+    required: ["vertex", "layer", "score", "confident", "answerSummary"]
   }
 };
+var VALID_LAYERS = [
+  "recall",
+  "mechanism",
+  "clinical",
+  "quantitative"
+];
 var executeRecordProbe = async (args, callbacks) => {
   const vertex = getStringArg24(args, "vertex");
+  const layerStr = getStringArg24(args, "layer") ?? "recall";
   const level = getNumberArg7(args, "level") ?? 1;
   const score = getNumberArg7(args, "score") ?? 1;
   const confident = getBoolArg(args, "confident") ?? false;
@@ -40536,8 +40585,10 @@ var executeRecordProbe = async (args, callbacks) => {
   if (!vertex) {
     return { error: "vertex parameter is required" };
   }
+  const layer = VALID_LAYERS.includes(layerStr) ? layerStr : "recall";
   const state = recordProbe({
     vertex,
+    layer,
     level,
     score,
     confident,
@@ -40545,34 +40596,36 @@ var executeRecordProbe = async (args, callbacks) => {
   });
   const vertexState = state.vertices[vertex];
   const summary = getSessionSummary();
-  let nextAction;
-  if (score <= 2) {
-    nextAction = "GAP detected. Flag this vertex RED. Skip remaining levels for this vertex and move to next. Queue for DIG phase later.";
-  } else if (score === 3) {
-    nextAction = "BORDERLINE. Probe one level deeper on this vertex to clarify.";
-  } else {
-    nextAction = "STRONG. Skip remaining levels for this vertex and advance to next vertex.";
-  }
-  const shouldAdvance = score <= 2 || score >= 4;
-  callbacks.onSystem(`Probe recorded: ${vertex} L${level} \u2192 ${score}/5`, {
-    name: "pex_record_probe",
-    filename: vertex,
-    status: "success"
-  });
+  const vertexComplete = isVertexLayerComplete(vertex);
+  const nextLayer = getNextUnprobedLayer(vertex);
+  const probes = getVertexProbes(vertex);
+  const vertexDef = VERTEX_DATA[vertex];
+  const layerScores = PROBE_LAYERS.map((l) => {
+    const probe = probes.find((p) => p.layer === l);
+    return probe ? `${l}:${probe.score}/5` : `${l}:\u2014`;
+  }).join(", ");
+  callbacks.onSystem(
+    `Probe: ${vertex} [${layer}] \u2192 ${score}/5 (${vertexState?.quadrant ?? "GAP"}) | ${layerScores}`,
+    {
+      name: "pex_record_probe",
+      filename: vertex,
+      status: "success"
+    }
+  );
   return {
-    recorded: {
-      vertex,
-      level,
-      score,
-      quadrant: vertexState?.quadrant ?? "GAP",
-      confident
-    },
-    sessionSummary: summary,
-    nextAction,
-    shouldAdvanceVertex: shouldAdvance,
-    currentVertexIndex: state.currentVertexIndex,
-    nextVertex: shouldAdvance && state.currentVertexIndex < state.vertexQueue.length - 1 ? state.vertexQueue[state.currentVertexIndex + 1] : null,
-    reminder: "CRITICAL: Do NOT correct errors now. Hold all errors for the HYPERCORRECTION phase. Continue probing neutrally."
+    vertex,
+    layer,
+    score,
+    quadrant: vertexState?.quadrant ?? "GAP",
+    layersProbed: vertexState?.probedLayers ?? [],
+    layerScores,
+    vertexComplete,
+    nextLayer,
+    vertexDescription: vertexDef?.description ?? "",
+    shouldAdvance: vertexComplete,
+    instruction: vertexComplete ? "Vertex fully probed. Call pex_advance_vertex to move on." : nextLayer ? `Probe the ${nextLayer} layer next. Ask a short question about ${nextLayer === "recall" ? "definitions or equations" : nextLayer === "mechanism" ? "why or how it works" : nextLayer === "clinical" ? "a clinical scenario" : "specific numbers or calculations"}.` : "All layers probed. Call pex_advance_vertex.",
+    probed: summary.probed,
+    total: summary.totalVertices
   };
 };
 var advanceVertexDeclaration = {
@@ -40591,42 +40644,30 @@ var executeAdvanceVertex = async (_args, callbacks) => {
     setPhase("fill");
     const gaps = getGaps();
     const hcTargets = getHypercorrectionTargets();
-    callbacks.onSystem("All vertices probed \u2014 entering FILL phase", {
+    callbacks.onSystem("All probed \u2014 teaching phase", {
       name: "pex_advance_vertex",
-      filename: "Phase transition",
+      filename: "Teaching",
       status: "success"
     });
     return {
-      status: "all_vertices_probed",
+      done: true,
       phase: "fill",
-      summary,
-      gaps: gaps.map((g) => ({
-        name: g.name,
-        score: g.bestScore,
-        quadrant: g.quadrant
-      })),
-      hypercorrectionTargets: hcTargets.map((h) => ({
-        name: h.name,
-        score: h.bestScore
-      })),
-      instructions: "All vertices probed. Now enter FILL phase: for each GAP, search the vault for grounding content and provide model answers. After FILL, move to HYPERCORRECT phase for high-confidence errors."
+      gaps: gaps.map((g) => g.name),
+      hypercorrectionTargets: hcTargets.map((h) => h.name),
+      probed: summary.probed
     };
   }
   const vertexDef = VERTEX_DATA[currentVertex];
-  callbacks.onSystem(`Next vertex: ${currentVertex}`, {
+  callbacks.onSystem(`Next: ${currentVertex}`, {
     name: "pex_advance_vertex",
     filename: currentVertex,
     status: "success"
   });
   return {
-    status: "advanced",
-    currentVertex,
+    done: false,
+    vertex: currentVertex,
     description: vertexDef?.description ?? "",
-    subTopics: vertexDef?.subTopics ?? [],
-    vertexIndex: state.currentVertexIndex,
-    totalVertices: state.vertexQueue.length,
-    summary,
-    instructions: `Probe ${currentVertex}: Start with L1 recognition question, then L2 if correct. Always ask confidence alongside.`
+    position: `${state.currentVertexIndex + 1}/${state.vertexQueue.length}`
   };
 };
 var getStateDeclaration = {
@@ -41421,63 +41462,397 @@ Current content shows first 50,000 characters only.`;
 // utils/pexPrompt.ts
 var PEX_SYSTEM_INSTRUCTION = `
 PEX INTERVIEW MODE \u2014 ACTIVE
-You are now a PEX (Primary Exam) interview examiner for ANZCA/CICM. Your role is to systematically probe the user's knowledge using the vertex-compression framework.
 
-CORE PROTOCOL (7 phases):
-1. SCOPE+SEED: Call pex_start_interview with the user's domain/college choice. Present the vertex queue.
-2. PROBE: For each vertex, ask L1\u2192L5 questions. Always assess confidence. Score internally 1-5.
-3. MAP: After each probe round, call pex_get_state to review progress.
-4. DIG: For GAP vertices (score \u22642), decompose into sub-components and probe deeper. Use pex_search_grounding to find vault content.
-5. FILL: For confirmed gaps, search vault and deliver model SAQ-style answers showing the delta between user's response and ideal response.
-6. HYPERCORRECT: Revisit high-confidence errors (HYPERCORRECTION_TARGET quadrant). Surface the contradiction, present evidence, give vivid mechanistic correction. This is the highest-value learning moment.
-7. RETEST: Re-probe gap vertices with different angles. Name 2-3 open loops at session end.
+You are a voice-based medical exam tutor for the ANZCA/CICM Primary Exam. You probe the user's knowledge through short, focused questions \u2014 one concept at a time. Your goal is to find gaps and teach efficiently.
 
-QUESTION LEVELS:
-- L1 Recognition: "What governs X?" (binary correct/incorrect)
-- L2 Instantiation: "Where else does this appear?" (completeness ratio)
-- L3 Quantitative: "Calculate X given Y" (accuracy + units)
-- L4 Perturbation: "What happens when X changes?" (direction + mechanism + magnitude)
-- L5 Integration: "How does vertex A connect to B?" (bridge + shared variable)
+## HOW TO ASK QUESTIONS
 
-ADAPTIVE LOGIC:
-- Score \u22642 \u2192 flag RED \u2192 skip remaining levels \u2192 queue for DIG
-- Score 3 \u2192 BORDERLINE \u2192 probe one level deeper
-- Score \u22654 \u2192 flag GREEN \u2192 skip remaining levels \u2192 advance to next vertex
+Questions MUST be short (under 15 words) and answerable in 1-3 spoken sentences. This is a voice conversation \u2014 not a written exam.
 
-FOUR-QUADRANT CLASSIFICATION:
-- Correct + Confident = SOLID (green)
-- Correct + Unconfident = UNDERCONFIDENT
-- Incorrect + Unconfident = GAP (red)
-- Incorrect + Confident = HYPERCORRECTION TARGET (red, flagged)
+GOOD questions:
+- "What's the equation for flow in a tube?"
+- "If you double the radius, what happens to resistance?"
+- "Give me one clinical example where Starling forces matter."
+- "How sure are you about that \u2014 pretty confident, or taking a guess?"
 
-CRITICAL RULES:
-1. NEVER correct errors during PROBE phase. Record silently and continue. Hold corrections for HYPERCORRECT phase.
-2. Always ask confidence alongside knowledge questions.
-3. Ground FILL responses in vault data \u2014 call pex_search_grounding before generating model answers.
-4. Keep questions concise and conversational \u2014 this is a voice interface.
-5. After each probe, call pex_record_probe with score and confidence.
-6. Use pex_advance_vertex to move to next vertex when done with current one.
-7. At session end, call pex_export_report to save the study plan.
-8. Name 2-3 unresolved "open loops" at session end (Ovsiankina effect \u2014 drives return).
+BAD questions (NEVER do these):
+- Long multi-part questions requiring 30+ seconds to answer
+- "Compare and contrast X, Y, and Z with clinical significance..."
+- Anything that reads like a written SAQ
 
-VOICE STYLE:
-- Be an encouraging but rigorous examiner
-- Use clinical scenarios to frame questions naturally
-- Keep responses under 30 seconds spoken
-- Acknowledge the user's effort without revealing correctness during PROBE
+## SWISS CHEESE MULTI-LAYER PROBING
 
-TOOL USAGE:
-- pex_start_interview: Initialize session
-- pex_record_probe: Record each probe result
-- pex_advance_vertex: Move to next vertex
+For each vertex (topic), probe from 4 DIFFERENT ANGLES before moving on. A single question only reveals one facet \u2014 like one slice of Swiss cheese. The gaps are where the holes align.
+
+### The 4 Layers
+
+1. **RECALL** \u2014 Basic factual recall. Definitions, equations, names.
+   Example: "What's the equation that governs flow through a vessel?"
+
+2. **MECHANISM** \u2014 Mechanistic understanding. Why, how, cause-effect.
+   Example: "Why does doubling radius have such a big effect on resistance?"
+
+3. **CLINICAL** \u2014 Clinical application. When, where, clinical scenarios.
+   Example: "Give me a clinical scenario where Poiseuille's law is directly relevant."
+
+4. **QUANTITATIVE** \u2014 Quantitative reasoning. Calculations, values, ranges.
+   Example: "Normal SVR is roughly what range in dyne\xB7sec\xB7cm\u207B\u2075?"
+
+### Layer Probing Protocol
+
+For each vertex:
+1. Start with a clinical anchor: "Picture a patient with..."
+2. Ask ONE question from the RECALL layer. Record with pex_record_probe (layer="recall").
+3. Ask ONE question from the MECHANISM layer. Record with pex_record_probe (layer="mechanism").
+4. Ask ONE question from the CLINICAL layer. Record with pex_record_probe (layer="clinical").
+5. If going well, ask ONE from QUANTITATIVE. Record with pex_record_probe (layer="quantitative").
+
+**Early exit rules:**
+- If 2 layers score \u22642 \u2192 vertex is a clear gap. Call pex_advance_vertex.
+- If 2 layers score \u22654 \u2192 vertex is clearly strong. Call pex_advance_vertex.
+- If all 4 layers probed \u2192 call pex_advance_vertex regardless.
+- If score is 3 on a layer \u2192 try ONE follow-up from a different angle before deciding.
+
+**DO NOT advance after just one question.** Probe at least 2 layers per vertex.
+
+## SYSTEM 2 GUIDANCE
+
+A background analysis agent runs in parallel. After you record each probe, it performs deep analysis and injects guidance as a context message labeled "[SYSTEM 2 ANALYSIS]".
+
+**When you see System 2 context:**
+- Follow its layer progression suggestions (which layer to probe next)
+- Note any misconceptions it detected (but don't correct during probing!)
+- Use its suggested follow-up questions if they fit the conversation naturally
+- If it says "vertex complete", call pex_advance_vertex
+
+**If no System 2 context has arrived yet**, continue probing the next unprobed layer.
+
+## AFTER EACH ANSWER
+
+1. Briefly echo what you heard: "OK, so you're saying flow equals pressure over resistance \u2014 got it."
+2. Silently score 1-5 and note their confidence level.
+3. Call pex_record_probe with vertex, layer, score, confident, and a brief summary.
+4. Check the tool response for next layer guidance.
+5. Ask the next question from the suggested layer.
+
+## CONFIDENCE ASSESSMENT
+
+Don't robotically ask "how confident are you?" after every question. Instead:
+- Infer from hedging language ("I think maybe...", "I'm not sure but..." = low confidence)
+- Occasionally ask naturally: "Are you sure about that?" or "Would you bet on it?"
+- Note vocal hesitation as low confidence
+
+## CRITICAL RULES
+
+1. ONE question per turn. Wait for the answer. Never ask two questions at once.
+2. NEVER correct errors during probing. Say "OK, interesting" or "Got it" and move on. Hold ALL corrections for the teaching phase.
+3. Keep your spoken responses under 15 seconds.
+4. Probe at least 2 layers per vertex before advancing.
+5. After probing all vertices, transition to TEACHING mode.
+6. For high-confidence errors: "Earlier you said X with confidence \u2014 actually the key thing is Y, because..." (hypercorrection effect).
+7. End every session by naming 2-3 topics you didn't cover.
+
+## CONVERSATION FLOW
+
+When starting:
+1. Greet briefly. Ask domain preference and college.
+2. Call pex_start_interview with their choices.
+3. Jump straight into the first vertex with a clinical anchor.
+
+Example opening:
+"Let's get started. I'll ask you short questions across the key exam topics \u2014 just answer naturally, don't overthink it. What domain should we focus on \u2014 physiology, pharmacology, physics, or a mix of everything?"
+
+After they choose:
+"And are you sitting ANZCA, CICM, or both? ... Great, let me set that up."
+[Call pex_start_interview]
+
+Then immediately start probing:
+"OK, first up \u2014 blood flow. Imagine a patient with critical aortic stenosis. What's the simple equation that governs flow through a vessel?"
+[After answer \u2192 pex_record_probe with layer="recall"]
+"Good. Now WHY does Poiseuille say the radius matters so much more than length?"
+[After answer \u2192 pex_record_probe with layer="mechanism"]
+
+## TEACHING PHASE
+
+After all vertices are probed, switch to teaching:
+1. Call pex_search_grounding for each gap to find vault content.
+2. For each gap, give a 15-20 second explanation: key fact + WHY + clinical anchor.
+3. For hypercorrection targets (high-confidence errors), explicitly surface the contradiction.
+4. Call pex_mark_filled or pex_mark_corrected after each.
+5. At session end, call pex_export_report.
+
+## TOOL REFERENCE
+
+- pex_start_interview: Initialize (call once at start)
+- pex_record_probe: After each question-answer exchange (include layer!)
+- pex_advance_vertex: Move to next topic (only after 2+ layers probed)
 - pex_get_state: Check progress
-- pex_set_phase: Transition between phases
-- pex_mark_filled: After delivering FILL content
-- pex_mark_corrected: After delivering HYPERCORRECT correction
-- pex_search_grounding: Search vault for content
+- pex_set_phase: Switch to fill/hypercorrect/retest
+- pex_mark_filled: After teaching a gap
+- pex_mark_corrected: After correcting a high-confidence error
+- pex_search_grounding: Search vault for content (use in teaching phase)
 - pex_export_report: Save study plan
 - pex_end_interview: End session
 `;
+
+// services/backgroundAnalyzer.ts
+var LAYER_DEFINITIONS = {
+  recall: "Basic factual recall \u2014 definitions, equations, names",
+  mechanism: "Mechanistic understanding \u2014 why, how, cause-effect",
+  clinical: "Clinical application \u2014 when, where, clinical scenarios",
+  quantitative: "Quantitative reasoning \u2014 calculations, values, ranges"
+};
+var LAYER_ORDER = [
+  "recall",
+  "mechanism",
+  "clinical",
+  "quantitative"
+];
+var BackgroundAnalyzer = class {
+  constructor(ai) {
+    this.pendingAnalysis = null;
+    this.ai = ai;
+    this.model = "gemini-2.0-flash";
+    this.beliefState = {
+      vertexBeliefs: {},
+      sessionInsights: []
+    };
+  }
+  getBeliefState() {
+    return this.beliefState;
+  }
+  getNextLayer(vertex) {
+    const beliefs = this.beliefState.vertexBeliefs[vertex];
+    if (!beliefs)
+      return "recall";
+    const probedLayers = new Set(beliefs.layers.map((l) => l.layer));
+    for (const layer of LAYER_ORDER) {
+      if (!probedLayers.has(layer))
+        return layer;
+    }
+    const weakLayers = beliefs.layers.filter((l) => l.score <= 2);
+    if (weakLayers.length > 0)
+      return null;
+    return null;
+  }
+  isVertexComplete(vertex) {
+    const beliefs = this.beliefState.vertexBeliefs[vertex];
+    if (!beliefs)
+      return false;
+    if (beliefs.layers.length >= 4)
+      return true;
+    const gapLayers = beliefs.layers.filter((l) => l.score <= 2);
+    if (gapLayers.length >= 2)
+      return true;
+    const strongLayers = beliefs.layers.filter((l) => l.score >= 4);
+    if (strongLayers.length >= 2)
+      return true;
+    return false;
+  }
+  async analyzeProbe(params) {
+    const layerProbe = {
+      layer: params.layer,
+      question: params.question,
+      answerSummary: params.answerSummary,
+      score: params.rawScore,
+      confident: params.confident,
+      timestamp: Date.now()
+    };
+    const existingBeliefs = this.beliefState.vertexBeliefs[params.vertex] ?? {
+      layers: [],
+      overallStrength: 0,
+      confidenceCalibration: 1,
+      knownMisconceptions: []
+    };
+    const updatedLayers = [...existingBeliefs.layers, layerProbe];
+    const scores = updatedLayers.map((l) => l.score);
+    const overallStrength = scores.reduce((a, b2) => a + b2, 0) / scores.length;
+    const confidenceCalibration = this.calculateConfidenceCalibration(updatedLayers);
+    this.beliefState = {
+      ...this.beliefState,
+      vertexBeliefs: {
+        ...this.beliefState.vertexBeliefs,
+        [params.vertex]: {
+          ...existingBeliefs,
+          layers: updatedLayers,
+          overallStrength: Math.round(overallStrength * 10) / 10,
+          confidenceCalibration: Math.round(confidenceCalibration * 100) / 100
+        }
+      }
+    };
+    try {
+      const analysis = await this.runDeepAnalysis(params, updatedLayers);
+      return analysis;
+    } catch (err) {
+      console.error("[System2] Deep analysis failed, using fallback:", err);
+      return this.fallbackAnalysis(params);
+    }
+  }
+  async runDeepAnalysis(params, allLayers) {
+    const state = getPexState();
+    const layerHistory = allLayers.map(
+      (l) => `  ${l.layer}: score=${l.score}/5, confident=${l.confident}, "${l.answerSummary}"`
+    ).join("\n");
+    const prompt = `You are a medical exam assessment expert analyzing a student's response during a voice-based ANZCA/CICM Primary Exam interview.
+
+VERTEX: ${params.vertex}
+DESCRIPTION: ${params.vertexDescription}
+CURRENT LAYER: ${params.layer} (${LAYER_DEFINITIONS[params.layer]})
+
+QUESTION ASKED: "${params.question}"
+STUDENT'S ANSWER: "${params.answerSummary}"
+INITIAL SCORE: ${params.rawScore}/5
+STUDENT CONFIDENCE: ${params.confident ? "confident" : "uncertain"}
+
+PREVIOUS LAYERS FOR THIS VERTEX:
+${layerHistory || "(first probe)"}
+
+SESSION CONTEXT: ${state.college}, probed ${state.probeHistory.length} questions so far.
+
+Analyze the student's response and provide:
+
+1. ADJUSTED_SCORE (1-5): Recalibrate the score considering the full layer history. A student who scores 4 on recall but 2 on mechanism has surface knowledge only.
+2. ADJUSTED_CONFIDENCE: true/false \u2014 does their confidence match their actual accuracy?
+3. MISCONCEPTIONS: List any specific factual errors or misconceptions detected.
+4. DEPTH_REACHED: One of "surface", "mechanism", "application", "integration" \u2014 how deep is their actual understanding?
+5. FOLLOW_UP_ANGLES: 2-3 short voice-friendly questions (under 15 words each) that would probe from a different angle. Focus on the next unprobbed layer.
+6. REASONING: Brief explanation of your assessment (2-3 sentences).
+
+Respond in JSON format:
+{
+  "adjustedScore": number,
+  "adjustedConfidence": boolean,
+  "misconceptions": string[],
+  "depthReached": string,
+  "followUpAngles": string[],
+  "reasoning": string
+}`;
+    const response = await this.ai.models.generateContent({
+      model: this.model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.3
+      }
+    });
+    const text = response.text ?? "";
+    const parsed = JSON.parse(text);
+    const adjustedScore = Math.max(
+      1,
+      Math.min(5, Math.round(parsed.adjustedScore ?? params.rawScore))
+    );
+    const adjustedConfidence = typeof parsed.adjustedConfidence === "boolean" ? parsed.adjustedConfidence : params.confident;
+    const quadrant = classifyQuadrant(adjustedScore, adjustedConfidence);
+    const misconceptions = Array.isArray(parsed.misconceptions) ? parsed.misconceptions.filter(
+      (m2) => typeof m2 === "string"
+    ) : [];
+    if (misconceptions.length > 0) {
+      const existingBeliefs = this.beliefState.vertexBeliefs[params.vertex];
+      if (existingBeliefs) {
+        const allMisconceptions = [
+          .../* @__PURE__ */ new Set([
+            ...existingBeliefs.knownMisconceptions,
+            ...misconceptions
+          ])
+        ];
+        this.beliefState = {
+          ...this.beliefState,
+          vertexBeliefs: {
+            ...this.beliefState.vertexBeliefs,
+            [params.vertex]: {
+              ...existingBeliefs,
+              knownMisconceptions: allMisconceptions
+            }
+          }
+        };
+      }
+    }
+    const nextLayer = this.getNextLayer(params.vertex);
+    return {
+      adjustedScore,
+      adjustedConfidence,
+      quadrant,
+      reasoning: parsed.reasoning ?? "",
+      followUpAngles: Array.isArray(parsed.followUpAngles) ? parsed.followUpAngles.filter(
+        (a) => typeof a === "string"
+      ) : [],
+      misconceptions,
+      depthReached: parsed.depthReached ?? "surface",
+      suggestedNextLayer: nextLayer
+    };
+  }
+  fallbackAnalysis(params) {
+    const quadrant = classifyQuadrant(params.rawScore, params.confident);
+    const nextLayer = this.getNextLayer(params.vertex);
+    return {
+      adjustedScore: params.rawScore,
+      adjustedConfidence: params.confident,
+      quadrant,
+      reasoning: "Fallback analysis \u2014 deep analysis unavailable.",
+      followUpAngles: [],
+      misconceptions: [],
+      depthReached: "surface",
+      suggestedNextLayer: nextLayer
+    };
+  }
+  generateContextInjection(vertex, analysis) {
+    const beliefs = this.beliefState.vertexBeliefs[vertex];
+    const layerCount = beliefs?.layers.length ?? 0;
+    const totalLayers = 4;
+    const parts = [
+      `[SYSTEM 2 ANALYSIS \u2014 ${vertex}]`,
+      `Layers probed: ${layerCount}/${totalLayers}`,
+      `Adjusted score: ${analysis.adjustedScore}/5 (${analysis.quadrant})`,
+      `Depth reached: ${analysis.depthReached}`
+    ];
+    if (analysis.misconceptions.length > 0) {
+      parts.push(
+        `Misconceptions detected (DO NOT correct now, save for teaching phase): ${analysis.misconceptions.join("; ")}`
+      );
+    }
+    if (analysis.suggestedNextLayer) {
+      parts.push(
+        `Next layer to probe: ${analysis.suggestedNextLayer} \u2014 ${LAYER_DEFINITIONS[analysis.suggestedNextLayer]}`
+      );
+    }
+    if (analysis.followUpAngles.length > 0) {
+      parts.push(
+        `Suggested follow-up questions:
+${analysis.followUpAngles.map((q2) => `  - "${q2}"`).join("\n")}`
+      );
+    }
+    if (!analysis.suggestedNextLayer) {
+      parts.push(`Vertex complete \u2014 call pex_advance_vertex to move on.`);
+    } else {
+      parts.push(
+        `DO NOT advance yet \u2014 probe the ${analysis.suggestedNextLayer} layer next.`
+      );
+    }
+    return parts.join("\n");
+  }
+  calculateConfidenceCalibration(layers) {
+    if (layers.length === 0)
+      return 1;
+    let calibrationSum = 0;
+    for (const layer of layers) {
+      const isCorrect = layer.score >= 3;
+      const isConfident = layer.confident;
+      if (isCorrect === isConfident) {
+        calibrationSum += 1;
+      } else {
+        calibrationSum += 0;
+      }
+    }
+    return calibrationSum / layers.length;
+  }
+  reset() {
+    this.beliefState = {
+      vertexBeliefs: {},
+      sessionInsights: []
+    };
+    this.pendingAnalysis = null;
+  }
+};
 
 // utils/retryUtils.ts
 async function withRetry(operation, options = { maxRetries: 2, delay: 1e3 }) {
@@ -41555,6 +41930,8 @@ var GeminiVoiceAssistant = class {
     this.hasArchived = false;
     this.pendingContextInjection = null;
     this.isSessionReady = false;
+    this.backgroundAnalyzer = null;
+    this.aiInstance = null;
     this.screenStream = null;
     this.screenCaptureInterval = null;
     this.screenVideo = null;
@@ -41610,6 +41987,14 @@ var GeminiVoiceAssistant = class {
       this.callbacks.onStatusChange("CONNECTING" /* CONNECTING */);
       this.callbacks.onLog("Negotiating Uplink...", "info");
       const ai = new GoogleGenAI({ apiKey });
+      this.aiInstance = ai;
+      if (settings.enablePexInterview) {
+        this.backgroundAnalyzer = new BackgroundAnalyzer(ai);
+        this.callbacks.onLog(
+          "System 2 background analyzer initialized for PEX mode",
+          "info"
+        );
+      }
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) {
         throw new Error("AudioContext is not supported in this environment");
@@ -41679,7 +42064,7 @@ ${settings.customContext}`.trim();
               console.debug(`[VISION] enableVision=${settings.enableVision}`);
               if (settings.enableVision) {
                 console.debug("[VISION] Starting screen capture...");
-                void this.startScreenCapture();
+                void this.startScreenCapture(settings.visionMode ?? "screen");
               }
             }
           },
@@ -42055,6 +42440,12 @@ Last output: ${this.currentOutputText}`
               `Failed to send tool response: ${getErrorMessage(responseError)}`
             );
           }
+          if (fc.name === "pex_record_probe" && this.backgroundAnalyzer && isRecord2(response)) {
+            void this.triggerSystem2Analysis(
+              isRecord2(fc.args) ? fc.args : {},
+              response
+            );
+          }
         } catch (err) {
           const errorMessage = getErrorMessage(err);
           console.error(
@@ -42137,102 +42528,42 @@ Last output: ${this.currentOutputText}`
       this.callbacks.onInterrupted();
     }
   }
-  async pickScreenSource() {
+  async findWindowSource() {
     try {
       const electron = window.require("electron");
       const { desktopCapturer } = electron;
       if (!desktopCapturer)
         return null;
       const sources = await desktopCapturer.getSources({
-        types: ["screen", "window"],
-        thumbnailSize: { width: 320, height: 180 },
-        fetchWindowIcons: true
+        types: ["window"],
+        thumbnailSize: { width: 1, height: 1 }
       });
-      if (sources.length === 0)
-        return null;
-      if (sources.length === 1)
-        return sources[0].id;
-      return new Promise((resolve) => {
-        const overlay = document.createElement("div");
-        overlay.className = "hermes-source-picker-overlay";
-        const modal = document.createElement("div");
-        modal.className = "hermes-source-picker-modal";
-        const title = document.createElement("h3");
-        title.textContent = "Choose what to share";
-        modal.appendChild(title);
-        const screens = sources.filter(
-          (s) => s.id.startsWith("screen:")
-        );
-        const windows = sources.filter(
-          (s) => s.id.startsWith("window:")
-        );
-        const createSection = (label, items) => {
-          if (items.length === 0)
-            return;
-          const section = document.createElement("div");
-          section.className = "hermes-source-picker-section";
-          const heading = document.createElement("div");
-          heading.className = "hermes-source-picker-section-label";
-          heading.textContent = label;
-          section.appendChild(heading);
-          const grid = document.createElement("div");
-          grid.className = "hermes-source-picker-grid";
-          for (const source of items) {
-            const item = document.createElement("div");
-            item.className = "hermes-source-picker-item";
-            const thumb = document.createElement("img");
-            thumb.src = source.thumbnail.toDataURL();
-            thumb.className = "hermes-source-picker-thumb";
-            item.appendChild(thumb);
-            const labelEl = document.createElement("span");
-            labelEl.className = "hermes-source-picker-label";
-            labelEl.textContent = source.name;
-            item.appendChild(labelEl);
-            item.addEventListener("click", () => {
-              overlay.remove();
-              resolve(source.id);
-            });
-            grid.appendChild(item);
-          }
-          section.appendChild(grid);
-          modal.appendChild(section);
-        };
-        createSection("Screens", screens);
-        createSection("Windows", windows);
-        const cancelBtn = document.createElement("button");
-        cancelBtn.textContent = "Cancel";
-        cancelBtn.className = "hermes-source-picker-cancel";
-        cancelBtn.addEventListener("click", () => {
-          overlay.remove();
-          resolve(null);
-        });
-        modal.appendChild(cancelBtn);
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) {
-            overlay.remove();
-            resolve(null);
-          }
-        });
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-      });
+      const obsidianWindow = sources.find(
+        (s) => s.name.includes("Obsidian") || s.name.includes("obsidian")
+      );
+      if (obsidianWindow)
+        return obsidianWindow.id;
+      return sources.length > 0 ? sources[0].id : null;
     } catch (err) {
       console.debug("[VISION] desktopCapturer not available:", err);
       return null;
     }
   }
-  async startScreenCapture() {
+  async startScreenCapture(mode = "screen") {
     try {
-      console.debug("[VISION] startScreenCapture called");
-      this.callbacks.onLog("Requesting screen capture...", "info");
+      console.debug(`[VISION] startScreenCapture called, mode=${mode}`);
+      this.callbacks.onLog(`Screen capture starting (${mode})...`, "info");
       if (import_obsidian7.Platform.isDesktopApp) {
-        const sourceId = await this.pickScreenSource();
-        if (sourceId === null) {
-          console.debug(
-            "[VISION] Using default desktop capture (primary screen)"
-          );
-        } else {
-          console.debug(`[VISION] User selected source: ${sourceId}`);
+        let sourceId = null;
+        if (mode === "window") {
+          sourceId = await this.findWindowSource();
+          if (sourceId) {
+            console.debug(`[VISION] Window source found: ${sourceId}`);
+          } else {
+            console.debug(
+              "[VISION] Window source not found, falling back to screen"
+            );
+          }
         }
         const constraints = {
           audio: false,
@@ -42248,7 +42579,7 @@ Last output: ${this.currentOutputText}`
           constraints
         );
       } else {
-        console.debug("[VISION] Using getDisplayMedia (browser)");
+        console.debug("[VISION] Using getDisplayMedia (browser/mobile)");
         this.screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: { frameRate: { ideal: 1, max: 2 } }
         });
@@ -42329,6 +42660,75 @@ Last output: ${this.currentOutputText}`
       }
     }
   }
+  async triggerSystem2Analysis(args, response) {
+    if (!this.backgroundAnalyzer)
+      return;
+    const vertex = typeof args.vertex === "string" ? args.vertex : String(args.vertex ?? "");
+    const layer = typeof args.layer === "string" ? args.layer : String(args.layer ?? "recall");
+    const score = typeof args.score === "number" ? args.score : parseInt(String(args.score ?? "1"), 10);
+    const confident = typeof args.confident === "boolean" ? args.confident : args.confident === "true";
+    const answerSummary = typeof args.answerSummary === "string" ? args.answerSummary : String(args.answerSummary ?? "");
+    const vertexDescription = typeof response.vertexDescription === "string" ? response.vertexDescription : "";
+    const validLayers = [
+      "recall",
+      "mechanism",
+      "clinical",
+      "quantitative"
+    ];
+    const typedLayer = validLayers.includes(
+      layer
+    ) ? layer : "recall";
+    console.debug(
+      `[System2] Triggering analysis: ${vertex} [${typedLayer}] score=${score}`
+    );
+    this.callbacks.onLog(
+      `System 2 analyzing: ${vertex} [${typedLayer}]...`,
+      "info"
+    );
+    try {
+      const analysis = await this.backgroundAnalyzer.analyzeProbe({
+        vertex,
+        vertexDescription,
+        layer: typedLayer,
+        question: "",
+        answerSummary,
+        rawScore: score,
+        confident
+      });
+      const contextText = this.backgroundAnalyzer.generateContextInjection(
+        vertex,
+        analysis
+      );
+      console.debug(
+        `[System2] Analysis complete: ${vertex} adjusted=${analysis.adjustedScore}, depth=${analysis.depthReached}`
+      );
+      this.callbacks.onLog(
+        `System 2 complete: ${vertex} \u2192 ${analysis.adjustedScore}/5 (${analysis.quadrant})`,
+        "info"
+      );
+      try {
+        const session = await this.getSession();
+        session.sendClientContent({
+          turns: [
+            {
+              role: "user",
+              parts: [{ text: contextText }]
+            }
+          ],
+          turnComplete: true
+        });
+        console.debug(`[System2] Context injected for ${vertex}`);
+      } catch (injectError) {
+        console.error(
+          `[System2] Context injection failed: ${getErrorMessage(injectError)}`
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[System2] Analysis failed for ${vertex}: ${getErrorMessage(err)}`
+      );
+    }
+  }
   stopScreenCapture() {
     if (this.screenCaptureInterval) {
       clearInterval(this.screenCaptureInterval);
@@ -42348,6 +42748,11 @@ Last output: ${this.currentOutputText}`
   }
   stop() {
     this.stopScreenCapture();
+    if (this.backgroundAnalyzer) {
+      this.backgroundAnalyzer.reset();
+      this.backgroundAnalyzer = null;
+    }
+    this.aiInstance = null;
     if (this.callbacks.onArchiveConversation && !this.hasArchived) {
       this.hasArchived = true;
       console.warn("[HISTORY] EVENT: end_conversation (voiceInterface.stop)");
@@ -48688,6 +49093,12 @@ var App = (0, import_react8.forwardRef)((_2, ref) => {
   const [enableVision, setEnableVision] = (0, import_react8.useState)(
     () => saved.enableVision ?? false
   );
+  const [visionMode, setVisionMode] = (0, import_react8.useState)(
+    () => saved.visionMode ?? "screen"
+  );
+  const [enablePexInterview, setEnablePexInterview] = (0, import_react8.useState)(
+    () => saved.enablePexInterview ?? false
+  );
   const [currentFolder, setCurrentFolder] = (0, import_react8.useState)(
     () => saved.currentFolder || "/"
   );
@@ -48921,6 +49332,8 @@ var App = (0, import_react8.forwardRef)((_2, ref) => {
       manualApiKey,
       serperApiKey,
       enableVision,
+      visionMode,
+      enablePexInterview,
       currentFolder,
       currentNote,
       totalTokens
@@ -48932,6 +49345,8 @@ var App = (0, import_react8.forwardRef)((_2, ref) => {
     manualApiKey,
     serperApiKey,
     enableVision,
+    visionMode,
+    enablePexInterview,
     currentFolder,
     currentNote,
     totalTokens
@@ -48954,6 +49369,8 @@ var App = (0, import_react8.forwardRef)((_2, ref) => {
           setManualApiKey(reloadedSettings.manualApiKey || "");
           setSerperApiKey(reloadedSettings.serperApiKey || "");
           setEnableVision(reloadedSettings.enableVision ?? false);
+          setVisionMode(reloadedSettings.visionMode ?? "screen");
+          setEnablePexInterview(reloadedSettings.enablePexInterview ?? false);
           const activeKey = (reloadedSettings.manualApiKey || "").trim();
           if (activeKey && showApiKeySetup) {
             setShowApiKeySetup(false);
@@ -48971,6 +49388,8 @@ var App = (0, import_react8.forwardRef)((_2, ref) => {
       setManualApiKey(settings.manualApiKey || "");
       setSerperApiKey(settings.serperApiKey || "");
       setEnableVision(settings.enableVision ?? false);
+      setVisionMode(settings.visionMode ?? "screen");
+      setEnablePexInterview(settings.enablePexInterview ?? false);
       const activeKey = (settings.manualApiKey || "").trim();
       if (activeKey && showApiKeySetup) {
         setShowApiKeySetup(false);
@@ -49296,7 +49715,14 @@ var App = (0, import_react8.forwardRef)((_2, ref) => {
       assistantRef.current = new GeminiVoiceAssistant(assistantCallbacks);
       await assistantRef.current.start(
         activeKey,
-        { voiceName, customContext, systemInstruction, enableVision },
+        {
+          voiceName,
+          customContext,
+          systemInstruction,
+          enableVision,
+          visionMode,
+          enablePexInterview
+        },
         { folder: currentFolder, note: currentNote },
         conversationHistory
       );
@@ -49578,6 +50004,7 @@ var DEFAULT_HERMES_SETTINGS = {
   serperApiKey: "",
   chatHistoryFolder: "chat-history",
   enableVision: false,
+  visionMode: "screen",
   enablePexInterview: false
 };
 var HermesSettingsTab = class extends import_obsidian9.PluginSettingTab {
@@ -49651,6 +50078,20 @@ var HermesSettingsTab = class extends import_obsidian9.PluginSettingTab {
       ).onChange(async (value) => {
         if (this.plugin.settings) {
           this.plugin.settings.enableVision = value;
+          await this.plugin.saveSettings();
+        }
+      });
+    });
+    new import_obsidian9.Setting(containerEl).setName("Vision capture source").setDesc(
+      "What to capture when vision is enabled: entire screen or pick a specific window at session start"
+    ).addDropdown((dropdown) => {
+      dropdown.addOption("screen", "Entire Screen");
+      dropdown.addOption("window", "Pick Window");
+      dropdown.setValue(
+        this.plugin.settings?.visionMode || DEFAULT_HERMES_SETTINGS.visionMode
+      ).onChange(async (value) => {
+        if (this.plugin.settings) {
+          this.plugin.settings.visionMode = value;
           await this.plugin.saveSettings();
         }
       });

@@ -108,6 +108,12 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
   const [enableVision, setEnableVision] = useState<boolean>(
     () => saved.enableVision ?? false,
   );
+  const [visionMode, setVisionMode] = useState<string>(
+    () => saved.visionMode ?? "screen",
+  );
+  const [enablePexInterview, setEnablePexInterview] = useState<boolean>(
+    () => saved.enablePexInterview ?? false,
+  );
   const [currentFolder, setCurrentFolder] = useState<string>(
     () => saved.currentFolder || "/",
   );
@@ -419,6 +425,8 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
       manualApiKey,
       serperApiKey,
       enableVision,
+      visionMode,
+      enablePexInterview,
       currentFolder,
       currentNote,
       totalTokens,
@@ -430,6 +438,8 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
     manualApiKey,
     serperApiKey,
     enableVision,
+    visionMode,
+    enablePexInterview,
     currentFolder,
     currentNote,
     totalTokens,
@@ -456,6 +466,8 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
           setManualApiKey(reloadedSettings.manualApiKey || "");
           setSerperApiKey(reloadedSettings.serperApiKey || "");
           setEnableVision(reloadedSettings.enableVision ?? false);
+          setVisionMode(reloadedSettings.visionMode ?? "screen");
+          setEnablePexInterview(reloadedSettings.enablePexInterview ?? false);
 
           // Check if API key was added
           const activeKey = (reloadedSettings.manualApiKey || "").trim();
@@ -477,6 +489,8 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
       setManualApiKey(settings.manualApiKey || "");
       setSerperApiKey(settings.serperApiKey || "");
       setEnableVision(settings.enableVision ?? false);
+      setVisionMode(settings.visionMode ?? "screen");
+      setEnablePexInterview(settings.enablePexInterview ?? false);
 
       // Check if API key was added
       const activeKey = (settings.manualApiKey || "").trim();
@@ -860,7 +874,14 @@ const App = forwardRef<AppHandle, Record<string, never>>((_, ref) => {
       assistantRef.current = new GeminiVoiceAssistant(assistantCallbacks);
       await assistantRef.current.start(
         activeKey,
-        { voiceName, customContext, systemInstruction, enableVision },
+        {
+          voiceName,
+          customContext,
+          systemInstruction,
+          enableVision,
+          visionMode,
+          enablePexInterview,
+        },
         { folder: currentFolder, note: currentNote },
         conversationHistory,
       );

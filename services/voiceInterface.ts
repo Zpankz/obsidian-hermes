@@ -19,6 +19,8 @@ import {
   executeCommand,
 } from "./commands";
 import { PEX_SYSTEM_INSTRUCTION } from "../utils/pexPrompt";
+import { BackgroundAnalyzer } from "./backgroundAnalyzer";
+import type { ProbeAnalysis } from "./backgroundAnalyzer";
 import { withRetry, RetryCounter } from "../utils/retryUtils";
 import { getErrorMessage } from "../utils/getErrorMessage";
 
@@ -82,6 +84,10 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
   private hasArchived = false;
   private pendingContextInjection: string | null = null;
   private isSessionReady = false;
+
+  // System 2 background analyzer for PEX deep analysis
+  private backgroundAnalyzer: BackgroundAnalyzer | null = null;
+  private aiInstance: GoogleGenAI | null = null;
 
   // Screen capture state for vision streaming
   private screenStream: MediaStream | null = null;
@@ -158,6 +164,16 @@ export class GeminiVoiceAssistant implements VoiceAssistant {
       this.callbacks.onLog("Negotiating Uplink...", "info");
 
       const ai = new GoogleGenAI({ apiKey });
+      this.aiInstance = ai;
+
+      // Initialize System 2 background analyzer for PEX mode
+      if (settings.enablePexInterview) {
+        this.backgroundAnalyzer = new BackgroundAnalyzer(ai);
+        this.callbacks.onLog(
+          "System 2 background analyzer initialized for PEX mode",
+          "info",
+        );
+      }
 
       const AudioContextClass =
         window.AudioContext ||
@@ -247,7 +263,7 @@ ${visionContext}${pexContext}`;
               console.debug(`[VISION] enableVision=${settings.enableVision}`);
               if (settings.enableVision) {
                 console.debug("[VISION] Starting screen capture...");
-                void this.startScreenCapture();
+                void this.startScreenCapture(settings.visionMode ?? "screen");
               }
             }
             // Context is now injected via system prompt, no pending injection needed
@@ -717,6 +733,18 @@ ${visionContext}${pexContext}`;
             // Don't treat this as a critical error - the session may have been intentionally closed
             // by the tool itself (e.g., end_conversation)
           }
+
+          // System 2: Trigger background analysis after PEX probe recording
+          if (
+            fc.name === "pex_record_probe" &&
+            this.backgroundAnalyzer &&
+            isRecord(response)
+          ) {
+            void this.triggerSystem2Analysis(
+              isRecord(fc.args) ? (fc.args as ToolArgs) : {},
+              response,
+            );
+          }
         } catch (err) {
           const errorMessage = getErrorMessage(err);
           console.error(
@@ -812,10 +840,10 @@ ${visionContext}${pexContext}`;
   }
 
   /**
-   * Show a picker for the user to choose which screen or window to capture.
-   * Returns the selected source ID, or null if cancelled/unavailable.
+   * Attempt to find a specific window source ID using desktopCapturer.
+   * Returns null if unavailable (falls back to primary screen capture).
    */
-  private async pickScreenSource(): Promise<string | null> {
+  private async findWindowSource(): Promise<string | null> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const electron = window.require("electron");
@@ -823,122 +851,43 @@ ${visionContext}${pexContext}`;
       if (!desktopCapturer) return null;
 
       const sources = await desktopCapturer.getSources({
-        types: ["screen", "window"],
-        thumbnailSize: { width: 320, height: 180 },
-        fetchWindowIcons: true,
+        types: ["window"],
+        thumbnailSize: { width: 1, height: 1 },
       });
 
-      if (sources.length === 0) return null;
-      // Single source — use it directly without picker
-      if (sources.length === 1) return sources[0].id;
+      // Find Obsidian window by name
+      const obsidianWindow = sources.find(
+        (s: { name: string }) =>
+          s.name.includes("Obsidian") || s.name.includes("obsidian"),
+      );
+      if (obsidianWindow) return obsidianWindow.id;
 
-      return new Promise<string | null>((resolve) => {
-        const overlay = document.createElement("div");
-        overlay.className = "hermes-source-picker-overlay";
-
-        const modal = document.createElement("div");
-        modal.className = "hermes-source-picker-modal";
-
-        const title = document.createElement("h3");
-        title.textContent = "Choose what to share";
-        modal.appendChild(title);
-
-        // Separate screens and windows
-        const screens = sources.filter((s: { id: string }) =>
-          s.id.startsWith("screen:"),
-        );
-        const windows = sources.filter((s: { id: string }) =>
-          s.id.startsWith("window:"),
-        );
-
-        const createSection = (
-          label: string,
-          items: Array<{
-            id: string;
-            name: string;
-            thumbnail: { toDataURL: () => string };
-            appIcon?: { toDataURL: () => string } | null;
-          }>,
-        ) => {
-          if (items.length === 0) return;
-          const section = document.createElement("div");
-          section.className = "hermes-source-picker-section";
-          const heading = document.createElement("div");
-          heading.className = "hermes-source-picker-section-label";
-          heading.textContent = label;
-          section.appendChild(heading);
-
-          const grid = document.createElement("div");
-          grid.className = "hermes-source-picker-grid";
-
-          for (const source of items) {
-            const item = document.createElement("div");
-            item.className = "hermes-source-picker-item";
-
-            const thumb = document.createElement("img");
-            thumb.src = source.thumbnail.toDataURL();
-            thumb.className = "hermes-source-picker-thumb";
-            item.appendChild(thumb);
-
-            const labelEl = document.createElement("span");
-            labelEl.className = "hermes-source-picker-label";
-            labelEl.textContent = source.name;
-            item.appendChild(labelEl);
-
-            item.addEventListener("click", () => {
-              overlay.remove();
-              resolve(source.id);
-            });
-            grid.appendChild(item);
-          }
-          section.appendChild(grid);
-          modal.appendChild(section);
-        };
-
-        createSection("Screens", screens);
-        createSection("Windows", windows);
-
-        const cancelBtn = document.createElement("button");
-        cancelBtn.textContent = "Cancel";
-        cancelBtn.className = "hermes-source-picker-cancel";
-        cancelBtn.addEventListener("click", () => {
-          overlay.remove();
-          resolve(null);
-        });
-        modal.appendChild(cancelBtn);
-
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) {
-            overlay.remove();
-            resolve(null);
-          }
-        });
-
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-      });
+      // Fall back to first window
+      return sources.length > 0 ? sources[0].id : null;
     } catch (err) {
       console.debug("[VISION] desktopCapturer not available:", err);
       return null;
     }
   }
 
-  private async startScreenCapture(): Promise<void> {
+  private async startScreenCapture(mode: string = "screen"): Promise<void> {
     try {
-      console.debug("[VISION] startScreenCapture called");
-      this.callbacks.onLog("Requesting screen capture...", "info");
+      console.debug(`[VISION] startScreenCapture called, mode=${mode}`);
+      this.callbacks.onLog(`Screen capture starting (${mode})...`, "info");
 
       if (Platform.isDesktopApp) {
-        // Try to show source picker for multi-monitor / window selection
-        const sourceId = await this.pickScreenSource();
+        let sourceId: string | null = null;
 
-        if (sourceId === null) {
-          // Picker cancelled or desktopCapturer unavailable — capture primary screen
-          console.debug(
-            "[VISION] Using default desktop capture (primary screen)",
-          );
-        } else {
-          console.debug(`[VISION] User selected source: ${sourceId}`);
+        // In "window" mode, try to find a specific window
+        if (mode === "window") {
+          sourceId = await this.findWindowSource();
+          if (sourceId) {
+            console.debug(`[VISION] Window source found: ${sourceId}`);
+          } else {
+            console.debug(
+              "[VISION] Window source not found, falling back to screen",
+            );
+          }
         }
 
         const constraints: Record<string, unknown> = {
@@ -955,7 +904,7 @@ ${visionContext}${pexContext}`;
           constraints as MediaStreamConstraints,
         );
       } else {
-        console.debug("[VISION] Using getDisplayMedia (browser)");
+        console.debug("[VISION] Using getDisplayMedia (browser/mobile)");
         this.screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: { frameRate: { ideal: 1, max: 2 } },
         });
@@ -1065,6 +1014,110 @@ ${visionContext}${pexContext}`;
     }
   }
 
+  /**
+   * System 2: Trigger background deep analysis after a PEX probe.
+   * Runs asynchronously — voice agent continues while this processes.
+   * When complete, injects analysis context into the live session.
+   */
+  private async triggerSystem2Analysis(
+    args: ToolArgs,
+    response: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.backgroundAnalyzer) return;
+
+    const vertex =
+      typeof args.vertex === "string" ? args.vertex : String(args.vertex ?? "");
+    const layer =
+      typeof args.layer === "string"
+        ? args.layer
+        : String(args.layer ?? "recall");
+    const score =
+      typeof args.score === "number"
+        ? args.score
+        : parseInt(String(args.score ?? "1"), 10);
+    const confident =
+      typeof args.confident === "boolean"
+        ? args.confident
+        : args.confident === "true";
+    const answerSummary =
+      typeof args.answerSummary === "string"
+        ? args.answerSummary
+        : String(args.answerSummary ?? "");
+    const vertexDescription =
+      typeof response.vertexDescription === "string"
+        ? response.vertexDescription
+        : "";
+
+    const validLayers = [
+      "recall",
+      "mechanism",
+      "clinical",
+      "quantitative",
+    ] as const;
+    const typedLayer = validLayers.includes(
+      layer as (typeof validLayers)[number],
+    )
+      ? (layer as "recall" | "mechanism" | "clinical" | "quantitative")
+      : "recall";
+
+    console.debug(
+      `[System2] Triggering analysis: ${vertex} [${typedLayer}] score=${score}`,
+    );
+    this.callbacks.onLog(
+      `System 2 analyzing: ${vertex} [${typedLayer}]...`,
+      "info",
+    );
+
+    try {
+      const analysis = await this.backgroundAnalyzer.analyzeProbe({
+        vertex,
+        vertexDescription,
+        layer: typedLayer,
+        question: "", // Not available from args
+        answerSummary,
+        rawScore: score,
+        confident,
+      });
+
+      // Inject System 2 context into the live session
+      const contextText = this.backgroundAnalyzer.generateContextInjection(
+        vertex,
+        analysis,
+      );
+
+      console.debug(
+        `[System2] Analysis complete: ${vertex} adjusted=${analysis.adjustedScore}, depth=${analysis.depthReached}`,
+      );
+      this.callbacks.onLog(
+        `System 2 complete: ${vertex} → ${analysis.adjustedScore}/5 (${analysis.quadrant})`,
+        "info",
+      );
+
+      // Inject as a context turn via sendClientContent
+      try {
+        const session = await this.getSession();
+        session.sendClientContent({
+          turns: [
+            {
+              role: "user",
+              parts: [{ text: contextText }],
+            },
+          ],
+          turnComplete: true,
+        });
+        console.debug(`[System2] Context injected for ${vertex}`);
+      } catch (injectError) {
+        console.error(
+          `[System2] Context injection failed: ${getErrorMessage(injectError)}`,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[System2] Analysis failed for ${vertex}: ${getErrorMessage(err)}`,
+      );
+    }
+  }
+
   private stopScreenCapture(): void {
     if (this.screenCaptureInterval) {
       clearInterval(this.screenCaptureInterval);
@@ -1086,6 +1139,13 @@ ${visionContext}${pexContext}`;
   stop(): void {
     // Stop screen capture first
     this.stopScreenCapture();
+
+    // Reset System 2 analyzer
+    if (this.backgroundAnalyzer) {
+      this.backgroundAnalyzer.reset();
+      this.backgroundAnalyzer = null;
+    }
+    this.aiInstance = null;
 
     // [HISTORY-PERSIST] Archive conversation before stopping (only once)
     if (this.callbacks.onArchiveConversation && !this.hasArchived) {

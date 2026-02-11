@@ -132,6 +132,7 @@ export interface AppSettings {
   currentFolder?: string;
   currentNote?: string | null;
   enableVision?: boolean;
+  visionMode?: string;
   enablePexInterview?: boolean;
   transcripts?: TranscriptionEntry[];
   totalTokens?: number;

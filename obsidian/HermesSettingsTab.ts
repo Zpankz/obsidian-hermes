@@ -12,6 +12,7 @@ export interface HermesSettings {
   serperApiKey: string;
   chatHistoryFolder: string;
   enableVision: boolean;
+  visionMode: string;
   enablePexInterview: boolean;
 }
 
@@ -23,6 +24,7 @@ export const DEFAULT_HERMES_SETTINGS: HermesSettings = {
   serperApiKey: "",
   chatHistoryFolder: "chat-history",
   enableVision: false,
+  visionMode: "screen",
   enablePexInterview: false,
 };
 
@@ -134,6 +136,28 @@ export class HermesSettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             if (this.plugin.settings) {
               this.plugin.settings.enableVision = value;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
+
+    // Vision capture mode
+    new Setting(containerEl)
+      .setName("Vision capture source")
+      .setDesc(
+        "What to capture when vision is enabled: entire screen or pick a specific window at session start",
+      )
+      .addDropdown((dropdown) => {
+        dropdown.addOption("screen", "Entire Screen");
+        dropdown.addOption("window", "Pick Window");
+        dropdown
+          .setValue(
+            this.plugin.settings?.visionMode ||
+              DEFAULT_HERMES_SETTINGS.visionMode,
+          )
+          .onChange(async (value) => {
+            if (this.plugin.settings) {
+              this.plugin.settings.visionMode = value;
               await this.plugin.saveSettings();
             }
           });

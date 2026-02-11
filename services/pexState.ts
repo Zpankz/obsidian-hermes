@@ -20,12 +20,16 @@ export type Quadrant =
   | "GAP"
   | "HYPERCORRECTION_TARGET";
 
+export type ProbeLayer = "recall" | "mechanism" | "clinical" | "quantitative";
+
 export interface ProbeResult {
   readonly vertex: string;
+  readonly layer: ProbeLayer;
   readonly level: number;
   readonly score: number;
   readonly quadrant: Quadrant;
   readonly answerSummary: string;
+  readonly confident: boolean;
   readonly timestamp: number;
 }
 
@@ -39,6 +43,7 @@ export interface VertexState {
   readonly probeCount: number;
   readonly filled: boolean;
   readonly corrected: boolean;
+  readonly probedLayers: readonly ProbeLayer[];
 }
 
 export interface PexSessionState {
@@ -100,13 +105,23 @@ export const classifyQuadrant = (
   confident: boolean,
 ): Quadrant => {
   if (score >= 4 && confident) return "SOLID";
+  if (score >= 4 && !confident) return "UNDERCONFIDENT";
   if (score >= 3 && !confident) return "UNDERCONFIDENT";
+  if (score >= 3 && confident) return "SOLID";
   if (score <= 2 && confident) return "HYPERCORRECTION_TARGET";
   return "GAP";
 };
 
+export const PROBE_LAYERS: readonly ProbeLayer[] = [
+  "recall",
+  "mechanism",
+  "clinical",
+  "quantitative",
+];
+
 export const recordProbe = (probe: {
   readonly vertex: string;
+  readonly layer: ProbeLayer;
   readonly level: number;
   readonly score: number;
   readonly confident: boolean;
@@ -115,9 +130,11 @@ export const recordProbe = (probe: {
   const quadrant = classifyQuadrant(probe.score, probe.confident);
   const result: ProbeResult = {
     vertex: probe.vertex,
+    layer: probe.layer,
     level: probe.level,
     score: probe.score,
     quadrant,
+    confident: probe.confident,
     answerSummary: probe.answerSummary,
     timestamp: Date.now(),
   };
@@ -125,11 +142,16 @@ export const recordProbe = (probe: {
   const existing = currentState.vertices[probe.vertex];
   if (!existing) return currentState;
 
+  const updatedLayers = existing.probedLayers.includes(probe.layer)
+    ? existing.probedLayers
+    : [...existing.probedLayers, probe.layer];
+
   const updatedVertex: VertexState = {
     ...existing,
     bestScore: Math.max(existing.bestScore, probe.score),
     quadrant,
     probeCount: existing.probeCount + 1,
+    probedLayers: updatedLayers,
   };
 
   currentState = {
@@ -185,6 +207,41 @@ export const markCorrected = (vertex: string): PexSessionState => {
   };
   return currentState;
 };
+
+/** Get the next unprobed layer for a vertex. */
+export const getNextUnprobedLayer = (vertex: string): ProbeLayer | null => {
+  const existing = currentState.vertices[vertex];
+  if (!existing) return "recall";
+
+  for (const layer of PROBE_LAYERS) {
+    if (!existing.probedLayers.includes(layer)) return layer;
+  }
+  return null;
+};
+
+/** Check if a vertex has been sufficiently probed across layers. */
+export const isVertexLayerComplete = (vertex: string): boolean => {
+  const existing = currentState.vertices[vertex];
+  if (!existing) return false;
+
+  // Complete if all 4 layers probed
+  if (existing.probedLayers.length >= 4) return true;
+
+  // Complete if 2+ probes show clear gap (score <= 2)
+  const probes = currentState.probeHistory.filter((p) => p.vertex === vertex);
+  const weakProbes = probes.filter((p) => p.score <= 2);
+  if (weakProbes.length >= 2) return true;
+
+  // Complete if 2+ probes show clear strength (score >= 4)
+  const strongProbes = probes.filter((p) => p.score >= 4);
+  if (strongProbes.length >= 2) return true;
+
+  return false;
+};
+
+/** Get all probes for a specific vertex. */
+export const getVertexProbes = (vertex: string): readonly ProbeResult[] =>
+  currentState.probeHistory.filter((p) => p.vertex === vertex);
 
 export const getGaps = (): readonly VertexState[] =>
   Object.values(currentState.vertices).filter(

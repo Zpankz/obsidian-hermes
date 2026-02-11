@@ -19,8 +19,12 @@ import {
   getHypercorrectionTargets,
   getStrengths,
   resetPexState,
+  getNextUnprobedLayer,
+  isVertexLayerComplete,
+  getVertexProbes,
+  PROBE_LAYERS,
 } from "../services/pexState";
-import type { VertexState } from "../services/pexState";
+import type { VertexState, ProbeLayer } from "../services/pexState";
 import type { ToolCallbacks } from "../types";
 
 type ToolArgs = Record<string, unknown>;
@@ -292,6 +296,7 @@ export const executeStartInterview = async (
       probeCount: 0,
       filled: false,
       corrected: false,
+      probedLayers: [],
     };
   }
 
@@ -309,21 +314,20 @@ export const executeStartInterview = async (
     status: "success",
   });
 
+  const firstVertex = queue[0] ?? null;
+  const firstDef = firstVertex ? VERTEX_DATA[firstVertex] : null;
+
   return {
     status: "started",
     college: state.college,
     domains: state.domains.length === 0 ? ["All"] : state.domains,
-    depth: state.depth,
     totalVertices: queue.length,
-    vertexQueue: queue.map((v, i) => ({
-      position: i + 1,
-      name: v,
-      description: VERTEX_DATA[v]?.description ?? "",
-      subTopics: VERTEX_DATA[v]?.subTopics ?? [],
-    })),
-    firstVertex: queue[0] ?? null,
-    instructions:
-      "Begin probing the first vertex. Ask L1 recognition questions first, then L2 if correct. Track confidence with each question. Do NOT reveal correctness during probing — hold errors for the hypercorrection phase.",
+    firstVertex,
+    firstVertexDescription: firstDef?.description ?? "",
+    firstVertexHint: firstDef
+      ? `Start with a clinical anchor, then ask one simple recall question about ${firstVertex}.`
+      : null,
+    vertexNames: queue,
   };
 };
 
@@ -332,13 +336,18 @@ export const executeStartInterview = async (
 export const recordProbeDeclaration = {
   name: "pex_record_probe",
   description:
-    "Record the result of probing a vertex. Call after evaluating the user's verbal answer. Score 1-5, indicate confidence level. Returns updated state with quadrant classification and next action.",
+    "Record the result of probing a vertex. Call after evaluating the user's verbal answer. Specify the layer (recall/mechanism/clinical/quantitative) and score 1-5. Returns layer completion status and next layer to probe.",
   parameters: {
     type: Type.OBJECT,
     properties: {
       vertex: {
         type: Type.STRING,
         description: "The vertex name being probed (e.g. Flow=ΔP/R)",
+      },
+      layer: {
+        type: Type.STRING,
+        description:
+          "Probing layer: recall (definitions/equations), mechanism (why/how/cause-effect), clinical (when/where/scenarios), quantitative (calculations/values/ranges)",
       },
       level: {
         type: Type.NUMBER,
@@ -359,15 +368,23 @@ export const recordProbeDeclaration = {
         description: "Brief summary of the user's answer for the record",
       },
     },
-    required: ["vertex", "level", "score", "confident", "answerSummary"],
+    required: ["vertex", "layer", "score", "confident", "answerSummary"],
   },
 };
+
+const VALID_LAYERS: readonly string[] = [
+  "recall",
+  "mechanism",
+  "clinical",
+  "quantitative",
+];
 
 export const executeRecordProbe = async (
   args: ToolArgs,
   callbacks: ToolCallbacks,
 ): Promise<unknown> => {
   const vertex = getStringArg(args, "vertex");
+  const layerStr = getStringArg(args, "layer") ?? "recall";
   const level = getNumberArg(args, "level") ?? 1;
   const score = getNumberArg(args, "score") ?? 1;
   const confident = getBoolArg(args, "confident") ?? false;
@@ -377,8 +394,13 @@ export const executeRecordProbe = async (
     return { error: "vertex parameter is required" };
   }
 
+  const layer: ProbeLayer = VALID_LAYERS.includes(layerStr)
+    ? (layerStr as ProbeLayer)
+    : "recall";
+
   const state = recordProbe({
     vertex,
+    layer,
     level,
     score,
     confident,
@@ -388,45 +410,45 @@ export const executeRecordProbe = async (
   const vertexState = state.vertices[vertex];
   const summary = getSessionSummary();
 
-  // Determine next action based on adaptive logic
-  let nextAction: string;
-  if (score <= 2) {
-    nextAction =
-      "GAP detected. Flag this vertex RED. Skip remaining levels for this vertex and move to next. Queue for DIG phase later.";
-  } else if (score === 3) {
-    nextAction =
-      "BORDERLINE. Probe one level deeper on this vertex to clarify.";
-  } else {
-    nextAction =
-      "STRONG. Skip remaining levels for this vertex and advance to next vertex.";
-  }
+  // Layer-aware advance logic (Swiss cheese model)
+  const vertexComplete = isVertexLayerComplete(vertex);
+  const nextLayer = getNextUnprobedLayer(vertex);
+  const probes = getVertexProbes(vertex);
+  const vertexDef = VERTEX_DATA[vertex];
 
-  const shouldAdvance = score <= 2 || score >= 4;
+  // Build layer status summary
+  const layerScores = PROBE_LAYERS.map((l) => {
+    const probe = probes.find((p) => p.layer === l);
+    return probe ? `${l}:${probe.score}/5` : `${l}:—`;
+  }).join(", ");
 
-  callbacks.onSystem(`Probe recorded: ${vertex} L${level} → ${score}/5`, {
-    name: "pex_record_probe",
-    filename: vertex,
-    status: "success",
-  });
+  callbacks.onSystem(
+    `Probe: ${vertex} [${layer}] → ${score}/5 (${vertexState?.quadrant ?? "GAP"}) | ${layerScores}`,
+    {
+      name: "pex_record_probe",
+      filename: vertex,
+      status: "success",
+    },
+  );
 
   return {
-    recorded: {
-      vertex,
-      level,
-      score,
-      quadrant: vertexState?.quadrant ?? "GAP",
-      confident,
-    },
-    sessionSummary: summary,
-    nextAction,
-    shouldAdvanceVertex: shouldAdvance,
-    currentVertexIndex: state.currentVertexIndex,
-    nextVertex:
-      shouldAdvance && state.currentVertexIndex < state.vertexQueue.length - 1
-        ? state.vertexQueue[state.currentVertexIndex + 1]
-        : null,
-    reminder:
-      "CRITICAL: Do NOT correct errors now. Hold all errors for the HYPERCORRECTION phase. Continue probing neutrally.",
+    vertex,
+    layer,
+    score,
+    quadrant: vertexState?.quadrant ?? "GAP",
+    layersProbed: vertexState?.probedLayers ?? [],
+    layerScores,
+    vertexComplete,
+    nextLayer,
+    vertexDescription: vertexDef?.description ?? "",
+    shouldAdvance: vertexComplete,
+    instruction: vertexComplete
+      ? "Vertex fully probed. Call pex_advance_vertex to move on."
+      : nextLayer
+        ? `Probe the ${nextLayer} layer next. Ask a short question about ${nextLayer === "recall" ? "definitions or equations" : nextLayer === "mechanism" ? "why or how it works" : nextLayer === "clinical" ? "a clinical scenario" : "specific numbers or calculations"}.`
+        : "All layers probed. Call pex_advance_vertex.",
+    probed: summary.probed,
+    total: summary.totalVertices,
   };
 };
 
@@ -455,47 +477,34 @@ export const executeAdvanceVertex = async (
     const gaps = getGaps();
     const hcTargets = getHypercorrectionTargets();
 
-    callbacks.onSystem("All vertices probed — entering FILL phase", {
+    callbacks.onSystem("All probed — teaching phase", {
       name: "pex_advance_vertex",
-      filename: "Phase transition",
+      filename: "Teaching",
       status: "success",
     });
 
     return {
-      status: "all_vertices_probed",
+      done: true,
       phase: "fill",
-      summary,
-      gaps: gaps.map((g) => ({
-        name: g.name,
-        score: g.bestScore,
-        quadrant: g.quadrant,
-      })),
-      hypercorrectionTargets: hcTargets.map((h) => ({
-        name: h.name,
-        score: h.bestScore,
-      })),
-      instructions:
-        "All vertices probed. Now enter FILL phase: for each GAP, search the vault for grounding content and provide model answers. After FILL, move to HYPERCORRECT phase for high-confidence errors.",
+      gaps: gaps.map((g) => g.name),
+      hypercorrectionTargets: hcTargets.map((h) => h.name),
+      probed: summary.probed,
     };
   }
 
   const vertexDef = VERTEX_DATA[currentVertex];
 
-  callbacks.onSystem(`Next vertex: ${currentVertex}`, {
+  callbacks.onSystem(`Next: ${currentVertex}`, {
     name: "pex_advance_vertex",
     filename: currentVertex,
     status: "success",
   });
 
   return {
-    status: "advanced",
-    currentVertex,
+    done: false,
+    vertex: currentVertex,
     description: vertexDef?.description ?? "",
-    subTopics: vertexDef?.subTopics ?? [],
-    vertexIndex: state.currentVertexIndex,
-    totalVertices: state.vertexQueue.length,
-    summary,
-    instructions: `Probe ${currentVertex}: Start with L1 recognition question, then L2 if correct. Always ask confidence alongside.`,
+    position: `${state.currentVertexIndex + 1}/${state.vertexQueue.length}`,
   };
 };
 
